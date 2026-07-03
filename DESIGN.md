@@ -29,7 +29,7 @@
 - **Playable with ONE finger or two.** Press & drag anywhere on open screen = an invisible joystick that appears under your finger and moves the player. Combat comes from the button cluster, so a second finger is optional — two-finger play (move + fight simultaneously) still works. ✅
 - **Top-down camera, like Zelda.**
 - **Landscape/horizontal always** — even the login screen. The app renders horizontally no matter how the device is held. ✅
-- **Visible on-screen controls** — the joystick and buttons are always shown. ✅
+- **Visible on-screen controls** — the combat/inventory buttons are always shown ✅; the movement joystick is the exception: invisible until pressed (superseded the original always-visible joystick). ✅
 - Combat gestures (see §7): slice swipe, smash, pull-back archery.
 - **Feel target:** Genshin Impact's phone-smoothness + Zelda's intuitiveness.
 - **Layout reference — Genshin Impact mobile** (game8.co controls guide):
@@ -44,7 +44,7 @@
 - **Two weapons carried at once**, quick-switch between them. ✅ (sword ↔ bow)
 - **Dialogue:** tap next-next-next through each line an NPC says. ✅
 - **UI zones are fixed so text never overlaps** ✅: dialogue bottom-center; notifications top-center only; quest tracker top-left under the hearts; potion status right side under the coins.
-- **Breakaway cutscenes:** the game pauses to tell story bits, then returns to gameplay.
+- **Breakaway cutscenes:** the game pauses to tell story bits, then returns to gameplay. 🔜
 - **Map screen:** shows where you are. Unvisited territories are just outlines; they color in once explored. Bigger maps can be BOUGHT from villagers to reveal other islands — some islands don't appear at all until you buy the next map. 🔜
 
 ## 4. The Four Playable Avatars
@@ -58,7 +58,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 - **Instruments are leisure:** when idle, instrument-carrying avatars can sit and play music — a chill, rejuvenating activity.
 - **Musical taming:** avatars with an instrument can tame animals by playing music; avatars without one tame animals a different way.
-- **Armor progression:** every avatar starts plain and builds up — buy armor as you go. ✅ (start plain; armor shops 🔜)
+- **Armor progression:** every avatar starts plain and builds up — buy armor as you go. 🔜 (avatars DO start plain ✅, but there are no armor items, shops, or visual upgrades in the code yet)
 
 ## 5. NPCs (the Cast)
 
@@ -101,7 +101,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **THE BERRY RULE:** only eat **blueberries** (+½ ❤️ ✅). **Red berries = instant death** and you restart at the edge of that territory. ✅
 - **Special meal:** a multi-ingredient cooked dish (blueberries among the ingredients) restoring **up to 4 hearts** — never beyond your heart cap. 🔜
 - **Heart cap:** 5 hearts until the Evilcorn is defeated (see §9) → then **10 hearts** going into the final boss. 🔜
-- **Death = respawn at the edge of that territory.** ✅ (simplified version)
+- **Death = respawn at the edge of that territory.** 🔜 (currently the code respawns you at the village square — only one territory exists so far)
 - Bread restores 1 ❤️ and quiets hunger. ✅
 
 ## 9. The World: Territories, Enemies & Bosses
@@ -174,3 +174,5 @@ Each avatar has their own unique personal side quest that the others don't — r
 - *v0.4 — forced-landscape rendering everywhere, works in any window shape*
 - *v0.5 — slice/hold-to-SMASH, pull-back archery, weapon switch, random potions, training dummies, goblin respawns*
 - *v0.6 — floating damage numbers, potion auras, satchel inventory (tap item → stats → use), 50-coin start, creatures drop coin piles, fixed UI text zones*
+- *v0.7 — Genshin-referenced control cluster, 💥 smash skill button, contextual 💬 talk button near NPCs*
+- *v0.8 — one-finger play: invisible anywhere-joystick, attack gestures anchored to the attack button, smash-dim fix*
