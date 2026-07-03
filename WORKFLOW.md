@@ -47,9 +47,10 @@
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.8 (+ audit corrections)
-- **Phase:** reorg approved-pending — Step 2 structure proposal delivered, awaiting approval of ⚑ bets before Step 3 migration
-- **Mid-flight:** project restructure (content/engine split, quest runtime, territories)
-- **Known issues:** SPEC.md stale (deletion planned in migration step 1); dead code (`tapAction`, `joyHome`, dev hash-shortcuts) scheduled for removal in migration step 9
+- **Version:** v0.9-reorg (migration steps 1–5 of 10 complete)
+- **Phase:** reorg in progress — checkpoint 2 delivered to Kaylee, steps 6–10 awaiting go-ahead
+- **Structure:** source = prototype/src/** (ES modules: engine/ + data/); `npm run build` inlines to prototype/index.html for the preview panel (⚑1 fallback, approved). Preview-subpath fix requested from platform admins.
+- **Quest system:** declarative quest files (data/quests/**) + engine/quests.js runtime; single questState object; combat/berry code reports events, knows no quests. Verified by 17-assertion smoke test (#test-quests) — all pass.
+- **Known issues:** dead code (tapAction, joyHome) + dev hash-shortcuts still in main.js (scheduled: step 9 → dev.js quarantine)
 - **Placeholders:** all art (shapes/emoji), mock logins, mock room codes
-- **Untested:** nothing known — v0.8 verified on phone-sized landscape + portrait-rotated preview
+- **Untested:** live touch-through of full chain on a real phone post-reorg (smoke test covers logic; a human play-through would be good)

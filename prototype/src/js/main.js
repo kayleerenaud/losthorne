@@ -6,6 +6,9 @@ import { POTION_POWERS, POTION_DURATION_MS } from './data/potions.js';
 import npcChief from './data/npcs/chief-bonbottom.js';
 import npcErik from './data/npcs/erik.js';
 import npcDorgan from './data/npcs/dorgan.js';
+import { Quests, questState } from './engine/quests.js';
+import questGoblins from './data/quests/main-01-goblins.js';
+import questBlueberries from './data/quests/main-02-blueberries.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -74,7 +77,7 @@ addEventListener('resize',resize); addEventListener('orientationchange',()=>setT
 // map a physical touch/mouse point to logical (landscape) coordinates
 function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
-const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, hurtT:0, kills:0, weapon:'sword', inv:{item_bread:0,item_potion:0} };
+const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, hurtT:0, weapon:'sword', inv:{item_bread:0,item_potion:0} };
 const floats=[];   // floating damage/pickup numbers
 const drops=[];    // coins dropped by creatures — walk over to collect
 function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
@@ -120,31 +123,12 @@ function spawnGoblins(){
 }
 spawnGoblins();
 
-// ---------- QUEST STATE MACHINE ----------
-// stage: 'new' = chief has a quest to give • 'active' = doing it
-//        'complete' = objective met, return to chief • 'rewarded' = free exploring
-let questIdx=0, questStage='new', betweenT=0, berriesGot=0, gobRespawnT=0;
-const CHIEF_LINES = {
-  q0new: ["Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
-          "Goblins have crept into the north forest. They scare the children and steal our bread!",
-          "Drive off 3 goblins, and there'll be 60 coins in it for you.",
-          "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."],
-  q0active: ["The goblins won't leave on their own, warrior! North, up the path, through the woods."],
-  q0complete: ["HA! You did it! Three goblins gone — the children can play again.",
-               "You have my thanks, and 60 coins, well earned. Now rest and explore — I'll send for you when Losthorne needs you."],
-  q0rewarded: ["Enjoy the calm, warrior. Stretch your legs, taste the blueberries. I'll call when there's work."],
-  q1new: ["There you are! Dorgan is brewing a potion of courage, and he's short on ingredients.",
-          "Bring me 4 blueberries from the wild bushes. The BLUE ones, mind you. Blue. I cannot stress this enough."],
-  q1active: ["Blueberries! Four! The bushes in the meadows regrow quickly — off you go."],
-  q1complete: ["Perfect — plump and blue! Dorgan sends his thanks… and I'll add 40 coins from the village purse.",
-               "You've done all I have for now, warrior. Explore Losthorne freely — greater adventures are stirring…"],
-  done: ["The village is safe and the fires are warm, thanks to you. Explore! Adventure will come knocking soon enough."],
-};
-function chiefLines(){
-  if(questIdx===0) return CHIEF_LINES['q0'+questStage] || CHIEF_LINES.q0active;
-  if(questIdx===1) return CHIEF_LINES['q1'+questStage] || CHIEF_LINES.q1active;
-  return CHIEF_LINES.done;
-}
+// Quest state lives in engine/quests.js (single questState object).
+Quests.init([questGoblins, questBlueberries], 'quest_main_01_goblins', {
+  banner: (t)=>banner(t),
+  addCoins: (n)=>{ P.coins+=n; },
+});
+let gobRespawnT=0;
 
 // ============================================================
 // INPUT — left thumb = move (joystick), right thumb = swipe to slash
@@ -255,10 +239,11 @@ function hitTarget(t,kind,dmg,ang){
   addFloat(t.x, t.y-30, '-'+dmg, dmg>=3?'#ff7b47':dmg>=2?'#ffb347':'#f0e6d0', dmg>=3?26:dmg>=2?22:15);
   if(kind==='gob'){
     const kb=dmg>=2? 42:26; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
-    if(t.hp<=0){ t.alive=false; P.kills++;
+    if(t.hp<=0){ t.alive=false;
       dropCoins(t.x,t.y);   // creatures DROP coins — go pick them up
-      banner('Goblin driven off!'+(questIdx===0&&questStage==='active'?'  ('+Math.min(P.kills,3)+'/3)':'')+' It dropped coins!');
-      if(P.kills>=3 && questIdx===0 && questStage==='active'){ questStage='complete'; banner('⚔️ Quest complete! Return to Chief Bonbottom!'); } }
+      const r=Quests.emit('kill',{target:'enemy_goblin'});
+      banner('Goblin driven off!'+(r.counted?'  ('+r.progress+'/'+r.count+')':'')+' It dropped coins!');
+      if(r.banner && r.progress===r.count) banner(r.banner); }
   } else {
     if(t.hp<=0){ t.respawnT=8000; banner('🎯 Training dummy destroyed! It will be rebuilt.'); }
   }
@@ -346,7 +331,7 @@ $('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=P.maxhp; hungerT=0; P.hurt
 // ============================================================
 let dialogOpen=false, dNpc=null, dIdx=0, dLines=[];
 function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
-  dLines = n.nm.startsWith('Chief') ? chiefLines() : n.lines;
+  dLines = Quests.dialogueFor(n.id) || n.lines;
   renderDialog(); $('dialog').classList.remove('hidden'); }
 function renderDialog(){
   $('dialog').querySelector('.who').textContent=dNpc.nm;
@@ -359,16 +344,7 @@ function renderDialog(){
 function advanceDialog(){
   dIdx++;
   if(dIdx>=dLines.length){
-    // chief dialogue endings drive the quest state machine
-    if(dNpc.nm.startsWith('Chief')){
-      if(questStage==='new') { questStage='active'; banner(questIdx===0? '📜 Quest: drive off 3 goblins in the north forest!' : '📜 Quest: gather 4 blueberries!'); }
-      else if(questStage==='complete'){
-        const reward = questIdx===0? 60 : 40;
-        P.coins+=reward; banner('🎉 The Chief congratulates you! +'+reward+' coins');
-        questStage='rewarded'; betweenT=0;
-        if(questIdx===1) questIdx=2; // all quests done → explore freely
-      }
-    }
+    Quests.onDialogueEnd(dNpc.id);   // quest transitions (offer→active, complete→reward)
     closeDialog();
   } else renderDialog();
 }
@@ -435,19 +411,14 @@ function update(dt){
     if(Math.hypot(b.x-P.x,b.y-P.y)<30){
       b.taken=true; b.respawn=25000;
       if(b.type==='blue'){ P.hp=Math.min(P.maxhp,P.hp+1); hungerT=0;
-        if(questIdx===1 && questStage==='active'){ berriesGot++;
-          if(berriesGot>=4){ questStage='complete'; banner('🫐 4/4! Bring them to Chief Bonbottom!'); }
-          else banner('🫐 Blueberries: '+berriesGot+'/4  (+½ ❤️)');
-        } else banner('Sweet blueberries! +½ ❤️');
+        const r=Quests.emit('collect',{target:'item_blueberry'});
+        banner(r.banner ?? 'Sweet blueberries! +½ ❤️');
       }
       else { die('You ate the RED berries. The Chief warned you…','The red berries'); }
     } }
 
-  // between quests: let them explore, then the chief calls
-  if(questStage==='rewarded' && questIdx<1){
-    betweenT+=dt;
-    if(betweenT>40000){ questIdx=1; questStage='new'; berriesGot=0; banner('📜 Chief Bonbottom has a new task for you!'); }
-  }
+  // quest runtime (pending next-quest timers etc.)
+  Quests.update(dt);
 
   // goblins
   for(const g of goblins){ if(!g.alive) continue;
@@ -599,10 +570,7 @@ function draw(){
   ctx.fillStyle='#ffd977'; ctx.fillText('🪙 '+P.coins, vw-22, top+24);
   // quest
   ctx.textAlign='left'; ctx.font='13.5px Georgia';
-  let qt='💬 Talk to Chief Bonbottom (tap near him)';
-  if(questStage==='active') qt = questIdx===0? '⚔️ Goblins driven off: '+P.kills+'/3' : '🫐 Blueberries: '+berriesGot+'/4';
-  else if(questStage==='complete') qt='🏆 Return to Chief Bonbottom!';
-  else if(questStage==='rewarded') qt = questIdx>=1? '✅ All quests done — explore Losthorne!' : '🌿 Explore! The Chief will call on you again…';
+  const qt = Quests.trackerText();
   ctx.fillStyle='rgba(20,16,10,.72)'; rr(ctx, 14, top+38, ctx.measureText(qt).width+22, 26, 8);
   ctx.fillStyle='#e8d9a8'; ctx.fillText(qt, 25, top+56);
 
@@ -700,3 +668,40 @@ if(location.hash==='#game'){ chosen=0; startGame(); }
 if(location.hash==='#select'){ show('select'); }
 if(location.hash==='#lobby'){ show('lobby'); }
 if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; startGame(); openInv(); }
+// automated quest-chain smoke test (temporary home; moves to dev.js in reorg step 9)
+if(location.hash==='#test-quests'){
+  chosen=0; startGame();
+  const R=[], ok=(c,m)=>R.push((c?'✅ PASS':'❌ FAIL')+' — '+m);
+  const chief=NPCS.find(n=>n.id==='npc_chief_bonbottom');
+  ok(Quests.trackerText()==='💬 Talk to Chief Bonbottom (tap near him)','tracker starts at offer');
+  openDialog(chief); ok(dLines.length===4,'chief offers quest in 4 lines');
+  while(dialogOpen) advanceDialog();
+  ok(questState.stage==='active' && questState.currentId==='quest_main_01_goblins','offer→active');
+  ok(Quests.trackerText()==='⚔️ Goblins driven off: 0/3','active tracker shows 0/3');
+  const c0=P.coins;
+  goblins.slice(0,3).forEach(g=>hitTarget(g,'gob',9,0));
+  ok(questState.stage==='complete','3 goblin kills → complete');
+  ok(Quests.trackerText()==='🏆 Return to Chief Bonbottom!','complete tracker');
+  openDialog(chief); while(dialogOpen) advanceDialog();
+  ok(P.coins===c0+60,'chief pays exactly 60 coins ('+c0+'→'+P.coins+')');
+  ok(questState.stage==='afterReward','resting stage after reward');
+  ok(Quests.trackerText()==='🌿 Explore! The Chief will call on you again…','explore tracker');
+  openDialog(chief); ok(dLines[0].startsWith('Enjoy the calm'),'chief small-talk between quests'); while(dialogOpen) advanceDialog();
+  Quests.update(40001);
+  ok(questState.currentId==='quest_main_02_blueberries' && questState.stage==='offer','40s later: quest 2 offered');
+  openDialog(chief); while(dialogOpen) advanceDialog();
+  ok(questState.stage==='active','q2 active');
+  for(let i=0;i<3;i++) Quests.emit('collect',{target:'item_blueberry'});
+  ok(Quests.trackerText()==='🫐 Blueberries: 3/4','collect tracker 3/4');
+  const r4=Quests.emit('collect',{target:'item_blueberry'});
+  ok(questState.stage==='complete' && r4.banner==='🫐 4/4! Bring them to Chief Bonbottom!','4th berry completes with exact banner');
+  const c1=P.coins; openDialog(chief); while(dialogOpen) advanceDialog();
+  ok(P.coins===c1+40,'chief pays exactly 40 coins');
+  ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!','final tracker');
+  openDialog(chief); ok(dLines[0].startsWith('The village is safe'),'chief idle line after all quests'); while(dialogOpen) advanceDialog();
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.96);color:#e8d9a8;font:13px/1.7 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
+  const fails=R.filter(r=>r.startsWith('❌')).length;
+  div.textContent='QUEST CHAIN SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
+  document.getElementById('app').appendChild(div);
+}
