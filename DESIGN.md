@@ -70,6 +70,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 | **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. Gives the turkey challenge (deliver 3 → 90 coins, teaches GRAB); afterward sells **roast turkey meat** (15 coins, +1½ ❤️) and **BUYS wild turkeys at 15 coins each, forever** — the repeatable income source. Also runs the shield-training sparring session (challenge 5). ✅ |
 | **Modo** | Blacksmith | IN THE GAME ✅ — sells the forged sword (200) from the start; the hunting bow (100) and arrow packs (80) UNLOCK only after the champion falls (you couldn't afford arrows earlier anyway). Personal-scale gear only. Armor 🔜 |
 | **Jesse** | Traveling storyteller/merchant | Travels across the whole map, so she brings NEWS — new islands, new information, rumors. Like the mailman in Zelda, she approaches YOU, and it's a breakaway moment. She *sings* her stories — music plays while the words appear on screen. Dresses more colorfully than everyone else: a **colorful dress with beads** and **tons of jewelry from different places on the map**. 🔜 |
+| **Bog** | The Boater | IN THE GAME ✅ — lives in a shack by the pond (🛶 sign). Rows you out fishing IF you own a rod and hook; his terms: **half the catch is his, the odd fish too** ("one fish? his fish"). Coaches whichever fishing step you fumble. After your first trip he teaches **boat-driving** — a skill for later villages; you never take his boat out alone. Won't row "freeloaders" or joyriders. |
 | Villagers | Ambience | Small characters you can greet — people just being pleasant, not quest-givers. They might occasionally give you something. 🔜 |
 | **Little Tommy** | Quest hook | A village kid who gets kidnapped (see the Barbarian, §9). 🔜 |
 
@@ -88,7 +89,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **Challenge rewards:** goblins **110 coins** · berries **a free Stoneskin potion** (no coins — the potion is the pay) · turkeys **90 coins**. Total: 10+110+90 = **210 → the 200-coin sword with 10 left over for bread**. Erik even points it out: "just enough for a basic sword." ✅
 - Money is spent on: weapons/armor, supplies for Dorgan's potions, food, animal feed, **bridge tolls** (fancier villages charge to cross into their land), bigger maps, small taxes.
 - **Village specialty armor:** every village's armory is different and suited to different things — like every country having its own soccer uniform. The lake village sells **underwater armor** (wanted before the Kraken). 🔜
-- Rewards: goblins drop coins ✅; the Troll guards a treasure hoard (big payout) 🔜.
+- Rewards: quest payouts + selling turkeys (15) and fish (8/20) to Erik ✅; the Troll guards a treasure hoard 🔜.
 
 ## 7. Combat
 
@@ -108,7 +109,9 @@ Each avatar has their own unique personal side quest that the others don't — r
 - Start with **5 hearts**; damage comes in **half-hearts**. ✅
 - **Hunger:** go too long without eating and you slowly lose half-hearts (currently ~75s per half-heart — tunable). ✅
 - **Food in the wild:** berries ✅, wild turkey ✅ (catch them — they flee!), fish 🔜. In villages: buy food (Erik's bread ✅, Erik's roast turkey +1½ ❤️ ✅).
-- **THE BERRY RULE:** only **blueberries** are safe. Picking one puts it **in your satchel** — eat it from there by choice (+½ ❤️) or save it for delivery; no auto-eating. **Red berries = instant death** on touch. ✅
+- **THE BERRY RULE:** BOTH berry types now go into your satchel when picked. Blueberries: eat by choice (+½ ❤️) or deliver. **RED berries: deadly only if you EAT them** (they sit in the satchel with a warning). ✅
+- **The CURSED STONE** ✅: a dark crystal deep in the north forest — TOUCH it and you die. (The instant-death-on-touch role moved here from the red berries.)
+- **FISHING** ✅: buy a 🎣 rod (25) and a hook from Erik — 🪝 basic (10, small fish) or ✨ fine (40, ~half your catches are BIG). Fish only WITH Bog. On the boat: context button casts → watch for the ❗ bite → **HOLD to reel, release to ease — keep the tension marker in the green band**; too hard snaps the line, too timid and the fish jumps away. No satchel while your line is out. Catch split on shore: Bog keeps half, odd one his. Fish sell to Erik: 🐟 8 / 🐠 20. *(All fishing prices are placeholder guesses.)*
 - **Special meal:** a multi-ingredient cooked dish (blueberries among the ingredients) restoring **up to 4 hearts** — never beyond your heart cap. 🔜
 - **Heart cap:** 5 hearts until the Evilcorn is defeated (see §9) → then **10 hearts** going into the final boss. 🔜
 - **Death = respawn at the edge of that territory.** 🔜 (currently: village square)
@@ -145,6 +148,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **The onboarding chain flows person-to-person** ✅: shopkeepers hint "come back later" until their moment → the Chief gives the goblin challenge (110 coins) and, at the payout, points you to Dorgan ("you could use strength… or a shield") → DORGAN himself asks for 4 blueberries and brews you a **free Stoneskin potion** (his shop opens; he points at Erik when you're broke) → ERIK teaches the GRAB with his turkey scheme (turkeys caught early count retroactively) and pays 90 — "just enough for a basic sword" → Modo's forge → **THE FIRST REAL QUEST: the visiting champion** (the §10 tutorial-fight, now drafted): beat him in the square, win his shield.
 - **Your shield (DRAFT mechanic, awaiting approval):** holding to charge a smash RAISES the won shield — blocks blows while you stand your ground. One button, no crowding; the champion literally teaches you his own move. 🚩
 - **Quests can be turned in to someone other than the giver:** the blueberry quest is GIVEN by the chief but DELIVERED to Dorgan — he congratulates you, pays 40 coins, and only then opens his potion shop. ✅
+- **Challenge 1 is FIVE goblins now** (three was too easy). ✅
+- **Fishing & boat-driving** ✅: learn to fish with Bog (adaptive coaching), and after your first catch he'll teach boat-driving — a skill banked for later villages. **Later quests logged:** buying your OWN boat; the shipwreck rescue ("take my boat — save them!") that foreshadows the Kraken.
 - **Challenge 3 — Erik's turkeys** ✅: caught turkeys go INTO YOUR SATCHEL as items; deliver 3 to Erik (pre-caught ones count automatically). Reward 90 coins + turkey meat for sale + Erik buys extra turkeys at 15 forever. Teaches GRAB.
 - **Challenge 5 — Erik's shield training** ✅: after you win the champion's shield, Erik spars you with a wooden sword. BLOCK 3 of his swings (hold to raise the shield); he coaches — tips when you get tagged, praise when you block. The next storyline beat after the champion.
 - Big quests come from chiefs; villagers giving mini-quests is an idea under discussion (see §13).
@@ -178,6 +183,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 - Arrow pack size (currently 10 — placeholder guess).
 - Do villagers give mini-quests, or only chiefs give quests?
 - A goblin with a crossbow (ranged enemy you learn to dodge/block) — idea raised mid-playtest, not fleshed out.
+- On-screen quick-equip hotbar — proposed and REJECTED (satchel + context button are enough).
 - **Pacing note for later:** once everything is more complex, all of it should take LONGER so the game pace feels right — fine for now, revisit when content grows.
 - Max players per room: exactly 2, or more?
 - Day/night cycle mechanics (the Troll fight implies one — how does it work elsewhere?).
@@ -199,5 +205,6 @@ Each avatar has their own unique personal side quest that the others don't — r
 - *v0.6 — floating damage numbers, potion auras, satchel inventory (tap item → stats → use), 50-coin start, creatures drop coin piles, fixed UI text zones*
 - *v0.12 — avatar names (Zippy/Oak/Willow/Dusty), morphing context button, double-tap dash, shop interiors with icon signs, satchel blueberries, story rework (110/potion/90), the Visiting Champion + won shield, dev testing menu (#dev)*
 - *v0.13 — permanent gear fix, Modo bow-gating, sellable wild turkeys, champion pattern buff (28hp, relentless), dash-while-steering, 2½-heart respawn w/ quest persistence, Erik's shield-training challenge*
+- *v0.14 — FIVE goblins, red berries to satchel (deadly to eat), the cursed stone, Fishing v1 with Bog (pond, boat, cast/reel tension minigame, half-catch split, hooks, fish selling, boat-driving skill), #fish dev hash*
 - *v0.7 — Genshin-referenced control cluster, 💥 smash skill button, contextual 💬 talk button near NPCs*
 - *v0.8 — one-finger play: invisible anywhere-joystick, attack gestures anchored to the attack button, smash-dim fix*

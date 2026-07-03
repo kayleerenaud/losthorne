@@ -7,6 +7,7 @@ import npcChief from './data/npcs/chief-bonbottom.js';
 import npcErik from './data/npcs/erik.js';
 import npcDorgan from './data/npcs/dorgan.js';
 import npcModo from './data/npcs/modo.js';
+import npcBog from './data/npcs/bog.js';
 import { Quests, questState } from './engine/quests.js';
 import questGoblins from './data/quests/main-01-goblins.js';
 import questBlueberries from './data/quests/main-02-blueberries.js';
@@ -83,7 +84,7 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0}, hasShield:false, dashT:0, dashCd:0 };
+  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0}, hasShield:false, dashT:0, dashCd:0 };
 // combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','bow'].filter(w=>P.weapons[w]); }
@@ -112,11 +113,13 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
 // NPCs are built from data files; dialogue & shops resolved at talk-time from raw data.
-const NPCS = [npcChief, npcErik, npcDorgan, npcModo].map(d=>({
+const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog].map(d=>({
   id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat, raw:d,
 }));
+function hasFishingGear(){ return (P.inv.item_rod||0)>0 && ((P.inv.item_hook_basic||0)>0 || (P.inv.item_hook_fine||0)>0); }
 function npcLines(n){ const d=n.raw;
   if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
+  if(d.linesNoGear && !hasFishingGear()) return d.linesNoGear;
   return d.lines || d.idleLines;
 }
 // generic buy flow — behavior comes from the item's effect kind (data-driven)
@@ -152,6 +155,16 @@ function renderShop(){
       box.appendChild(b);
     }
   }
+  if(d.actions){ // NPC-specific actions (Bog: fishing trip / boat lesson)
+    for(const a of d.actions){
+      if(a.requiresFlag && !questState.flags[a.requiresFlag]) continue;
+      if(a.needsGear && !hasFishingGear()) continue;
+      const b=document.createElement('button'); b.className='btn shopBtn';
+      b.textContent=a.label;
+      b.onclick=(ev)=>{ ev.stopPropagation(); NPC_ACTIONS[a.id] && NPC_ACTIONS[a.id](); };
+      box.appendChild(b);
+    }
+  }
   if(d.buys){ // NPCs that BUY from you (Erik + turkeys)
     for(const entry of d.buys){
       const def=ITEM_DEFS[entry.item], price=SELL_PRICES[entry.item];
@@ -170,7 +183,7 @@ function renderShop(){
 const goblins=[];
 function spawnGoblins(){
   goblins.length=0;
-  [[600,420],[840,300],[1120,460],[920,560]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:6,maxhp:6,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
+  [[600,420],[840,300],[1120,460],[920,560],[420,330],[1250,300]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:6,maxhp:6,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
 }
 spawnGoblins();
 
@@ -180,6 +193,7 @@ function spawnTurkeys(){
   turkeys.length=0;
   [[500,860],[900,930],[1250,880],[700,1010]].forEach(t=>turkeys.push({x:t[0],y:t[1],dir:Math.random()*7,t:0}));
 }
+const CURSED_STONE={x:840,y:170};
 spawnTurkeys();
 
 // ---------- SCENES: the village + shop interiors ----------
@@ -261,8 +275,9 @@ function npcNearby(){
     if(d && n && Math.hypot(d.pos.x-P.x, d.pos.y-P.y)<86) return n;
     return null;
   }
-  const chief=NPCS.find(x=>x.id==='npc_chief_bonbottom');
-  return (chief && Math.hypot(chief.x-P.x,chief.y-P.y)<70) ? chief : null;
+  for(const n of NPCS){ if(n.raw.building) continue;   // outdoor folk: the Chief, Bog
+    if(Math.hypot(n.x-P.x,n.y-P.y)<70) return n; }
+  return null;
 }
 function enemyNearby(){
   if(scene!=='village') return false;
@@ -274,6 +289,11 @@ function enemyNearby(){
 // THE CONTEXT BUTTON: one slot that morphs to what you need right now
 function contextAction(){
   if(dialogOpen||invOpen) return null;
+  if(scene==='fishing'){
+    if(fish.state==='idle') return {icon:'🎣', label:'cast', kind:'cast'};
+    if(fish.state==='waiting') return {icon:'👀', label:'watch…', kind:'none'};
+    return {icon:'🎣', label:'HOLD to reel!', kind:'reel'};
+  }
   if(scene!=='village'){
     if(npcNearby()) return {icon:'💬', label:NPCS.find(x=>x.id===scene).nm.split(' ')[0], kind:'talk'};
     if(interiorDoorNear()) return {icon:'🚪', label:'leave', kind:'leave'};
@@ -307,8 +327,9 @@ function buttonAt(x,y){
 function pointerDown(p,id){
   if(invOpen) return;
   const b=buttonAt(p.x,p.y);
-  const ctxIsSmash = b==='ctx' && contextAction()?.kind==='smash';
-  if((b==='atk'||ctxIsSmash) && !swp.active){ swp.active=true; swp.smashOnly=ctxIsSmash; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
+  const ctxKind = b==='ctx' ? contextAction()?.kind : null;
+  const ctxIsSmash = ctxKind==='smash', ctxIsReel = ctxKind==='reel' || (ctxKind==='none'&&scene==='fishing');
+  if((b==='atk'||ctxIsSmash||ctxIsReel) && !swp.active){ swp.active=true; swp.smashOnly=ctxIsSmash; swp.reelHold=ctxIsReel; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
   else if(b && !btnTouch.active){ btnTouch.active=true; btnTouch.id=id; btnTouch.kind=b; btnTouch.sx=p.x; btnTouch.sy=p.y; }
   else if(!b && !joy.active){ joy.active=true; joy.id=id; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; joy.t0=performance.now(); }
   else if(!b && joy.active){ // second finger while steering: double-tap = DASH in your movement direction
@@ -347,10 +368,13 @@ function dash(){
   addFloat(P.x,P.y-30,'💨','#cfc7b2',18);
 }
 function pressButton(kind){
-  if(kind==='bag'){ openInv(); }
+  if(kind==='bag'){
+    if(scene==='fishing' && fish.state!=='idle'){ banner('🎣 Hands full! Land the line first.'); return; }
+    openInv(); }
   else if(kind==='ctx'){
     const a=contextAction(); if(!a) return;
-    if(a.kind==='talk'){ const n=npcNearby(); if(n) openDialog(n); }
+    if(a.kind==='cast'){ fishingCast(); }
+    else if(a.kind==='talk'){ const n=npcNearby(); if(n) openDialog(n); }
     else if(a.kind==='enter'){ enterShop(a.npc); }
     else if(a.kind==='leave'){ leaveShop(); }
     else if(a.kind==='grab'){ catchTurkey(); }
@@ -367,6 +391,8 @@ function pressButton(kind){
 // release of a gesture that STARTED on the attack button
 function attackRelease(x,y){
   if(invOpen) return;
+  if(swp.reelHold){ swp.reelHold=false; return; }     // reel hold released — the minigame reads the hold, nothing fires
+  if(scene==='fishing'){ if(fish.state==='idle') fishingEnd(); return; }  // ⛵ attack button = row back
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
   const dur=performance.now()-swp.t0;
   if(swp.smashOnly){                       // the 💥 button: hold to charge
@@ -483,6 +509,7 @@ function drinkPotion(k){
 const EFFECTS = {
   heal(e){ P.hp=Math.min(P.maxhp,P.hp+e.halfHearts); if(e.resetHunger) hungerT=0; banner(e.banner); addFloat(P.x,P.y-36,e.float,'#7ed67e',18); },
   mystery_potion(){ drinkPotion(P.potionRolls.shift()); },
+  deadly_food(){ die('You ate the RED berries. The Chief warned you…','The red berries'); },
 };
 function useItem(id){ const e=ITEM_DEFS[id].effect; EFFECTS[e.kind](e); }
 let invOpen=false, invSel=null;
@@ -516,7 +543,7 @@ $('invClose').onclick=closeInv;
 $('invBack').onclick=()=>{ invSel=null; renderInv(); };
 $('invUse').onclick=()=>{ if(!invSel || P.inv[invSel]<1) return;
   const e=ITEM_DEFS[invSel].effect;
-  if(e.kind==='passive'){ banner('🛡️ It’s equipped — always with you.'); return; }   // permanent gear never vanishes
+  if(e.kind==='passive'||e.kind==='gear'){ banner('🧰 It’s gear — always with you.'); return; }   // permanent gear never vanishes
   if(e.kind==='sellable'){ banner('🦃 Erik buys these — visit the 🪙 shop!'); return; }
   P.inv[invSel]--; useItem(invSel); closeInv(); };
 function hurtPlayer(n,why){
@@ -577,11 +604,14 @@ function update(dt){
   if(P.dashCd>0) P.dashCd--;
   const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1);
   const charging = chargeInfo();
-  if((mx||my) && !blocked() && !charging){
+  if((mx||my) && !blocked() && !charging && scene!=='fishing'){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
     for(const h of houses){ if(Math.abs(P.x-h.x)<62 && Math.abs(P.y-h.y)<56){ if(Math.abs(P.x-h.x)/62>Math.abs(P.y-h.y)/56) P.x=h.x+Math.sign(P.x-h.x)*62; else P.y=h.y+Math.sign(P.y-h.y)*56; } }
+    // the pond is water — you can't walk on it (yet…)
+    { const ex=(P.x-POND.x)/(POND.rx+14), ey=(P.y-POND.y)/(POND.ry+14), d2=ex*ex+ey*ey;
+      if(d2<1){ const a=Math.atan2(P.y-POND.y,(P.x-POND.x)); P.x=POND.x+Math.cos(a)*(POND.rx+15); P.y=POND.y+Math.sin(a)*(POND.ry+15); } }
   }
   if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; if(P.hurtT>0)P.hurtT--;
   if(pot.t>0){ pot.t-=dt; if(pot.t<=0){ pot.type=null; banner('The potion wears off…'); } }
@@ -627,6 +657,7 @@ function update(dt){
   }
 
   sparUpdate(dt);
+  fishingUpdate(dt);
 
   // turkeys: flee when you get close — chase them down!
   if(scene==='village') for(const tk of turkeys){
@@ -667,8 +698,17 @@ function update(dt){
         const q=questState.currentId==='quest_main_02_blueberries' && questState.stage!=='afterReward';
         banner(q? '🫐 Satchel: '+Math.min(P.inv.item_blueberry,4)+'/4' : '🫐 Blueberry into the satchel');
       }
-      else { die('You ate the RED berries. The Chief warned you…','The red berries'); }
+      else {
+        P.inv.item_red_berry=(P.inv.item_red_berry||0)+1;
+        addFloat(P.x,P.y-34,'+🔴','#e05545',17);
+        banner('🔴 Red berries into the satchel. Remember what the Chief said…');
+      }
     } }
+
+  // the CURSED STONE: deep in the forest — touch it and you die
+  if(scene==='village' && Math.hypot(CURSED_STONE.x-P.x, CURSED_STONE.y-P.y)<26){
+    die('You touched the cursed stone. Its cold fire took you in an instant.','The cursed stone');
+  }
 
   // quest runtime (pending next-quest timers etc.)
   Quests.update(dt);
@@ -689,7 +729,8 @@ function update(dt){
 // RENDER
 // ============================================================
 function draw(){
-  if(scene!=='village'){ drawInterior(); }
+  if(scene==='fishing'){ drawFishing(); }
+  else if(scene!=='village'){ drawInterior(); }
   else {
   const camX=Math.max(0,Math.min(W-vw,P.x-vw/2)), camY=Math.max(0,Math.min(H-vh,P.y-vh/2));
   // ground
@@ -702,6 +743,17 @@ function draw(){
   ctx.strokeStyle='#5c4d33'; ctx.lineWidth=46; ctx.lineCap='round';
   ctx.beginPath(); ctx.moveTo(800,1340); ctx.quadraticCurveTo(780,900,830,420); ctx.stroke();
   ctx.strokeStyle='#6b5a3d'; ctx.lineWidth=34; ctx.beginPath(); ctx.moveTo(800,1340); ctx.quadraticCurveTo(780,900,830,420); ctx.stroke();
+
+  // the POND — Bog's kingdom
+  ctx.fillStyle='#274b56'; ctx.beginPath(); ctx.ellipse(POND.x,POND.y,POND.rx,POND.ry,0,0,7); ctx.fill();
+  ctx.fillStyle='#31606e'; ctx.beginPath(); ctx.ellipse(POND.x-14,POND.y-10,POND.rx*.8,POND.ry*.78,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(210,230,240,.25)'; ctx.lineWidth=2;
+  for(let i=0;i<3;i++){ ctx.beginPath(); ctx.ellipse(POND.x-20+i*24, POND.y-16+i*20, 26,7,0,0,7); ctx.stroke(); }
+  // Bog's shack + 🛶 sign
+  ctx.fillStyle='#4a3a26'; ctx.fillRect(1160,1035,74,50);
+  ctx.fillStyle='#6d4a2e'; ctx.beginPath(); ctx.moveTo(1152,1037); ctx.lineTo(1197,1008); ctx.lineTo(1242,1037); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#3d2c14'; ctx.fillRect(1180,1082,34,22); ctx.strokeStyle='#8a6d38'; ctx.lineWidth=2; ctx.strokeRect(1180,1082,34,22);
+  ctx.font='15px Georgia'; ctx.textAlign='center'; ctx.fillText('🛶', 1197, 1098);
 
   // village ground patch
   ctx.fillStyle='rgba(120,100,60,.25)'; ctx.beginPath(); ctx.ellipse(800,1230,330,210,0,0,7); ctx.fill();
@@ -760,8 +812,8 @@ function draw(){
     ctx.fillStyle='#ffd42a'; ctx.beginPath(); ctx.moveTo(hx+3,hy); ctx.lineTo(hx+8,hy+1); ctx.lineTo(hx+3,hy+3); ctx.fill(); // beak
   }
 
-  // NPCs outdoors: just the Chief — shopkeepers are inside their shops
-  { const n=NPCS.find(x=>x.id==='npc_chief_bonbottom');
+  // NPCs outdoors (the Chief in the square, Bog by his pond) — shopkeepers are inside
+  for(const n of NPCS){ if(n.raw.building) continue;
     drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70); }
 
   // sparring Erik (quest 5) — wooden sword, zero malice
@@ -849,6 +901,13 @@ function draw(){
     }
   }
 
+  // the cursed stone — dark crystal, faint violet glow
+  { const cs=CURSED_STONE, gl=.35+.2*Math.sin(performance.now()/300);
+    ctx.fillStyle='rgba(120,60,200,'+gl*.4+')'; ctx.beginPath(); ctx.arc(cs.x,cs.y,26,0,7); ctx.fill();
+    ctx.fillStyle='#2c1f3d'; ctx.beginPath();
+    ctx.moveTo(cs.x,cs.y-20); ctx.lineTo(cs.x+12,cs.y+8); ctx.lineTo(cs.x,cs.y+14); ctx.lineTo(cs.x-12,cs.y+8); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(190,120,255,'+(gl+.2)+')'; ctx.lineWidth=2; ctx.stroke(); }
+
   // floating damage / pickup numbers
   for(const f of floats){
     ctx.globalAlpha=Math.min(1,f.t/22);
@@ -894,7 +953,7 @@ function draw(){
   ctx.fillStyle='rgba(90,69,38,.55)'; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(240,220,170,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.stroke();
   ctx.font=(ab.r*0.9)+'px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(WEAPONS[P.weapon].icon, ab.x, ab.y+2);
+  ctx.fillText(scene==='fishing' ? '⛵' : WEAPONS[P.weapon].icon, ab.x, ab.y+2);
   // weapon switch button
   const wb=wpnBtn();
   ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(wb.x,wb.y,wb.r,0,7); ctx.fill();
@@ -928,7 +987,7 @@ function draw(){
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
   if(!joy.active) ctx.fillText('press & drag anywhere to move', 18, vh-20);
   ctx.textAlign='center';
-  ctx.fillText(P.weapon==='fists'? 'tap: punch • hold: charge SMASH' : P.weapon==='sword'? 'drag from the button: aimed slice • hold: charge SMASH' : 'pull back & release • arrows: '+P.arrows, ab.x-24, ab.y+ab.r+18);
+  ctx.fillText(scene==='fishing' ? '⛵ tap: row back to shore' : P.weapon==='fists'? 'tap: punch • hold: charge SMASH' : P.weapon==='sword'? 'drag from the button: aimed slice • hold: charge SMASH' : 'pull back & release • arrows: '+P.arrows, ab.x-24, ab.y+ab.r+18);
   // active potion — a DEPLETING BAR under the coin counter so you can see time draining
   if(pot.t>0 && pot.type){
     const pp=POTION_POWERS[pot.type], frac=Math.max(0,Math.min(1,pot.t/POTION_DURATION_MS));
@@ -971,6 +1030,58 @@ function loop(ts){
 }
 function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); if(typeof devArmed!=='undefined' && devArmed) buildDevMenu(); requestAnimationFrame(loop); }
 
+// ---------- FISHING WITH BOG ----------
+const POND={x:1380,y:930,rx:175,ry:120};
+const fish={ state:'idle', t:0, biteT:0, tension:50, inZone:0, catches:[] };
+const NPC_ACTIONS={
+  fish_trip(){ closeDialog();
+    scene='fishing'; fish.state='idle'; fish.catches.length=0;
+    banner('🛶 Bog rows you to the middle of the pond. Tap 🎣 to cast!');
+  },
+  boat_lesson(){ closeDialog();
+    questState.flags.flag_boat_skill=true;
+    banner('⛵ Bog shows you oars, current, and balance. BOAT-DRIVING learned — you’ll need it beyond this village!');
+    addFloat(P.x,P.y-40,'⛵ skill learned!','#9fd6e8',20);
+  },
+};
+function fishingCast(){
+  if(fish.state!=='idle') return;
+  fish.state='waiting'; fish.t=1500+Math.random()*2500;
+  banner('🎣 Cast… watch the water.');
+}
+function fishingHolding(){ return swp.active && swp.reelHold; }
+function fishingLose(tip){ fish.state='idle'; banner(tip); }
+function fishingCatch(){
+  const big = (P.inv.item_hook_fine||0)>0 && Math.random()<0.5;
+  fish.catches.push(big?'item_fish_big':'item_fish_small');
+  fish.state='idle';
+  banner((big?'🐠 A BIG one!':'🐟 Caught one!')+'  ('+fish.catches.length+' aboard) — cast again or ⛵ row back');
+}
+function fishingEnd(){
+  const yours=[];
+  fish.catches.forEach((f,i)=>{ if(i%2===1) yours.push(f); });  // Bog takes the 1st of each pair — odd one is his
+  for(const f of yours) P.inv[f]=(P.inv[f]||0)+1;
+  const bogN=fish.catches.length-yours.length;
+  questState.flags.flag_fished_once=true;
+  scene='village'; P.x=1195; P.y=1100;
+  banner('⛵ Ashore! Catch: '+fish.catches.length+' — Bog keeps '+bogN+', you keep '+yours.length+'. He can teach boat-driving now!');
+  fish.state='idle'; fish.catches.length=0;
+}
+function fishingUpdate(dt){
+  if(scene!=='fishing') return;
+  if(fish.state==='waiting'){ fish.t-=dt;
+    if(fish.t<=0){ fish.state='bite'; fish.biteT=1700; banner('❗ A BITE! HOLD 🎣 to reel — steady now!'); } }
+  else if(fish.state==='bite'){ fish.biteT-=dt;
+    if(fishingHolding()){ fish.state='reeling'; fish.tension=50; fish.inZone=0; }
+    else if(fish.biteT<=0) fishingLose('Bog: Slept through the bite, did we? Cast again.'); }
+  else if(fish.state==='reeling'){
+    fish.tension += fishingHolding()? dt*0.048 : -dt*0.058;
+    if(fish.tension>=100) fishingLose('💨 SNAP! Bog: Too HARD — ease off when the line strains!');
+    else if(fish.tension<=0) fishingLose('💨 It jumped away! Bog: Too timid — REEL, warrior!');
+    else { if(fish.tension>34 && fish.tension<66) fish.inZone+=dt; if(fish.inZone>2600) fishingCatch(); }
+  }
+}
+
 // ---------- ERIK'S SHIELD TRAINING (quest 5) ----------
 let spar=null;
 function spawnSpar(){ spar={ x:940, y:1200, dir:0, state:'circle', t:0 }; }
@@ -997,6 +1108,49 @@ function sparUpdate(dt){
       }
     }
   } else if(c.state==='swing'){ if(c.t>700){ c.t=0; c.state='circle'; } }
+}
+
+// ---------- FISHING SCENE RENDERER ----------
+function drawFishing(){
+  // open water
+  const grd=ctx.createLinearGradient(0,0,0,vh);
+  grd.addColorStop(0,'#2b5561'); grd.addColorStop(1,'#1d3b45');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  ctx.strokeStyle='rgba(210,230,240,.16)'; ctx.lineWidth=2;
+  for(let i=0;i<6;i++){ ctx.beginPath(); ctx.ellipse((i*173+((performance.now()/40)%173))%vw, 60+i*(vh/6), 34,8,0,0,7); ctx.stroke(); }
+  const bx=vw/2, by=vh*0.62;
+  // the boat
+  ctx.fillStyle='#6b4a26'; ctx.beginPath(); ctx.moveTo(bx-95,by); ctx.quadraticCurveTo(bx,by+52,bx+95,by); ctx.lineTo(bx+70,by-16); ctx.lineTo(bx-70,by-16); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#8a6d38'; ctx.fillRect(bx-70,by-16,140,7);
+  // Bog & you
+  drawPerson(bx-38, by-28, 0, {hair:'#555',outfit:'#3a6b62',skin:'#e0b088'}, false, false);
+  drawPerson(bx+30, by-28, 0, AVATARS[chosen<0?0:chosen], false, false);
+  // line & bobber
+  if(fish.state!=='idle'){
+    const fx=bx+95+60, fy=by-70+Math.sin(performance.now()/300)*6;
+    ctx.strokeStyle='rgba(240,240,240,.5)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(bx+42,by-40); ctx.quadraticCurveTo(bx+90,by-90,fx,fy); ctx.stroke();
+    ctx.fillStyle= fish.state==='bite'||fish.state==='reeling' ? '#ff5545' : '#e8e0c8';
+    ctx.beginPath(); ctx.arc(fx,fy,fish.state==='waiting'?5:7,0,7); ctx.fill();
+    if(fish.state==='bite'){ ctx.font='bold 20px Georgia'; ctx.textAlign='center'; ctx.fillStyle='#ffd75a'; ctx.fillText('❗', fx, fy-16); }
+  }
+  // tension bar while reeling
+  if(fish.state==='reeling'){
+    const w=Math.min(340,vw*.5), x=vw/2-w/2, y=44;
+    ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-8,y-8,w+16,34,10);
+    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y,w,18,6);
+    ctx.fillStyle='rgba(120,230,140,.35)'; rr(ctx,x+w*0.34,y,w*0.32,18,6);   // the green band
+    ctx.fillStyle= fish.tension>34&&fish.tension<66 ? '#7ed67e' : '#e0b34a';
+    ctx.beginPath(); ctx.arc(x+w*(fish.tension/100), y+9, 10, 0, 7); ctx.fill();
+    ctx.font='11.5px Georgia'; ctx.textAlign='center'; ctx.fillStyle='rgba(240,230,200,.75)';
+    ctx.fillText('keep the marker in the green — HOLD to reel, release to ease', vw/2, y+42);
+  }
+  // catch tally
+  ctx.font='bold 14px Georgia'; ctx.textAlign='left'; ctx.fillStyle='#e8d9a8';
+  ctx.fillText('🛶 aboard: '+fish.catches.length, 18, vh-18);
+  for(const f of floats){ ctx.globalAlpha=Math.min(1,f.t/22); ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,bx,by-70);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,bx,by-70); ctx.globalAlpha=1; }
 }
 
 // ---------- INTERIOR RENDERER ----------
@@ -1034,6 +1188,7 @@ if(location.hash==='#game'){ chosen=0; startGame(); }
 if(location.hash==='#select'){ show('select'); }
 if(location.hash==='#lobby'){ show('lobby'); }
 if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; startGame(); openInv(); }
+if(location.hash==='#fish'){ chosen=0; P.inv.item_rod=1; P.inv.item_hook_basic=1; P.inv.item_hook_fine=1; startGame(); NPC_ACTIONS.fish_trip(); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
 let devBuilt=false;
@@ -1076,10 +1231,11 @@ if(location.hash==='#test-quests'){
   const erik=NPCS.find(n=>n.id==='npc_erik');
   const modo=NPCS.find(n=>n.id==='npc_modo');
   ok(AVATARS[0].nm==='Zippy', 'Zippy leads the avatar roster');
-  ok(P.coins===10 && P.weapon==='fists' && goblins[0].hp===6, 'start: 10 coins, fists, 6-punch goblins');
+  ok(P.coins===10 && P.weapon==='fists' && goblins[0].hp===6 && goblins.length===6, 'start: 10 coins, fists, 6-punch goblins, 6 roaming');
   // Q1
   openDialog(chief); while(dialogOpen) advanceDialog();
-  goblins.slice(0,3).forEach(g=>hitTarget(g,'gob',99,0));
+  goblins.slice(0,5).forEach(g=>hitTarget(g,'gob',99,0));
+  ok(questState.stage==='complete', 'quest 1 now needs FIVE goblins');
   openDialog(chief); while(dialogOpen) advanceDialog();
   ok(P.coins===120, 'chief pays 110');
   // Q2 — Dorgan, satchel berries
@@ -1138,6 +1294,46 @@ if(location.hash==='#test-quests'){
   ok(questState.stage==='complete', '3 blocks → trained');
   openDialog(erik); while(dialogOpen) advanceDialog();
   ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'chain complete');
+  // red berries: satchel item, deadly only if EATEN
+  P.inv.item_red_berry=1;
+  invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
+  ok($('deathTitle').textContent==='The red berries', 'eating red berries from the satchel = death');
+  $('btnRespawn').click();
+  // the cursed stone kills on touch
+  P.x=CURSED_STONE.x; P.y=CURSED_STONE.y; update(16);
+  ok($('deathTitle').textContent==='The cursed stone', 'the cursed stone kills on touch');
+  $('btnRespawn').click();
+  // fishing with Bog
+  const bog=NPCS.find(n=>n.id==='npc_bog');
+  openDialog(bog); ok(dLines===bog.raw.linesNoGear, 'Bog refuses freeloaders without rod & hook');
+  ok([...$('shopBox').children].length===0, 'no trip offered without gear');
+  while(dialogOpen) advanceDialog();
+  P.inv.item_rod=1; P.inv.item_hook_basic=1;
+  openDialog(bog); ok(dLines===bog.raw.lines, 'with gear, Bog offers his terms');
+  ok([...$('shopBox').children].some(b=>b.textContent.includes('Row out fishing')), 'fishing trip button appears');
+  while(dialogOpen) advanceDialog();
+  NPC_ACTIONS.fish_trip();
+  ok(scene==='fishing', 'out on the boat');
+  fishingCast(); ok(fish.state==='waiting', 'line cast');
+  fish.state='reeling'; fish.inZone=2601; fishingUpdate(16);
+  ok(fish.catches.length===1, 'steady reeling lands a fish');
+  fish.catches.push('item_fish_small','item_fish_small');   // 3 total
+  const f0=(P.inv.item_fish_small||0)+(P.inv.item_fish_big||0);
+  fishingEnd();
+  const f1=(P.inv.item_fish_small||0)+(P.inv.item_fish_big||0);
+  ok(f1-f0===1 && scene==='village', '3 caught → Bog keeps 2 (odd one his), you keep 1');
+  ok(questState.flags.flag_fished_once===true, 'first trip unlocks the boat lesson');
+  openDialog(bog); ok([...$('shopBox').children].some(b=>b.textContent.includes('boat-driving')), 'boat lesson now offered');
+  while(dialogOpen) advanceDialog();
+  NPC_ACTIONS.boat_lesson();
+  ok(questState.flags.flag_boat_skill===true, 'boat-driving skill learned (for later villages)');
+  // Erik buys fish
+  P.inv.item_fish_big=1; const ce=P.coins;
+  openDialog(erik);
+  const fb=[...$('shopBox').children].find(b=>b.textContent.includes('Sell BIG fish'));
+  ok(!!fb, 'Erik buys fish'); fb.click();
+  ok(P.coins===ce+20, 'big fish sells for 20');
+  while(dialogOpen) advanceDialog();
   // death → 2.5 hearts, quest state intact
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();
@@ -1146,6 +1342,6 @@ if(location.hash==='#test-quests'){
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;
-  div.textContent='PLAYTEST ROUND 4 SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
+  div.textContent='ROUND 5 (FISHING) SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
   document.getElementById('app').appendChild(div);
 }

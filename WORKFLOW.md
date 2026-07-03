@@ -43,14 +43,18 @@
 
 ---
 
+## Session rhythm addendum (2026-07-03, Kaylee)
+- **Auto-deploy intent:** when the room clearly lands on a decision in voice, Claude should start building as soon as possible (short settle delay). CONSTRAINT: the platform's voice-capture turns are listen-only (no tools allowed), so Claude queues a one-tap GO chip and deploys the moment anyone taps it or types anything. A platform request to allow act-on-voice has been drafted for Kaylee to send to the admins.
+
 ## Project State
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.13 — playtest round 4 (reorg steps 6–10 still queued)
-- **Phase:** playtest-driven feature work
-- **This checkpoint:** Champion's Shield = permanent gear (vanishing-item bug fixed) · Modo gates bow/arrows behind the champion · wild turkeys are satchel items, Erik buys at 15 forever (repeatable income) · champion rebuilt: 28hp, fixed learnable pattern (chase→shield→swing→swing→OPEN), relentless pressure · dash works mid-joystick (second-finger double-tap) · death = 2½-heart respawn, quest state untouched · Challenge 5: Erik's shield-training sparring. 23-assertion smoke test green.
-- **Recorded for later (not built):** crossbow goblin idea; global pacing pass once content grows
+- **Version:** v0.14 — fishing round (reorg steps 6–10 still queued)
+- **Phase:** playtest-driven feature work, auto-deploy rhythm
+- **This checkpoint:** quest 1 = 5 goblins · red berries are satchel items (deadly only if eaten) · cursed stone touch-death in the deep forest · FISHING v1: pond + Bog the Boater (🛶 shack), gear gating (rod + hook from Erik), cast → bite → hold-to-reel tension minigame w/ green band, Bog keeps half (odd his), fish sell to Erik (8/20), boat-driving skill after first trip, satchel locked while line is out · #fish dev hash. 39-assertion smoke test green.
+- **Guesses flagged:** rod 25 / hooks 10 & 40 / fish 8 & 20 prices · fine hook = 50% big · reel green band tuning · pond location
+- **Recorded for later:** own boat purchase · shipwreck rescue quest (Kraken foreshadow) · crossbow goblin · pacing pass · hotbar REJECTED
 - **Known issues:** dead code + dev hashes pending reorg step 9
 - **Placeholders:** all art, mock logins, mock room codes
-- **Untested:** phone feel of the buffed champion + sparring session
+- **Untested:** phone feel of the reel minigame

@@ -153,6 +153,12 @@
 
   // prototype/src/js/data/economy.js
   var PRICES = {
+    item_rod: 25,
+    // price = placeholder guess
+    item_hook_basic: 10,
+    // small fish
+    item_hook_fine: 40,
+    // chance of BIG fish
     item_bread: 10,
     item_potion: 100,
     item_sword: 200,
@@ -162,7 +168,7 @@
     item_turkey: 15
     // price = placeholder guess (restores 1.5 hearts vs bread's 1 at 10)
   };
-  var SELL_PRICES = { item_wild_turkey: 15 };
+  var SELL_PRICES = { item_wild_turkey: 15, item_fish_small: 8, item_fish_big: 20 };
   var STARTING_COINS = 10;
 
   // prototype/src/js/data/items.js
@@ -195,11 +201,53 @@
       st: "Sweet and safely BLUE. Eat it (+½ ❤️, calms hunger) — or save it for someone who needs berries…",
       effect: { kind: "heal", halfHearts: 1, resetHunger: true, banner: "Sweet blueberry! +½ ❤️", float: "+½ ❤️" }
     },
+    item_red_berry: {
+      id: "item_red_berry",
+      ic: "🔴",
+      nm: "Red Berries",
+      st: 'Blood-red and gleaming. The Chief lost old Gregor to these.<br><b style="color:#e05545">DO NOT EAT.</b>',
+      effect: { kind: "deadly_food" }
+    },
     item_wild_turkey: {
       id: "item_wild_turkey",
       ic: "🦃",
       nm: "Wild Turkey",
       st: "A live, extremely indignant turkey. Erik pays 15 coins apiece — feathers are big business.",
+      effect: { kind: "sellable" }
+    },
+    item_rod: {
+      id: "item_rod",
+      ic: "🎣",
+      nm: "Fishing Rod",
+      st: "Sturdy ash and good line. Bog won’t row you out without one.",
+      effect: { kind: "gear" }
+    },
+    item_hook_basic: {
+      id: "item_hook_basic",
+      ic: "🪝",
+      nm: "Basic Hook",
+      st: "Catches small pond fish.",
+      effect: { kind: "gear" }
+    },
+    item_hook_fine: {
+      id: "item_hook_fine",
+      ic: "✨",
+      nm: "Fine Hook",
+      st: "Forged barb, bright gleam — the BIG fish can’t resist it.",
+      effect: { kind: "gear" }
+    },
+    item_fish_small: {
+      id: "item_fish_small",
+      ic: "🐟",
+      nm: "Pond Fish",
+      st: "Fresh from Bog’s boat. Erik pays 8 apiece.",
+      effect: { kind: "sellable" }
+    },
+    item_fish_big: {
+      id: "item_fish_big",
+      ic: "🐠",
+      nm: "Big Fish",
+      st: "A proper trophy. Erik pays 20 apiece.",
       effect: { kind: "sellable" }
     },
     item_shield: {
@@ -261,11 +309,16 @@
     look: { outfit: "#2f5d7d", hat: false },
     lines: ["Welcome to Erik’s! Bread, fresh-ish — 10 coins. Nothing in Losthorne is free, friend."],
     buys: [
-      { item: "item_wild_turkey", label: "💰 Sell wild turkey — +{price} coins", banner: "💰 Erik counts feathers happily. +15 coins" }
+      { item: "item_wild_turkey", label: "💰 Sell wild turkey — +{price} coins", banner: "💰 Erik counts feathers happily. +15 coins" },
+      { item: "item_fish_small", label: "💰 Sell pond fish — +{price} coins", banner: "💰 “Fresh-ish fish!” +8 coins" },
+      { item: "item_fish_big", label: "💰 Sell BIG fish — +{price} coins", banner: "💰 Erik whistles. +20 coins" }
     ],
     shop: [
       { item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" },
-      { item: "item_turkey", label: "🍗 Turkey meat — {price} coins (+1½ ❤️)", banner: "🍗 Roast turkey wrapped and tucked away", requiresFlag: "flag_erik_turkey_stock" }
+      { item: "item_turkey", label: "🍗 Turkey meat — {price} coins (+1½ ❤️)", banner: "🍗 Roast turkey wrapped and tucked away", requiresFlag: "flag_erik_turkey_stock" },
+      { item: "item_rod", label: "🎣 Fishing rod — {price} coins", banner: "🎣 A fine rod. Bog’s shack is by the pond!" },
+      { item: "item_hook_basic", label: "🪝 Basic hook — {price} coins", banner: "🪝 Good for pond fish." },
+      { item: "item_hook_fine", label: "✨ Fine hook — {price} coins", banner: "✨ The big ones love this one." }
     ]
   };
 
@@ -305,6 +358,28 @@
       { item: "item_sword", label: "🗡️ Forged sword — {price} coins", banner: "🗡️ The sword is yours. Switch weapons to draw it!" },
       { item: "item_bow", label: "🏹 Hunting bow — {price} coins", banner: "🏹 The bow is yours — you'll need arrows!", requiresFlag: "flag_champion_defeated" },
       { item: "item_arrows", label: "🎯 Arrow pack (10) — {price} coins", banner: "🎯 +10 arrows in your quiver", requiresFlag: "flag_champion_defeated" }
+    ]
+  };
+
+  // prototype/src/js/data/npcs/bog.js
+  var bog_default = {
+    id: "npc_bog",
+    name: "Bog the Boater",
+    pos: { x: 1195, y: 1062 },
+    look: { outfit: "#3a6b62", hat: false },
+    outdoor: true,
+    linesNoGear: [
+      "Mmh. Pond's full of fish, warrior. But I don't row for free-loaders.",
+      "Get yourself a ROD and a HOOK — Erik sells both, the 🪙 shop — then come see Bog."
+    ],
+    lines: [
+      "Ah — rod AND hook! Now you look like company worth rowing.",
+      "My terms: half the catch is mine. Odd fish? Mine too. The pond gives, Bog keeps.",
+      "Well? Shall we?"
+    ],
+    actions: [
+      { id: "fish_trip", label: "🛶 Row out fishing with Bog (he keeps half)", needsGear: true },
+      { id: "boat_lesson", label: "⛵ Ask Bog to teach boat-driving", requiresFlag: "flag_fished_once" }
     ]
   };
 
@@ -433,12 +508,12 @@
   var main_01_goblins_default = {
     id: "quest_main_01_goblins",
     giver: "npc_chief_bonbottom",
-    objective: { type: "kill", target: "enemy_goblin", count: 3 },
+    objective: { type: "kill", target: "enemy_goblin", count: 5 },
     dialogue: {
       offer: [
         "Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
         "Goblins have crept into the north forest. They scare the children and steal our bread!",
-        "Drive off 3 goblins, and there'll be 110 coins in it for you.",
+        "Drive off 5 goblins, and there'll be 110 coins in it for you.",
         "Oh — and NEVER eat the red berries. The blue ones are safe. The red ones… we lost old Gregor that way."
       ],
       active: ["The goblins won't leave on their own, warrior! North, up the path, through the woods."],
@@ -451,12 +526,12 @@
     },
     tracker: {
       offer: "💬 Find Chief Bonbottom",
-      active: "⚔️ Goblins: {n}/3",
+      active: "⚔️ Goblins: {n}/5",
       complete: "🏆 Return to the Chief",
       afterReward: "🧪 Find Dorgan’s shop"
     },
     banners: {
-      start: "📜 Quest: drive off 3 goblins in the north forest!",
+      start: "📜 Quest: drive off 5 goblins in the north forest!",
       objectiveDone: "⚔️ Quest complete! Return to Chief Bonbottom!",
       reward: "🎉 The Chief pays you 110 coins!"
     },
@@ -754,7 +829,7 @@
     weapons: { fists: true, sword: false, bow: false },
     arrows: 0,
     potionRolls: [],
-    inv: { item_bread: 0, item_potion: 0, item_turkey: 0, item_blueberry: 0, item_shield: 0, item_wild_turkey: 0 },
+    inv: { item_bread: 0, item_potion: 0, item_turkey: 0, item_blueberry: 0, item_shield: 0, item_wild_turkey: 0, item_red_berry: 0 },
     hasShield: false,
     dashT: 0,
     dashCd: 0
@@ -781,7 +856,7 @@
   [[620, 1120], [980, 1120], [560, 1300], [1030, 1300], [790, 1370]].forEach((h) => houses.push({ x: h[0], y: h[1] }));
   [[420, 880], [1180, 840], [760, 760], [300, 1020], [1320, 1e3]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "blue", taken: false, respawn: 0 }));
   [[560, 940], [1050, 760]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "red", taken: false, respawn: 0 }));
-  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default, modo_default].map((d) => ({
+  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default, modo_default, bog_default].map((d) => ({
     id: d.id,
     nm: d.name,
     x: d.pos.x,
@@ -790,9 +865,13 @@
     hat: !!d.look.hat,
     raw: d
   }));
+  function hasFishingGear() {
+    return (P.inv.item_rod || 0) > 0 && ((P.inv.item_hook_basic || 0) > 0 || (P.inv.item_hook_fine || 0) > 0);
+  }
   function npcLines(n) {
     const d = n.raw;
     if (d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
+    if (d.linesNoGear && !hasFishingGear()) return d.linesNoGear;
     return d.lines || d.idleLines;
   }
   function buyItem(entry) {
@@ -850,6 +929,20 @@
         box.appendChild(b);
       }
     }
+    if (d.actions) {
+      for (const a of d.actions) {
+        if (a.requiresFlag && !questState.flags[a.requiresFlag]) continue;
+        if (a.needsGear && !hasFishingGear()) continue;
+        const b = document.createElement("button");
+        b.className = "btn shopBtn";
+        b.textContent = a.label;
+        b.onclick = (ev) => {
+          ev.stopPropagation();
+          NPC_ACTIONS[a.id] && NPC_ACTIONS[a.id]();
+        };
+        box.appendChild(b);
+      }
+    }
     if (d.buys) {
       for (const entry of d.buys) {
         const def = ITEM_DEFS[entry.item], price = SELL_PRICES[entry.item];
@@ -876,7 +969,7 @@
   var goblins = [];
   function spawnGoblins() {
     goblins.length = 0;
-    [[600, 420], [840, 300], [1120, 460], [920, 560]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 6, maxhp: 6, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
+    [[600, 420], [840, 300], [1120, 460], [920, 560], [420, 330], [1250, 300]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 6, maxhp: 6, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
   }
   spawnGoblins();
   var turkeys = [];
@@ -884,6 +977,7 @@
     turkeys.length = 0;
     [[500, 860], [900, 930], [1250, 880], [700, 1010]].forEach((t) => turkeys.push({ x: t[0], y: t[1], dir: Math.random() * 7, t: 0 }));
   }
+  var CURSED_STONE = { x: 840, y: 170 };
   spawnTurkeys();
   var scene = "village";
   var SHOP_NPCS = [erik_default, dorgan_default, modo_default];
@@ -993,8 +1087,11 @@
       if (d && n && Math.hypot(d.pos.x - P.x, d.pos.y - P.y) < 86) return n;
       return null;
     }
-    const chief = NPCS.find((x) => x.id === "npc_chief_bonbottom");
-    return chief && Math.hypot(chief.x - P.x, chief.y - P.y) < 70 ? chief : null;
+    for (const n of NPCS) {
+      if (n.raw.building) continue;
+      if (Math.hypot(n.x - P.x, n.y - P.y) < 70) return n;
+    }
+    return null;
   }
   function enemyNearby() {
     if (scene !== "village") return false;
@@ -1009,6 +1106,11 @@
   }
   function contextAction() {
     if (dialogOpen || invOpen) return null;
+    if (scene === "fishing") {
+      if (fish.state === "idle") return { icon: "🎣", label: "cast", kind: "cast" };
+      if (fish.state === "waiting") return { icon: "👀", label: "watch…", kind: "none" };
+      return { icon: "🎣", label: "HOLD to reel!", kind: "reel" };
+    }
     if (scene !== "village") {
       if (npcNearby()) return { icon: "💬", label: NPCS.find((x) => x.id === scene).nm.split(" ")[0], kind: "talk" };
       if (interiorDoorNear()) return { icon: "🚪", label: "leave", kind: "leave" };
@@ -1041,10 +1143,12 @@
     var _a;
     if (invOpen) return;
     const b = buttonAt(p.x, p.y);
-    const ctxIsSmash = b === "ctx" && ((_a = contextAction()) == null ? void 0 : _a.kind) === "smash";
-    if ((b === "atk" || ctxIsSmash) && !swp.active) {
+    const ctxKind = b === "ctx" ? (_a = contextAction()) == null ? void 0 : _a.kind : null;
+    const ctxIsSmash = ctxKind === "smash", ctxIsReel = ctxKind === "reel" || ctxKind === "none" && scene === "fishing";
+    if ((b === "atk" || ctxIsSmash || ctxIsReel) && !swp.active) {
       swp.active = true;
       swp.smashOnly = ctxIsSmash;
+      swp.reelHold = ctxIsReel;
       swp.id = id;
       swp.sx = p.x;
       swp.sy = p.y;
@@ -1126,11 +1230,17 @@
   }
   function pressButton(kind) {
     if (kind === "bag") {
+      if (scene === "fishing" && fish.state !== "idle") {
+        banner("🎣 Hands full! Land the line first.");
+        return;
+      }
       openInv();
     } else if (kind === "ctx") {
       const a = contextAction();
       if (!a) return;
-      if (a.kind === "talk") {
+      if (a.kind === "cast") {
+        fishingCast();
+      } else if (a.kind === "talk") {
         const n = npcNearby();
         if (n) openDialog(n);
       } else if (a.kind === "enter") {
@@ -1158,6 +1268,14 @@
   }
   function attackRelease(x, y) {
     if (invOpen) return;
+    if (swp.reelHold) {
+      swp.reelHold = false;
+      return;
+    }
+    if (scene === "fishing") {
+      if (fish.state === "idle") fishingEnd();
+      return;
+    }
     const dx = x - swp.sx, dy = y - swp.sy, dist = Math.hypot(dx, dy);
     const dur = performance.now() - swp.t0;
     if (swp.smashOnly) {
@@ -1313,6 +1431,9 @@
     },
     mystery_potion() {
       drinkPotion(P.potionRolls.shift());
+    },
+    deadly_food() {
+      die("You ate the RED berries. The Chief warned you…", "The red berries");
     }
   };
   function useItem(id) {
@@ -1375,8 +1496,8 @@
   $("invUse").onclick = () => {
     if (!invSel || P.inv[invSel] < 1) return;
     const e = ITEM_DEFS[invSel].effect;
-    if (e.kind === "passive") {
-      banner("🛡️ It’s equipped — always with you.");
+    if (e.kind === "passive" || e.kind === "gear") {
+      banner("🧰 It’s gear — always with you.");
       return;
     }
     if (e.kind === "sellable") {
@@ -1489,7 +1610,7 @@
     if (P.dashCd > 0) P.dashCd--;
     const spd = P.speed * (pot.t > 0 ? ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.speedMult) || 1 : 1);
     const charging = chargeInfo();
-    if ((mx || my) && !blocked() && !charging) {
+    if ((mx || my) && !blocked() && !charging && scene !== "fishing") {
       P.x += mx * spd;
       P.y += my * spd;
       P.dir = Math.atan2(my, mx);
@@ -1507,6 +1628,14 @@
         if (Math.abs(P.x - h.x) < 62 && Math.abs(P.y - h.y) < 56) {
           if (Math.abs(P.x - h.x) / 62 > Math.abs(P.y - h.y) / 56) P.x = h.x + Math.sign(P.x - h.x) * 62;
           else P.y = h.y + Math.sign(P.y - h.y) * 56;
+        }
+      }
+      {
+        const ex = (P.x - POND.x) / (POND.rx + 14), ey = (P.y - POND.y) / (POND.ry + 14), d2 = ex * ex + ey * ey;
+        if (d2 < 1) {
+          const a = Math.atan2(P.y - POND.y, P.x - POND.x);
+          P.x = POND.x + Math.cos(a) * (POND.rx + 15);
+          P.y = POND.y + Math.sin(a) * (POND.ry + 15);
         }
       }
     }
@@ -1577,6 +1706,7 @@
       }
     }
     sparUpdate(dt);
+    fishingUpdate(dt);
     if (scene === "village") for (const tk of turkeys) {
       const d = Math.hypot(P.x - tk.x, P.y - tk.y);
       if (d < 120 && !blocked()) {
@@ -1650,9 +1780,14 @@
           const q = questState.currentId === "quest_main_02_blueberries" && questState.stage !== "afterReward";
           banner(q ? "🫐 Satchel: " + Math.min(P.inv.item_blueberry, 4) + "/4" : "🫐 Blueberry into the satchel");
         } else {
-          die("You ate the RED berries. The Chief warned you…", "The red berries");
+          P.inv.item_red_berry = (P.inv.item_red_berry || 0) + 1;
+          addFloat(P.x, P.y - 34, "+🔴", "#e05545", 17);
+          banner("🔴 Red berries into the satchel. Remember what the Chief said…");
         }
       }
+    }
+    if (scene === "village" && Math.hypot(CURSED_STONE.x - P.x, CURSED_STONE.y - P.y) < 26) {
+      die("You touched the cursed stone. Its cold fire took you in an instant.", "The cursed stone");
     }
     Quests.update(dt);
     if (scene === "village") for (const g of goblins) {
@@ -1687,7 +1822,9 @@
     }
   }
   function draw() {
-    if (scene !== "village") {
+    if (scene === "fishing") {
+      drawFishing();
+    } else if (scene !== "village") {
       drawInterior();
     } else {
       const camX = Math.max(0, Math.min(W - vw, P.x - vw / 2)), camY = Math.max(0, Math.min(H - vh, P.y - vh / 2));
@@ -1712,6 +1849,38 @@
       ctx.moveTo(800, 1340);
       ctx.quadraticCurveTo(780, 900, 830, 420);
       ctx.stroke();
+      ctx.fillStyle = "#274b56";
+      ctx.beginPath();
+      ctx.ellipse(POND.x, POND.y, POND.rx, POND.ry, 0, 0, 7);
+      ctx.fill();
+      ctx.fillStyle = "#31606e";
+      ctx.beginPath();
+      ctx.ellipse(POND.x - 14, POND.y - 10, POND.rx * 0.8, POND.ry * 0.78, 0, 0, 7);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(210,230,240,.25)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.ellipse(POND.x - 20 + i * 24, POND.y - 16 + i * 20, 26, 7, 0, 0, 7);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#4a3a26";
+      ctx.fillRect(1160, 1035, 74, 50);
+      ctx.fillStyle = "#6d4a2e";
+      ctx.beginPath();
+      ctx.moveTo(1152, 1037);
+      ctx.lineTo(1197, 1008);
+      ctx.lineTo(1242, 1037);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#3d2c14";
+      ctx.fillRect(1180, 1082, 34, 22);
+      ctx.strokeStyle = "#8a6d38";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1180, 1082, 34, 22);
+      ctx.font = "15px Georgia";
+      ctx.textAlign = "center";
+      ctx.fillText("🛶", 1197, 1098);
       ctx.fillStyle = "rgba(120,100,60,.25)";
       ctx.beginPath();
       ctx.ellipse(800, 1230, 330, 210, 0, 0, 7);
@@ -1831,8 +2000,8 @@
         ctx.lineTo(hx + 3, hy + 3);
         ctx.fill();
       }
-      {
-        const n = NPCS.find((x) => x.id === "npc_chief_bonbottom");
+      for (const n of NPCS) {
+        if (n.raw.building) continue;
         drawPerson(n.x, n.y, 0, { hair: "#555", outfit: n.col, skin: "#e0b088" }, n.hat, Math.hypot(n.x - P.x, n.y - P.y) < 70);
       }
       if (spar && questState.currentId === "quest_main_05_shield_training" && questState.stage === "active") {
@@ -2024,6 +2193,24 @@
           ctx.fill();
         }
       }
+      {
+        const cs = CURSED_STONE, gl = 0.35 + 0.2 * Math.sin(performance.now() / 300);
+        ctx.fillStyle = "rgba(120,60,200," + gl * 0.4 + ")";
+        ctx.beginPath();
+        ctx.arc(cs.x, cs.y, 26, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#2c1f3d";
+        ctx.beginPath();
+        ctx.moveTo(cs.x, cs.y - 20);
+        ctx.lineTo(cs.x + 12, cs.y + 8);
+        ctx.lineTo(cs.x, cs.y + 14);
+        ctx.lineTo(cs.x - 12, cs.y + 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "rgba(190,120,255," + (gl + 0.2) + ")";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
       for (const f of floats) {
         ctx.globalAlpha = Math.min(1, f.t / 22);
         ctx.font = "bold " + f.size + "px Georgia";
@@ -2100,7 +2287,7 @@
     ctx.font = ab.r * 0.9 + "px Georgia";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(WEAPONS[P.weapon].icon, ab.x, ab.y + 2);
+    ctx.fillText(scene === "fishing" ? "⛵" : WEAPONS[P.weapon].icon, ab.x, ab.y + 2);
     const wb = wpnBtn();
     ctx.fillStyle = "rgba(51,48,42,.6)";
     ctx.beginPath();
@@ -2176,7 +2363,7 @@
     ctx.textAlign = "left";
     if (!joy.active) ctx.fillText("press & drag anywhere to move", 18, vh - 20);
     ctx.textAlign = "center";
-    ctx.fillText(P.weapon === "fists" ? "tap: punch • hold: charge SMASH" : P.weapon === "sword" ? "drag from the button: aimed slice • hold: charge SMASH" : "pull back & release • arrows: " + P.arrows, ab.x - 24, ab.y + ab.r + 18);
+    ctx.fillText(scene === "fishing" ? "⛵ tap: row back to shore" : P.weapon === "fists" ? "tap: punch • hold: charge SMASH" : P.weapon === "sword" ? "drag from the button: aimed slice • hold: charge SMASH" : "pull back & release • arrows: " + P.arrows, ab.x - 24, ab.y + ab.r + 18);
     if (pot.t > 0 && pot.type) {
       const pp = POTION_POWERS[pot.type], frac = Math.max(0, Math.min(1, pot.t / POTION_DURATION_MS));
       const bw = 180, bx = vw - bw - 24, by = top + 40;
@@ -2281,6 +2468,83 @@
     if (typeof devArmed !== "undefined" && devArmed) buildDevMenu();
     requestAnimationFrame(loop);
   }
+  var POND = { x: 1380, y: 930, rx: 175, ry: 120 };
+  var fish = { state: "idle", t: 0, biteT: 0, tension: 50, inZone: 0, catches: [] };
+  var NPC_ACTIONS = {
+    fish_trip() {
+      closeDialog();
+      scene = "fishing";
+      fish.state = "idle";
+      fish.catches.length = 0;
+      banner("🛶 Bog rows you to the middle of the pond. Tap 🎣 to cast!");
+    },
+    boat_lesson() {
+      closeDialog();
+      questState.flags.flag_boat_skill = true;
+      banner("⛵ Bog shows you oars, current, and balance. BOAT-DRIVING learned — you’ll need it beyond this village!");
+      addFloat(P.x, P.y - 40, "⛵ skill learned!", "#9fd6e8", 20);
+    }
+  };
+  function fishingCast() {
+    if (fish.state !== "idle") return;
+    fish.state = "waiting";
+    fish.t = 1500 + Math.random() * 2500;
+    banner("🎣 Cast… watch the water.");
+  }
+  function fishingHolding() {
+    return swp.active && swp.reelHold;
+  }
+  function fishingLose(tip) {
+    fish.state = "idle";
+    banner(tip);
+  }
+  function fishingCatch() {
+    const big = (P.inv.item_hook_fine || 0) > 0 && Math.random() < 0.5;
+    fish.catches.push(big ? "item_fish_big" : "item_fish_small");
+    fish.state = "idle";
+    banner((big ? "🐠 A BIG one!" : "🐟 Caught one!") + "  (" + fish.catches.length + " aboard) — cast again or ⛵ row back");
+  }
+  function fishingEnd() {
+    const yours = [];
+    fish.catches.forEach((f, i) => {
+      if (i % 2 === 1) yours.push(f);
+    });
+    for (const f of yours) P.inv[f] = (P.inv[f] || 0) + 1;
+    const bogN = fish.catches.length - yours.length;
+    questState.flags.flag_fished_once = true;
+    scene = "village";
+    P.x = 1195;
+    P.y = 1100;
+    banner("⛵ Ashore! Catch: " + fish.catches.length + " — Bog keeps " + bogN + ", you keep " + yours.length + ". He can teach boat-driving now!");
+    fish.state = "idle";
+    fish.catches.length = 0;
+  }
+  function fishingUpdate(dt) {
+    if (scene !== "fishing") return;
+    if (fish.state === "waiting") {
+      fish.t -= dt;
+      if (fish.t <= 0) {
+        fish.state = "bite";
+        fish.biteT = 1700;
+        banner("❗ A BITE! HOLD 🎣 to reel — steady now!");
+      }
+    } else if (fish.state === "bite") {
+      fish.biteT -= dt;
+      if (fishingHolding()) {
+        fish.state = "reeling";
+        fish.tension = 50;
+        fish.inZone = 0;
+      } else if (fish.biteT <= 0) fishingLose("Bog: Slept through the bite, did we? Cast again.");
+    } else if (fish.state === "reeling") {
+      fish.tension += fishingHolding() ? dt * 0.048 : -dt * 0.058;
+      if (fish.tension >= 100) fishingLose("💨 SNAP! Bog: Too HARD — ease off when the line strains!");
+      else if (fish.tension <= 0) fishingLose("💨 It jumped away! Bog: Too timid — REEL, warrior!");
+      else {
+        if (fish.tension > 34 && fish.tension < 66) fish.inZone += dt;
+        if (fish.inZone > 2600) fishingCatch();
+      }
+    }
+  }
   var spar = null;
   function spawnSpar() {
     spar = { x: 940, y: 1200, dir: 0, state: "circle", t: 0 };
@@ -2326,6 +2590,84 @@
         c.t = 0;
         c.state = "circle";
       }
+    }
+  }
+  function drawFishing() {
+    const grd = ctx.createLinearGradient(0, 0, 0, vh);
+    grd.addColorStop(0, "#2b5561");
+    grd.addColorStop(1, "#1d3b45");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, vw, vh);
+    ctx.strokeStyle = "rgba(210,230,240,.16)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.ellipse((i * 173 + performance.now() / 40 % 173) % vw, 60 + i * (vh / 6), 34, 8, 0, 0, 7);
+      ctx.stroke();
+    }
+    const bx = vw / 2, by = vh * 0.62;
+    ctx.fillStyle = "#6b4a26";
+    ctx.beginPath();
+    ctx.moveTo(bx - 95, by);
+    ctx.quadraticCurveTo(bx, by + 52, bx + 95, by);
+    ctx.lineTo(bx + 70, by - 16);
+    ctx.lineTo(bx - 70, by - 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#8a6d38";
+    ctx.fillRect(bx - 70, by - 16, 140, 7);
+    drawPerson(bx - 38, by - 28, 0, { hair: "#555", outfit: "#3a6b62", skin: "#e0b088" }, false, false);
+    drawPerson(bx + 30, by - 28, 0, AVATARS[chosen < 0 ? 0 : chosen], false, false);
+    if (fish.state !== "idle") {
+      const fx = bx + 95 + 60, fy = by - 70 + Math.sin(performance.now() / 300) * 6;
+      ctx.strokeStyle = "rgba(240,240,240,.5)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(bx + 42, by - 40);
+      ctx.quadraticCurveTo(bx + 90, by - 90, fx, fy);
+      ctx.stroke();
+      ctx.fillStyle = fish.state === "bite" || fish.state === "reeling" ? "#ff5545" : "#e8e0c8";
+      ctx.beginPath();
+      ctx.arc(fx, fy, fish.state === "waiting" ? 5 : 7, 0, 7);
+      ctx.fill();
+      if (fish.state === "bite") {
+        ctx.font = "bold 20px Georgia";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffd75a";
+        ctx.fillText("❗", fx, fy - 16);
+      }
+    }
+    if (fish.state === "reeling") {
+      const w = Math.min(340, vw * 0.5), x = vw / 2 - w / 2, y = 44;
+      ctx.fillStyle = "rgba(10,8,5,.8)";
+      rr(ctx, x - 8, y - 8, w + 16, 34, 10);
+      ctx.fillStyle = "rgba(255,255,255,.14)";
+      rr(ctx, x, y, w, 18, 6);
+      ctx.fillStyle = "rgba(120,230,140,.35)";
+      rr(ctx, x + w * 0.34, y, w * 0.32, 18, 6);
+      ctx.fillStyle = fish.tension > 34 && fish.tension < 66 ? "#7ed67e" : "#e0b34a";
+      ctx.beginPath();
+      ctx.arc(x + w * (fish.tension / 100), y + 9, 10, 0, 7);
+      ctx.fill();
+      ctx.font = "11.5px Georgia";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(240,230,200,.75)";
+      ctx.fillText("keep the marker in the green — HOLD to reel, release to ease", vw / 2, y + 42);
+    }
+    ctx.font = "bold 14px Georgia";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#e8d9a8";
+    ctx.fillText("🛶 aboard: " + fish.catches.length, 18, vh - 18);
+    for (const f of floats) {
+      ctx.globalAlpha = Math.min(1, f.t / 22);
+      ctx.font = "bold " + f.size + "px Georgia";
+      ctx.textAlign = "center";
+      ctx.strokeStyle = "rgba(0,0,0,.7)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(f.txt, bx, by - 70);
+      ctx.fillStyle = f.col;
+      ctx.fillText(f.txt, bx, by - 70);
+      ctx.globalAlpha = 1;
     }
   }
   function drawInterior() {
@@ -2403,6 +2745,14 @@
     startGame();
     openInv();
   }
+  if (location.hash === "#fish") {
+    chosen = 0;
+    P.inv.item_rod = 1;
+    P.inv.item_hook_basic = 1;
+    P.inv.item_hook_fine = 1;
+    startGame();
+    NPC_ACTIONS.fish_trip();
+  }
   var devBuilt = false;
   function buildDevMenu() {
     if (devBuilt) return;
@@ -2476,10 +2826,11 @@
     const erik = NPCS.find((n) => n.id === "npc_erik");
     const modo = NPCS.find((n) => n.id === "npc_modo");
     ok(AVATARS[0].nm === "Zippy", "Zippy leads the avatar roster");
-    ok(P.coins === 10 && P.weapon === "fists" && goblins[0].hp === 6, "start: 10 coins, fists, 6-punch goblins");
+    ok(P.coins === 10 && P.weapon === "fists" && goblins[0].hp === 6 && goblins.length === 6, "start: 10 coins, fists, 6-punch goblins, 6 roaming");
     openDialog(chief);
     while (dialogOpen) advanceDialog();
-    goblins.slice(0, 3).forEach((g) => hitTarget(g, "gob", 99, 0));
+    goblins.slice(0, 5).forEach((g) => hitTarget(g, "gob", 99, 0));
+    ok(questState.stage === "complete", "quest 1 now needs FIVE goblins");
     openDialog(chief);
     while (dialogOpen) advanceDialog();
     ok(P.coins === 120, "chief pays 110");
@@ -2548,6 +2899,56 @@
     openDialog(erik);
     while (dialogOpen) advanceDialog();
     ok(Quests.trackerText() === "✅ All quests done — explore Losthorne!", "chain complete");
+    P.inv.item_red_berry = 1;
+    invSel = "item_red_berry";
+    P.inv.item_red_berry--;
+    useItem("item_red_berry");
+    invSel = null;
+    ok($("deathTitle").textContent === "The red berries", "eating red berries from the satchel = death");
+    $("btnRespawn").click();
+    P.x = CURSED_STONE.x;
+    P.y = CURSED_STONE.y;
+    update(16);
+    ok($("deathTitle").textContent === "The cursed stone", "the cursed stone kills on touch");
+    $("btnRespawn").click();
+    const bog = NPCS.find((n) => n.id === "npc_bog");
+    openDialog(bog);
+    ok(dLines === bog.raw.linesNoGear, "Bog refuses freeloaders without rod & hook");
+    ok([...$("shopBox").children].length === 0, "no trip offered without gear");
+    while (dialogOpen) advanceDialog();
+    P.inv.item_rod = 1;
+    P.inv.item_hook_basic = 1;
+    openDialog(bog);
+    ok(dLines === bog.raw.lines, "with gear, Bog offers his terms");
+    ok([...$("shopBox").children].some((b) => b.textContent.includes("Row out fishing")), "fishing trip button appears");
+    while (dialogOpen) advanceDialog();
+    NPC_ACTIONS.fish_trip();
+    ok(scene === "fishing", "out on the boat");
+    fishingCast();
+    ok(fish.state === "waiting", "line cast");
+    fish.state = "reeling";
+    fish.inZone = 2601;
+    fishingUpdate(16);
+    ok(fish.catches.length === 1, "steady reeling lands a fish");
+    fish.catches.push("item_fish_small", "item_fish_small");
+    const f0 = (P.inv.item_fish_small || 0) + (P.inv.item_fish_big || 0);
+    fishingEnd();
+    const f1 = (P.inv.item_fish_small || 0) + (P.inv.item_fish_big || 0);
+    ok(f1 - f0 === 1 && scene === "village", "3 caught → Bog keeps 2 (odd one his), you keep 1");
+    ok(questState.flags.flag_fished_once === true, "first trip unlocks the boat lesson");
+    openDialog(bog);
+    ok([...$("shopBox").children].some((b) => b.textContent.includes("boat-driving")), "boat lesson now offered");
+    while (dialogOpen) advanceDialog();
+    NPC_ACTIONS.boat_lesson();
+    ok(questState.flags.flag_boat_skill === true, "boat-driving skill learned (for later villages)");
+    P.inv.item_fish_big = 1;
+    const ce = P.coins;
+    openDialog(erik);
+    const fb = [...$("shopBox").children].find((b) => b.textContent.includes("Sell BIG fish"));
+    ok(!!fb, "Erik buys fish");
+    fb.click();
+    ok(P.coins === ce + 20, "big fish sells for 20");
+    while (dialogOpen) advanceDialog();
     const cq = questState.currentId;
     die("test");
     $("btnRespawn").click();
@@ -2556,7 +2957,7 @@
     const div = document.createElement("div");
     div.style.cssText = "position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;";
     const fails = R.filter((r) => r.startsWith("❌")).length;
-    div.textContent = "PLAYTEST ROUND 4 SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
+    div.textContent = "ROUND 5 (FISHING) SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
     document.getElementById("app").appendChild(div);
   }
 })();
