@@ -969,7 +969,7 @@ function loop(ts){
   update(dt); draw();
   requestAnimationFrame(loop);
 }
-function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); requestAnimationFrame(loop); }
+function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); if(typeof devArmed!=='undefined' && devArmed) buildDevMenu(); requestAnimationFrame(loop); }
 
 // ---------- ERIK'S SHIELD TRAINING (quest 5) ----------
 let spar=null;
@@ -1034,9 +1034,11 @@ if(location.hash==='#game'){ chosen=0; startGame(); }
 if(location.hash==='#select'){ show('select'); }
 if(location.hash==='#lobby'){ show('lobby'); }
 if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; startGame(); openInv(); }
-// ---------- DEV TESTING MENU (#dev) — preview-only, never part of normal play ----------
-if(location.hash==='#dev'){
-  chosen=0; startGame();
+// ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
+// Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
+let devBuilt=false;
+function buildDevMenu(){
+  if(devBuilt) return; devBuilt=true;
   const dv=document.createElement('div');
   dv.style.cssText='position:fixed;left:8px;top:64px;z-index:98;display:flex;flex-direction:column;gap:4px;';
   const mk=(label,fn)=>{ const b=document.createElement('button'); b.className='btn ghost';
@@ -1051,8 +1053,14 @@ if(location.hash==='#dev'){
   mk('open both shops', ()=>{ questState.flags.flag_dorgan_shop_open=true; questState.flags.flag_erik_turkey_stock=true; });
   mk('give 4 blueberries', ()=>{ P.inv.item_blueberry=(P.inv.item_blueberry||0)+4; });
   mk('heal full', ()=>{ P.hp=P.maxhp; hungerT=0; });
+  mk('✖ hide dev bar', ()=>{ dv.remove(); devBuilt=false; });
   document.getElementById('app').appendChild(dv);
 }
+if(location.hash==='#dev'){ chosen=0; startGame(); buildDevMenu(); }
+var devArmed=false;
+$('btnDev').onclick=()=>{ devArmed=!devArmed;
+  $('btnDev').style.color=devArmed?'#ffd977':'';
+  $('btnDev').textContent=devArmed?'🛠 dev tools ON — start the game':'🛠 dev tools'; };
 
 // automated smoke test (temporary home; moves to dev.js in reorg step 9)
 if(location.hash==='#test-quests'){

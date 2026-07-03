@@ -82,7 +82,8 @@
   <button class="btn" id="btnGuest" data-ref="begin-quest-button">⚔️ &nbsp;Begin the Quest</button>
   <button class="btn ghost" id="btnGoogle" data-ref="google-login-button">Sign in with Google — coming soon</button>
   <button class="btn ghost" id="btnSupa" data-ref="supabase-login-button">Village account (Supabase) — coming soon</button>
-  <div class="note">The last free village needs you.<br>Prototype v0.1 — logins are pretend for now.</div>
+  <div class="note">The last free village needs you.<br>Prototype — logins are pretend for now.</div>
+  <button class="btn ghost" id="btnDev" data-ref="dev-toggle-button" style="width:auto;padding:6px 14px;font-size:12px;opacity:.6;">🛠 dev tools</button>
 </div>
 
 <!-- LOBBY / ROOM CODE -->
@@ -2277,6 +2278,7 @@
     running = true;
     last = performance.now();
     banner("Welcome to Losthorne. Find Chief Bonbottom in the square!");
+    if (typeof devArmed !== "undefined" && devArmed) buildDevMenu();
     requestAnimationFrame(loop);
   }
   var spar = null;
@@ -2401,9 +2403,10 @@
     startGame();
     openInv();
   }
-  if (location.hash === "#dev") {
-    chosen = 0;
-    startGame();
+  var devBuilt = false;
+  function buildDevMenu() {
+    if (devBuilt) return;
+    devBuilt = true;
     const dv = document.createElement("div");
     dv.style.cssText = "position:fixed;left:8px;top:64px;z-index:98;display:flex;flex-direction:column;gap:4px;";
     const mk = (label, fn) => {
@@ -2442,8 +2445,23 @@
       P.hp = P.maxhp;
       hungerT = 0;
     });
+    mk("✖ hide dev bar", () => {
+      dv.remove();
+      devBuilt = false;
+    });
     document.getElementById("app").appendChild(dv);
   }
+  if (location.hash === "#dev") {
+    chosen = 0;
+    startGame();
+    buildDevMenu();
+  }
+  var devArmed = false;
+  $("btnDev").onclick = () => {
+    devArmed = !devArmed;
+    $("btnDev").style.color = devArmed ? "#ffd977" : "";
+    $("btnDev").textContent = devArmed ? "🛠 dev tools ON — start the game" : "🛠 dev tools";
+  };
   if (location.hash === "#test-quests") {
     chosen = 0;
     startGame();
