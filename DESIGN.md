@@ -34,9 +34,10 @@
 - **Visible on-screen controls** — the joystick/toggle must be SEEN on screen, not invisible. ✅ [Kaylee]
 - Combat gestures (see §7): slice swipe, smash, pull-back archery.
 - **Reference games:** Genshin Impact plays well on a phone (though Kaylee doesn't love its interface); Zelda is more intuitive. Goal = Genshin's phone-smoothness + Zelda's intuitiveness. [Kaylee]
-- **Inventory:** a satchel button on screen opens your bag — slots holding armor, artifacts, supplies, food. Always accessible. [Josiah]
+- **Inventory:** a satchel button (🎒 bag icon) on screen opens your bag — slots holding armor, artifacts, supplies, food. Always accessible. Tap an item to **enlarge it and see its stats**, then decide whether to use it. ✅ [Josiah; detail flow: Kaylee] Purchases (bread, potions) go INTO the satchel rather than taking effect instantly. ✅ [Kaylee]
 - **Two weapons carried at once**, quick-switch between them. ✅ (sword/bow switch button) [Josiah]
 - **Dialogue:** tap next-next-next through each line an NPC says. ✅
+- **UI zones are fixed so text never overlaps** ✅ [Kaylee]: dialogue lives bottom-center; notifications live top-center only; quest tracker top-left under the hearts; potion status right side under the coins.
 - **Breakaway cutscenes:** the game pauses to tell story bits, then returns to gameplay — like other adventure games.
 - **Map screen:** shows where you are. Territories you haven't visited are just outlines; once visited they get colored in. You can BUY bigger maps from villagers to reveal other islands — some islands don't even appear until you buy the next map (quest hook: "you don't realize there's another island"). [Josiah + Kaylee]
 
@@ -67,8 +68,9 @@ Each avatar ALSO gets their own unique personal side quest that the others don't
 
 ## 6. Economy & Money
 
-- Start with **500 coins**, automatically. ✅
-- **Price anchors** (so everything can be priced consistently): loaf of bread ≈ **8**, horse ≈ **500**, small hammer ≈ **100**, best sword ≈ **300**. Premium/precious materials cost more. [Josiah, "so Claude can easily price things out"]
+- Start with **50 coins**. [Kaylee — revised down from the boys' original 500 to make money feel earned]
+- **Coins are never automatic.** The ONLY way to get coins is from people (e.g., the chief paying you for a quest) or creatures (enemies **drop coin piles on the ground** — you walk over to collect them). No invisible "+10 coins" rewards. ✅ [Kaylee]
+- **Price anchors** (so everything can be priced consistently): loaf of bread ≈ **8**, horse ≈ **500**, small hammer ≈ **100**, best sword ≈ **300**. Premium/precious materials cost more. [Josiah, "so Claude can easily price things out"] *(Note: with the 50-coin start, the horse at 500 is a real goal to save toward.)*
 - Money is needed for: weapons/armor (Moto Moto), supplies for Dorgan's potions, food, animal feed, **bridge tolls** (fancier villages charge a toll to cross into their land, like a toll road), bigger maps, and small taxes.
 - **Village specialty armor:** like every country's soccer uniform is different, every village's armory is different and suited to different things — e.g., the lake village sells **underwater armor** you'll want before fighting the Kraken. [Kaylee]
 - Rewards: goblins drop coins ✅; the Troll guards a treasure hoard (big payout).
@@ -80,6 +82,8 @@ Each avatar ALSO gets their own unique personal side quest that the others don't
 - **Smash** — heavier strike. ✅ (implemented as press-and-HOLD, then release: shockwave all around you, heavy damage, big knockback)
 - **Archery** — pull back for power, like a slingshot: longer pull = more powerful shot. ✅ (dashed aim line, power-scaled speed & damage)
 - **Enemy health bars appear only once you start attacking** that enemy, then tick down. ✅
+- **Move strengths must be OBVIOUS:** every hit shows a floating damage number — slice = small white "-1", smash = big orange "-2", power arrows in between. Bigger hit, bigger number. ✅ [Kaylee]
+- **Potion effects must be VISIBLE:** while a potion is active the player glows with a colored pulsing aura (orange = strength, cyan = speed, silver = stoneskin) plus a named countdown under the coin counter. ✅ [Kaylee]
 - Weapons carried: two at a time with quick switch. ✅ (sword ↔ bow)
 - **Dorgan's potion powers** (random, 30s): 💪 Ogre Strength (extra damage), ⚡ Wind Speed (move faster), 🛡️ Stoneskin (blows bounce off). ✅ *(the "random gift" rule is the boys' design; these three specific powers are Claude's first pass — change freely)*
 - Training dummies in the village square for practice. ✅ *(Claude addition for playtesting)*
@@ -163,3 +167,4 @@ Each avatar ALSO gets their own unique personal side quest that the others don't
 - *v0.3 — quest state machine (congrats + explore), blueberry quest, regrowing bushes*
 - *v0.4 — forced-landscape rendering everywhere, works in any window shape*
 - *v0.5 — slice/hold-to-SMASH, pull-back archery, weapon switch, Dorgan's random potions, training dummies, goblin respawns*
+- *v0.6 — floating damage numbers, potion auras, satchel inventory (tap item → stats → use), 50-coin start, creatures drop coin piles, fixed UI text zones*

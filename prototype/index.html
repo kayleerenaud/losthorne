@@ -38,12 +38,25 @@
   /* ---------- DIALOGUE ---------- */
   #dialog { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(150px + env(safe-area-inset-bottom)); width:min(420px,92vw); background:rgba(20,16,10,.94); border:2px solid #8a6d38; border-radius:14px; padding:14px 16px; color:#f1e4bb; z-index:30; box-shadow:0 6px 24px rgba(0,0,0,.6); }
   @media (orientation: landscape) { #dialog { bottom:calc(14px + env(safe-area-inset-bottom)); width:min(460px,56vw); } }
+  /* ---------- INVENTORY ---------- */
+  #inv { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(400px,86%); max-height:88%; overflow-y:auto; background:rgba(20,16,10,.96); border:2px solid #8a6d38; border-radius:16px; padding:16px; color:#f1e4bb; z-index:35; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.7); }
+  #inv h3 { color:#ffd977; margin-bottom:10px; }
+  #invGrid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:12px; min-height:64px; }
+  .invItem { width:74px; padding:8px 4px; background:#2c2518; border:1.5px solid #6b5730; border-radius:11px; cursor:pointer; }
+  .invItem .ic { font-size:28px; }
+  .invItem .ct { font-size:12px; color:#c9a85c; margin-top:2px; }
+  .invEmpty { color:#8d7f60; font-size:13.5px; padding:14px 6px; line-height:1.5; }
+  #invDetail .bigIc { font-size:54px; margin:6px 0; }
+  #invDetail .inm { font-size:19px; color:#ffd977; margin-bottom:6px; }
+  #invDetail .ist { font-size:13.5px; color:#cfc0a0; line-height:1.5; margin-bottom:10px; }
+  #inv .btn { width:100%; margin:6px 0 0; padding:11px; font-size:15px; }
   #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
   #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
   #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
   #dialog .shopBtn { margin-top:8px; width:100%; padding:10px; font-size:15px; }
   /* ---------- OVERLAY MESSAGES ---------- */
-  #banner { position:fixed; top:calc(64px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:9px 18px; border-radius:10px; font-size:14.5px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:88vw; text-align:center; }
+  /* notifications live TOP-CENTER only — dialogue lives bottom-center, quest tracker top-left */
+  #banner { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:8px 16px; border-radius:10px; font-size:14px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:330px; text-align:center; }
   #deathScr { background:rgba(10,5,5,.93); z-index:50; }
   #deathScr h2 { color:#e05545; font-size:30px; }
   #deathScr p { color:#d8c8a8; margin:12px 0 18px; font-size:16px; max-width:300px; line-height:1.5; }
@@ -102,6 +115,20 @@
   <div class="next">tap to continue ▸</div>
 </div>
 <div id="banner"></div>
+
+<!-- INVENTORY / SATCHEL -->
+<div id="inv" class="hidden">
+  <h3>🎒 Satchel</h3>
+  <div id="invGrid"></div>
+  <div id="invDetail" class="hidden">
+    <div class="bigIc"></div>
+    <div class="inm"></div>
+    <div class="ist"></div>
+    <button class="btn" id="invUse">Use it</button>
+    <button class="btn ghost" id="invBack">← Back</button>
+  </div>
+  <button class="btn ghost" id="invClose">Close satchel</button>
+</div>
 
 <!-- DEATH -->
 <div id="deathScr" class="screen hidden">
@@ -187,7 +214,14 @@ addEventListener('resize',resize); addEventListener('orientationchange',()=>setT
 // map a physical touch/mouse point to logical (landscape) coordinates
 function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
-const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:500, speed:2.5, slashT:0, smashT:0, hurtT:0, kills:0, weapon:'sword' };
+const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:50, speed:2.5, slashT:0, smashT:0, hurtT:0, kills:0, weapon:'sword', inv:{bread:0,potion:0} };
+const floats=[];   // floating damage/pickup numbers
+const drops=[];    // coins dropped by creatures — walk over to collect
+function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
+function dropCoins(x,y){
+  const piles=2+Math.floor(Math.random()*2);
+  for(let i=0;i<piles;i++) drops.push({x:x+(Math.random()*36-18), y:y+(Math.random()*36-18), amt:2+Math.floor(Math.random()*3)});
+}
 const pot = { type:null, t:0 };  // Dorgan's random-power potion
 const POTIONS = { str:{ic:'💪',nm:'Ogre Strength'}, spd:{ic:'⚡',nm:'Wind Speed'}, stone:{ic:'🛡️',nm:'Stoneskin'} };
 const arrows = [];
@@ -214,14 +248,14 @@ const NPCS = [
            "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."] },
   { nm:'Erik the Trader', x:930, y:1195, col:'#2f5d7d', hat:false,
     lines:["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
-    shop:{ label:'🍞 Buy bread — 8 coins (+1 heart)', fn(){
-      if(P.coins>=8){ P.coins-=8; P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0; banner('You eat warm bread. +1 ❤️'); }
+    shop:{ label:'🍞 Buy bread — 8 coins (goes to satchel)', fn(){
+      if(P.coins>=8){ P.coins-=8; P.inv.bread++; banner('🍞 Bread tucked into your satchel'); }
       else banner('Not enough coins!'); } } },
   { nm:'Dorgan the Potion-Maker', x:665, y:1190, col:'#53406e', hat:false,
     lines:["Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
            "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"],
-    shop:{ label:'🧪 Mystery potion — 30 coins (random power, 30s)', fn(){
-      if(P.coins>=30){ P.coins-=30; drinkPotion(); }
+    shop:{ label:'🧪 Mystery potion — 30 coins (goes to satchel)', fn(){
+      if(P.coins>=30){ P.coins-=30; P.inv.potion++; banner('🧪 A mystery potion sloshes in your satchel'); }
       else banner('Not enough coins!'); } } },
 ];
 
@@ -266,6 +300,8 @@ const swp={active:false,id:-1,sx:0,sy:0,cx:0,cy:0,t0:0};
 function joyHome(){ return {x:Math.max(80,vw*0.14), y:vh-95}; }
 function atkBtn(){ return {x:vw-Math.max(80,vw*0.11), y:vh-95, r:40}; }
 function wpnBtn(){ const a=atkBtn(); return {x:a.x, y:a.y-98, r:27}; }
+function bagBtn(){ const a=atkBtn(); return {x:a.x-92, y:a.y+6, r:27}; }
+const blocked = ()=> dialogOpen || invOpen;
 const keys={};
 addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
 
@@ -288,8 +324,10 @@ cvs.addEventListener('mouseup',e=>{ if(!swp.active)return; const p=pt(e); rightR
 
 // interpret a right-side release: tap / swipe / hold, per current weapon
 function rightRelease(x,y){
+  if(invOpen) return;
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
-  const dur=performance.now()-swp.t0, ab=atkBtn(), wb=wpnBtn();
+  const dur=performance.now()-swp.t0, ab=atkBtn(), wb=wpnBtn(), bb=bagBtn();
+  if(dist<=18 && Math.hypot(swp.sx-bb.x,swp.sy-bb.y)<bb.r+12){ openInv(); return; } // satchel
   if(dist<=18 && Math.hypot(swp.sx-wb.x,swp.sy-wb.y)<wb.r+12){ // weapon toggle
     P.weapon = P.weapon==='sword'?'bow':'sword';
     banner(P.weapon==='sword'? '🗡️ Sword drawn — swipe to slice, hold to SMASH' : '🏹 Bow ready — pull back and release!');
@@ -325,9 +363,13 @@ function eachTarget(cb){
 }
 function hitTarget(t,kind,dmg,ang){
   t.hp-=dmg; t.hurtT=10; t.showBar=true;
+  // damage number: bigger hits look bigger (smash/strong arrows pop)
+  addFloat(t.x, t.y-30, '-'+dmg, dmg>=3?'#ff7b47':dmg>=2?'#ffb347':'#f0e6d0', dmg>=3?26:dmg>=2?22:15);
   if(kind==='gob'){
     const kb=dmg>=2? 42:26; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
-    if(t.hp<=0){ t.alive=false; P.kills++; P.coins+=10; banner('Goblin driven off! +10 coins'+(questIdx===0&&questStage==='active'?'  ('+Math.min(P.kills,3)+'/3)':''));
+    if(t.hp<=0){ t.alive=false; P.kills++;
+      dropCoins(t.x,t.y);   // creatures DROP coins — go pick them up
+      banner('Goblin driven off!'+(questIdx===0&&questStage==='active'?'  ('+Math.min(P.kills,3)+'/3)':'')+' It dropped coins!');
       if(P.kills>=3 && questIdx===0 && questStage==='active'){ questStage='complete'; banner('⚔️ Quest complete! Return to Chief Bonbottom!'); } }
   } else {
     if(t.hp<=0){ t.respawnT=8000; banner('🎯 Training dummy destroyed! It will be rebuilt.'); }
@@ -335,7 +377,7 @@ function hitTarget(t,kind,dmg,ang){
 }
 const dmgBonus = ()=> pot.type==='str'&&pot.t>0 ? 1 : 0;
 function slash(ang){
-  if(P.slashT>0 || dialogOpen) return;
+  if(P.slashT>0 || blocked()) return;
   P.dir=ang; P.slashT=14;
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y), a=Math.atan2(t.y-P.y,t.x-P.x);
@@ -344,7 +386,7 @@ function slash(ang){
   });
 }
 function smash(){ // heavy attack: hits ALL around you
-  if(P.slashT>0 || dialogOpen) return;
+  if(P.slashT>0 || blocked()) return;
   P.slashT=22; P.smashT=16;
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y);
@@ -352,7 +394,7 @@ function smash(){ // heavy attack: hits ALL around you
   });
 }
 function fireArrow(ang,power){
-  if(dialogOpen) return;
+  if(blocked()) return;
   P.dir=ang;
   const sp=5+(power/130)*8;
   arrows.push({x:P.x,y:P.y-6,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:70,dmg:(power>85?2:1)+dmgBonus(),ang});
@@ -361,7 +403,43 @@ function drinkPotion(){
   const keys=Object.keys(POTIONS), k=keys[Math.floor(Math.random()*keys.length)];
   pot.type=k; pot.t=30000;
   banner(POTIONS[k].ic+' The potion takes hold: '+POTIONS[k].nm+'! (30s)');
+  addFloat(P.x,P.y-40,POTIONS[k].ic+' '+POTIONS[k].nm+'!','#d9b8ff',20);
 }
+
+// ---------- INVENTORY ----------
+const ITEMS = {
+  bread:  { ic:'🍞', nm:'Warm Bread', st:'Restores 1 ❤️ and quiets your hunger.<br><i>"Fresh-ish!" — Erik</i>',
+            use(){ P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0; banner('You eat the bread. +1 ❤️'); addFloat(P.x,P.y-36,'+1 ❤️','#7ed67e',18); } },
+  potion: { ic:'🧪', nm:'Mystery Potion', st:'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
+            use(){ drinkPotion(); } },
+};
+let invOpen=false, invSel=null;
+function openInv(){ if(dialogOpen) closeDialog(); invOpen=true; invSel=null; renderInv(); $('inv').classList.remove('hidden'); }
+function closeInv(){ invOpen=false; $('inv').classList.add('hidden'); }
+function renderInv(){
+  const g=$('invGrid'), det=$('invDetail');
+  if(invSel){
+    g.classList.add('hidden'); det.classList.remove('hidden');
+    const it=ITEMS[invSel];
+    det.querySelector('.bigIc').textContent=it.ic;
+    det.querySelector('.inm').textContent=it.nm+'  ×'+P.inv[invSel];
+    det.querySelector('.ist').innerHTML=it.st;
+    return;
+  }
+  g.classList.remove('hidden'); det.classList.add('hidden');
+  g.innerHTML='';
+  let any=false;
+  for(const k in ITEMS){ if(P.inv[k]>0){ any=true;
+    const d=document.createElement('div'); d.className='invItem';
+    d.innerHTML='<div class="ic">'+ITEMS[k].ic+'</div><div class="ct">'+ITEMS[k].nm+' ×'+P.inv[k]+'</div>';
+    d.onclick=()=>{ invSel=k; renderInv(); };
+    g.appendChild(d);
+  } }
+  if(!any) g.innerHTML='<div class="invEmpty">Your satchel is empty.<br>Buy bread from Erik or a potion from Dorgan in the village.</div>';
+}
+$('invClose').onclick=closeInv;
+$('invBack').onclick=()=>{ invSel=null; renderInv(); };
+$('invUse').onclick=()=>{ if(invSel && P.inv[invSel]>0){ P.inv[invSel]--; ITEMS[invSel].use(); closeInv(); } };
 function hurtPlayer(n,why){
   if(P.hurtT>0) return;
   if(pot.type==='stone' && pot.t>0){ banner('🛡️ Stoneskin absorbs the blow!'); P.hurtT=30; return; }
@@ -427,7 +505,7 @@ function update(dt){
   if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
   if(keys[' ']){ slash(P.dir); }
   const spd = P.speed * (pot.type==='spd'&&pot.t>0 ? 1.75 : 1);
-  if((mx||my) && !dialogOpen){
+  if((mx||my) && !blocked()){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
@@ -447,6 +525,13 @@ function update(dt){
 
   // training dummies rebuild
   for(const d of dummies){ if(d.hp<=0){ d.respawnT-=dt; if(d.respawnT<=0){ d.hp=d.maxhp; d.showBar=false; } } if(d.hurtT>0)d.hurtT--; }
+
+  // floating numbers
+  for(let i=floats.length-1;i>=0;i--){ const f=floats[i]; f.t--; f.y-=.8; if(f.t<=0) floats.splice(i,1); }
+
+  // dropped coins — walk over to collect
+  for(let i=drops.length-1;i>=0;i--){ const c=drops[i];
+    if(Math.hypot(c.x-P.x,c.y-P.y)<30){ P.coins+=c.amt; addFloat(P.x,P.y-36,'+'+c.amt+' 🪙','#ffd977',17); drops.splice(i,1); } }
 
   // goblins prowl back after a while (combat practice never runs dry)
   if(goblins.every(g=>!g.alive)){ gobRespawnT+=dt;
@@ -481,7 +566,7 @@ function update(dt){
   for(const g of goblins){ if(!g.alive) continue;
     if(g.hurtT>0){g.hurtT--; continue;}
     const d=Math.hypot(P.x-g.x,P.y-g.y);
-    if(d<170 && !dialogOpen){ const a=Math.atan2(P.y-g.y,P.x-g.x); g.x+=Math.cos(a)*1.35; g.y+=Math.sin(a)*1.35; g.dir=a;
+    if(d<170 && !blocked()){ const a=Math.atan2(P.y-g.y,P.x-g.x); g.x+=Math.cos(a)*1.35; g.y+=Math.sin(a)*1.35; g.dir=a;
       if(d<30 && g.atkT<=0){ hurtPlayer(1); g.atkT=70; banner('A goblin bites you! -½ ❤️'); } }
     else { g.t+=dt; if(g.t>2200){ g.t=0; g.dir=Math.random()*7; } g.x+=Math.cos(g.dir)*.4; g.y+=Math.sin(g.dir)*.4; }
     g.x=Math.max(40,Math.min(W-40,g.x)); g.y=Math.max(40,Math.min(H-40,g.y));
@@ -562,8 +647,22 @@ function draw(){
     if(g.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(g.x-16,g.y-28,32,5); ctx.fillStyle='#d43a3a'; ctx.fillRect(g.x-15,g.y-27,30*(g.hp/g.maxhp),3); }
   }
 
+  // dropped coins
+  for(const c of drops){
+    ctx.fillStyle='#8a6d1e'; ctx.beginPath(); ctx.arc(c.x,c.y+1.5,6,0,7); ctx.fill();
+    ctx.fillStyle='#ffd53e'; ctx.beginPath(); ctx.arc(c.x,c.y,6,0,7); ctx.fill();
+    ctx.strokeStyle='#8a6d1e'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(c.x,c.y,3.4,0,7); ctx.stroke();
+  }
+
   // player
   const av=AVATARS[chosen<0?0:chosen];
+  // potion aura — you can SEE the power on you
+  if(pot.t>0 && pot.type){
+    const col = pot.type==='str'? '255,140,60' : pot.type==='spd'? '90,220,255' : '200,200,215';
+    const pulse=.28+.16*Math.sin(performance.now()/160);
+    ctx.fillStyle='rgba('+col+','+(pulse*.5)+')'; ctx.beginPath(); ctx.arc(P.x,P.y,30,0,7); ctx.fill();
+    ctx.strokeStyle='rgba('+col+','+(.5+pulse)+')'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(P.x,P.y,26+3*Math.sin(performance.now()/200),0,7); ctx.stroke();
+  }
   ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
   drawPerson(P.x,P.y,P.dir,av,false,false);
   ctx.restore();
@@ -584,6 +683,15 @@ function draw(){
       ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(P.x+Math.cos(ang)*(60+pw*110), P.y+Math.sin(ang)*(60+pw*110)); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle='rgba(255,190,90,'+(.4+pw*.5)+')'; ctx.beginPath(); ctx.arc(P.x,P.y,10+pw*10,0,7); ctx.fill();
     }
+  }
+
+  // floating damage / pickup numbers
+  for(const f of floats){
+    ctx.globalAlpha=Math.min(1,f.t/22);
+    ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y);
+    ctx.globalAlpha=1;
   }
 
   // trees (drawn after entities so canopies overlap)
@@ -630,16 +738,26 @@ function draw(){
   ctx.font=(wb.r*0.85)+'px Georgia'; ctx.fillText(P.weapon==='sword'?'🏹':'🗡️', wb.x, wb.y+2);
   ctx.textBaseline='alphabetic';
   ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('switch', wb.x, wb.y+wb.r+13);
+  // satchel button
+  const bb=bagBtn();
+  ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.stroke();
+  ctx.font=(bb.r*0.85)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('🎒', bb.x, bb.y+2); ctx.textBaseline='alphabetic';
+  const nItems=P.inv.bread+P.inv.potion;
+  if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+19,bb.y-19,9,0,7); ctx.fill();
+    ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.fillText(nItems, bb.x+19, bb.y-15); }
+  ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('bag', bb.x, bb.y+bb.r+13);
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia';
   ctx.fillText('move', jx, jy+68);
   ctx.fillText(P.weapon==='sword'? 'swipe: slice • hold: SMASH • tap 💬':'pull back & release to shoot!', ab.x-6, ab.y+ab.r+18);
-  // active potion indicator
+  // active potion status — lives under the coin counter (right side), away from notifications
   if(pot.t>0 && pot.type){
     const pp=POTIONS[pot.type], secs=Math.ceil(pot.t/1000);
-    ctx.font='bold 15px Georgia'; ctx.textAlign='center';
-    const tw=ctx.measureText(pp.ic+' '+pp.nm+' '+secs+'s').width;
-    ctx.fillStyle='rgba(46,26,66,.8)'; rr(ctx, vw/2-tw/2-14, top+2, tw+28, 28, 9);
-    ctx.fillStyle='#d9b8ff'; ctx.fillText(pp.ic+' '+pp.nm+' — '+secs+'s', vw/2, top+22);
+    ctx.font='bold 14px Georgia'; ctx.textAlign='right';
+    const txt=pp.ic+' '+pp.nm+' — '+secs+'s', tw=ctx.measureText(txt).width;
+    ctx.fillStyle='rgba(46,26,66,.8)'; rr(ctx, vw-tw-36, top+38, tw+26, 26, 8);
+    ctx.fillStyle='#d9b8ff'; ctx.fillText(txt, vw-22, top+56);
+    ctx.textAlign='center';
   }
 }
 function drawPerson(x,y,dir,av,hat,highlight){
@@ -676,6 +794,7 @@ function startGame(){ show('gameWrap'); running=true; last=performance.now(); ba
 if(location.hash==='#game'){ chosen=0; startGame(); }
 if(location.hash==='#select'){ show('select'); }
 if(location.hash==='#lobby'){ show('lobby'); }
+if(location.hash==='#inv'){ chosen=0; P.inv.bread=2; P.inv.potion=1; startGame(); openInv(); }
 </script>
 </body>
 </html>
