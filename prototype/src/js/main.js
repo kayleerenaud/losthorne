@@ -1,17 +1,15 @@
 'use strict';
+import { AVATARS } from './data/avatars.js';
+import { PRICES, STARTING_COINS } from './data/economy.js';
+import { ITEM_DEFS } from './data/items.js';
+import { POTION_POWERS, POTION_DURATION_MS } from './data/potions.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
 // ============================================================
 const $ = id => document.getElementById(id);
 
-// ---------- Avatars (the 4 designed by Josiah & Malachi) ----------
-const AVATARS = [
-  { nm:'Flute Boy',   ds:'curly dirty-blonde hair, brown vest, wooden flute', hair:'#c9a35a', outfit:'#7a5230', skin:'#e8b98a', item:'flute'  },
-  { nm:'Leather Lad', ds:'black ruffled hair, leather jacket, silver buckle', hair:'#241f1c', outfit:'#4a3826', skin:'#dfa878', item:'buckle' },
-  { nm:'Bone Pin',    ds:'big bun with a bone pin, dress & fur shawl',        hair:'#2e2119', outfit:'#6d4a56', skin:'#9c6b47', item:'pin'    },
-  { nm:'Lute Girl',   ds:'two Dutch braids, always carries her lute',         hair:'#e5c874', outfit:'#54636b', skin:'#eec49a', item:'lute'   },
-];
+// (avatars now live in data/avatars.js)
 let chosen = -1;
 
 // ---------- Screen flow ----------
@@ -73,7 +71,7 @@ addEventListener('resize',resize); addEventListener('orientationchange',()=>setT
 // map a physical touch/mouse point to logical (landscape) coordinates
 function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
-const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:50, speed:2.5, slashT:0, smashT:0, hurtT:0, kills:0, weapon:'sword', inv:{bread:0,potion:0} };
+const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, hurtT:0, kills:0, weapon:'sword', inv:{item_bread:0,item_potion:0} };
 const floats=[];   // floating damage/pickup numbers
 const drops=[];    // coins dropped by creatures — walk over to collect
 function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
@@ -81,8 +79,7 @@ function dropCoins(x,y){
   const piles=2+Math.floor(Math.random()*2);
   for(let i=0;i<piles;i++) drops.push({x:x+(Math.random()*36-18), y:y+(Math.random()*36-18), amt:2+Math.floor(Math.random()*3)});
 }
-const pot = { type:null, t:0 };  // Dorgan's random-power potion
-const POTIONS = { str:{ic:'💪',nm:'Ogre Strength'}, spd:{ic:'⚡',nm:'Wind Speed'}, stone:{ic:'🛡️',nm:'Stoneskin'} };
+const pot = { type:null, t:0 };  // Dorgan's random-power potion (powers in data/potions.js)
 const arrows = [];
 const dummies = [ {x:660,y:1265,hp:3,maxhp:3,hurtT:0,respawnT:0,showBar:false}, {x:945,y:1265,hp:3,maxhp:3,hurtT:0,respawnT:0,showBar:false} ];
 let hungerT = 0;
@@ -107,14 +104,14 @@ const NPCS = [
            "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."] },
   { nm:'Erik the Trader', x:930, y:1195, col:'#2f5d7d', hat:false,
     lines:["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
-    shop:{ label:'🍞 Buy bread — 8 coins (goes to satchel)', fn(){
-      if(P.coins>=8){ P.coins-=8; P.inv.bread++; banner('🍞 Bread tucked into your satchel'); }
+    shop:{ label:'🍞 Buy bread — '+PRICES.item_bread+' coins (goes to satchel)', fn(){
+      if(P.coins>=PRICES.item_bread){ P.coins-=PRICES.item_bread; P.inv.item_bread++; banner('🍞 Bread tucked into your satchel'); }
       else banner('Not enough coins!'); } } },
   { nm:'Dorgan the Potion-Maker', x:665, y:1190, col:'#53406e', hat:false,
     lines:["Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
            "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"],
-    shop:{ label:'🧪 Mystery potion — 30 coins (goes to satchel)', fn(){
-      if(P.coins>=30){ P.coins-=30; P.inv.potion++; banner('🧪 A mystery potion sloshes in your satchel'); }
+    shop:{ label:'🧪 Mystery potion — '+PRICES.item_potion+' coins (goes to satchel)', fn(){
+      if(P.coins>=PRICES.item_potion){ P.coins-=PRICES.item_potion; P.inv.item_potion++; banner('🧪 A mystery potion sloshes in your satchel'); }
       else banner('Not enough coins!'); } } },
 ];
 
@@ -268,7 +265,7 @@ function hitTarget(t,kind,dmg,ang){
     if(t.hp<=0){ t.respawnT=8000; banner('🎯 Training dummy destroyed! It will be rebuilt.'); }
   }
 }
-const dmgBonus = ()=> pot.type==='str'&&pot.t>0 ? 1 : 0;
+const dmgBonus = ()=> pot.t>0 ? (POTION_POWERS[pot.type]?.dmgBonus||0) : 0;
 function slash(ang){
   if(P.slashT>0 || blocked()) return;
   P.dir=ang; P.slashT=14;
@@ -293,19 +290,18 @@ function fireArrow(ang,power){
   arrows.push({x:P.x,y:P.y-6,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:70,dmg:(power>85?2:1)+dmgBonus(),ang});
 }
 function drinkPotion(){
-  const keys=Object.keys(POTIONS), k=keys[Math.floor(Math.random()*keys.length)];
-  pot.type=k; pot.t=30000;
-  banner(POTIONS[k].ic+' The potion takes hold: '+POTIONS[k].nm+'! (30s)');
-  addFloat(P.x,P.y-40,POTIONS[k].ic+' '+POTIONS[k].nm+'!','#d9b8ff',20);
+  const keys=Object.keys(POTION_POWERS), k=keys[Math.floor(Math.random()*keys.length)];
+  pot.type=k; pot.t=POTION_DURATION_MS;
+  banner(POTION_POWERS[k].ic+' The potion takes hold: '+POTION_POWERS[k].nm+'! (30s)');
+  addFloat(P.x,P.y-40,POTION_POWERS[k].ic+' '+POTION_POWERS[k].nm+'!','#d9b8ff',20);
 }
 
 // ---------- INVENTORY ----------
-const ITEMS = {
-  bread:  { ic:'🍞', nm:'Warm Bread', st:'Restores 1 ❤️ and quiets your hunger.<br><i>"Fresh-ish!" — Erik</i>',
-            use(){ P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0; banner('You eat the bread. +1 ❤️'); addFloat(P.x,P.y-36,'+1 ❤️','#7ed67e',18); } },
-  potion: { ic:'🧪', nm:'Mystery Potion', st:'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
-            use(){ drinkPotion(); } },
+const EFFECTS = {
+  heal(e){ P.hp=Math.min(P.maxhp,P.hp+e.halfHearts); if(e.resetHunger) hungerT=0; banner(e.banner); addFloat(P.x,P.y-36,e.float,'#7ed67e',18); },
+  mystery_potion(){ drinkPotion(); },
 };
+function useItem(id){ const e=ITEM_DEFS[id].effect; EFFECTS[e.kind](e); }
 let invOpen=false, invSel=null;
 function openInv(){ if(dialogOpen) closeDialog(); invOpen=true; invSel=null; renderInv(); $('inv').classList.remove('hidden'); }
 function closeInv(){ invOpen=false; $('inv').classList.add('hidden'); }
@@ -313,7 +309,7 @@ function renderInv(){
   const g=$('invGrid'), det=$('invDetail');
   if(invSel){
     g.classList.add('hidden'); det.classList.remove('hidden');
-    const it=ITEMS[invSel];
+    const it=ITEM_DEFS[invSel];
     det.querySelector('.bigIc').textContent=it.ic;
     det.querySelector('.inm').textContent=it.nm+'  ×'+P.inv[invSel];
     det.querySelector('.ist').innerHTML=it.st;
@@ -322,9 +318,9 @@ function renderInv(){
   g.classList.remove('hidden'); det.classList.add('hidden');
   g.innerHTML='';
   let any=false;
-  for(const k in ITEMS){ if(P.inv[k]>0){ any=true;
+  for(const k in ITEM_DEFS){ if(P.inv[k]>0){ any=true;
     const d=document.createElement('div'); d.className='invItem';
-    d.innerHTML='<div class="ic">'+ITEMS[k].ic+'</div><div class="ct">'+ITEMS[k].nm+' ×'+P.inv[k]+'</div>';
+    d.innerHTML='<div class="ic">'+ITEM_DEFS[k].ic+'</div><div class="ct">'+ITEM_DEFS[k].nm+' ×'+P.inv[k]+'</div>';
     d.onclick=()=>{ invSel=k; renderInv(); };
     g.appendChild(d);
   } }
@@ -332,10 +328,10 @@ function renderInv(){
 }
 $('invClose').onclick=closeInv;
 $('invBack').onclick=()=>{ invSel=null; renderInv(); };
-$('invUse').onclick=()=>{ if(invSel && P.inv[invSel]>0){ P.inv[invSel]--; ITEMS[invSel].use(); closeInv(); } };
+$('invUse').onclick=()=>{ if(invSel && P.inv[invSel]>0){ P.inv[invSel]--; useItem(invSel); closeInv(); } };
 function hurtPlayer(n,why){
   if(P.hurtT>0) return;
-  if(pot.type==='stone' && pot.t>0){ banner('🛡️ Stoneskin absorbs the blow!'); P.hurtT=30; return; }
+  if(pot.t>0 && POTION_POWERS[pot.type]?.blocksDamage){ banner('🛡️ Stoneskin absorbs the blow!'); P.hurtT=30; return; }
   P.hp-=n; P.hurtT=45;
   if(P.hp<=0) die(why||'A goblin got the better of you.');
 }
@@ -397,7 +393,7 @@ function update(dt){
   if(joy.active){ const m=Math.hypot(joy.dx,joy.dy); if(m>6){ const cl=Math.min(m,52)/52; mx=joy.dx/m*cl; my=joy.dy/m*cl; } }
   if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
   if(keys[' ']){ slash(P.dir); }
-  const spd = P.speed * (pot.type==='spd'&&pot.t>0 ? 1.75 : 1);
+  const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1);
   if((mx||my) && !blocked()){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
@@ -551,7 +547,7 @@ function draw(){
   const av=AVATARS[chosen<0?0:chosen];
   // potion aura — you can SEE the power on you
   if(pot.t>0 && pot.type){
-    const col = pot.type==='str'? '255,140,60' : pot.type==='spd'? '90,220,255' : '200,200,215';
+    const col = pot.type==='potion_strength'? '255,140,60' : pot.type==='potion_speed'? '90,220,255' : '200,200,215';
     const pulse=.28+.16*Math.sin(performance.now()/160);
     ctx.fillStyle='rgba('+col+','+(pulse*.5)+')'; ctx.beginPath(); ctx.arc(P.x,P.y,30,0,7); ctx.fill();
     ctx.strokeStyle='rgba('+col+','+(.5+pulse)+')'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(P.x,P.y,26+3*Math.sin(performance.now()/200),0,7); ctx.stroke();
@@ -645,7 +641,7 @@ function draw(){
   ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.stroke();
   ctx.font=(bb.r*0.85)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('🎒', bb.x, bb.y+2); ctx.textBaseline='alphabetic';
-  const nItems=P.inv.bread+P.inv.potion;
+  const nItems=P.inv.item_bread+P.inv.item_potion;
   if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+17,bb.y-17,9,0,7); ctx.fill();
     ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.textBaseline='middle'; ctx.fillText(nItems, bb.x+17, bb.y-16); ctx.textBaseline='alphabetic'; }
   // contextual TALK button — appears only when near someone (Genshin-style interaction prompt)
@@ -663,7 +659,7 @@ function draw(){
   ctx.fillText(P.weapon==='sword'? 'drag from ⚔️: aimed slice • hold: SMASH':'drag from 🏹 & release to shoot!', ab.x-24, ab.y+ab.r+18);
   // active potion status — lives under the coin counter (right side), away from notifications
   if(pot.t>0 && pot.type){
-    const pp=POTIONS[pot.type], secs=Math.ceil(pot.t/1000);
+    const pp=POTION_POWERS[pot.type], secs=Math.ceil(pot.t/1000);
     ctx.font='bold 14px Georgia'; ctx.textAlign='right';
     const txt=pp.ic+' '+pp.nm+' — '+secs+'s', tw=ctx.measureText(txt).width;
     ctx.fillStyle='rgba(46,26,66,.8)'; rr(ctx, vw-tw-36, top+38, tw+26, 26, 8);
@@ -705,4 +701,4 @@ function startGame(){ show('gameWrap'); running=true; last=performance.now(); ba
 if(location.hash==='#game'){ chosen=0; startGame(); }
 if(location.hash==='#select'){ show('select'); }
 if(location.hash==='#lobby'){ show('lobby'); }
-if(location.hash==='#inv'){ chosen=0; P.inv.bread=2; P.inv.potion=1; startGame(); openInv(); }
+if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; startGame(); openInv(); }

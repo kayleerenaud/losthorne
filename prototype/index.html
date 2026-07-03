@@ -142,14 +142,49 @@
 <script>
 "use strict";
 (() => {
+  // prototype/src/js/data/avatars.js
+  var AVATARS = [
+    { id: "avatar_flute_boy", nm: "Flute Boy", ds: "curly dirty-blonde hair, brown vest, wooden flute", hair: "#c9a35a", outfit: "#7a5230", skin: "#e8b98a", item: "flute" },
+    { id: "avatar_leather_lad", nm: "Leather Lad", ds: "black ruffled hair, leather jacket, silver buckle", hair: "#241f1c", outfit: "#4a3826", skin: "#dfa878", item: "buckle" },
+    { id: "avatar_bone_pin", nm: "Bone Pin", ds: "big bun with a bone pin, dress & fur shawl", hair: "#2e2119", outfit: "#6d4a56", skin: "#9c6b47", item: "pin" },
+    { id: "avatar_lute_girl", nm: "Lute Girl", ds: "two Dutch braids, always carries her lute", hair: "#e5c874", outfit: "#54636b", skin: "#eec49a", item: "lute" }
+  ];
+
+  // prototype/src/js/data/economy.js
+  var PRICES = {
+    item_bread: 8,
+    item_potion: 30
+  };
+  var STARTING_COINS = 50;
+
+  // prototype/src/js/data/items.js
+  var ITEM_DEFS = {
+    item_bread: {
+      id: "item_bread",
+      ic: "🍞",
+      nm: "Warm Bread",
+      st: 'Restores 1 ❤️ and quiets your hunger.<br><i>"Fresh-ish!" — Erik</i>',
+      effect: { kind: "heal", halfHearts: 2, resetHunger: true, banner: "You eat the bread. +1 ❤️", float: "+1 ❤️" }
+    },
+    item_potion: {
+      id: "item_potion",
+      ic: "🧪",
+      nm: "Mystery Potion",
+      st: 'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
+      effect: { kind: "mystery_potion" }
+    }
+  };
+
+  // prototype/src/js/data/potions.js
+  var POTION_POWERS = {
+    potion_strength: { id: "potion_strength", ic: "💪", nm: "Ogre Strength", dmgBonus: 1 },
+    potion_speed: { id: "potion_speed", ic: "⚡", nm: "Wind Speed", speedMult: 1.75 },
+    potion_stoneskin: { id: "potion_stoneskin", ic: "🛡️", nm: "Stoneskin", blocksDamage: true }
+  };
+  var POTION_DURATION_MS = 3e4;
+
   // prototype/src/js/main.js
   var $ = (id) => document.getElementById(id);
-  var AVATARS = [
-    { nm: "Flute Boy", ds: "curly dirty-blonde hair, brown vest, wooden flute", hair: "#c9a35a", outfit: "#7a5230", skin: "#e8b98a", item: "flute" },
-    { nm: "Leather Lad", ds: "black ruffled hair, leather jacket, silver buckle", hair: "#241f1c", outfit: "#4a3826", skin: "#dfa878", item: "buckle" },
-    { nm: "Bone Pin", ds: "big bun with a bone pin, dress & fur shawl", hair: "#2e2119", outfit: "#6d4a56", skin: "#9c6b47", item: "pin" },
-    { nm: "Lute Girl", ds: "two Dutch braids, always carries her lute", hair: "#e5c874", outfit: "#54636b", skin: "#eec49a", item: "lute" }
-  ];
   var chosen = -1;
   function show(id) {
     ["title", "lobby", "select", "gameWrap", "deathScr"].forEach((s) => $(s).classList.add("hidden"));
@@ -277,7 +312,7 @@
   function pt(t) {
     return rotated ? { x: t.clientY, y: innerWidth - t.clientX } : { x: t.clientX, y: t.clientY };
   }
-  var P = { x: 800, y: 1210, dir: 0, hp: 10, maxhp: 10, coins: 50, speed: 2.5, slashT: 0, smashT: 0, hurtT: 0, kills: 0, weapon: "sword", inv: { bread: 0, potion: 0 } };
+  var P = { x: 800, y: 1210, dir: 0, hp: 10, maxhp: 10, coins: STARTING_COINS, speed: 2.5, slashT: 0, smashT: 0, hurtT: 0, kills: 0, weapon: "sword", inv: { item_bread: 0, item_potion: 0 } };
   var floats = [];
   var drops = [];
   function addFloat(x, y, txt, col, size) {
@@ -288,7 +323,6 @@
     for (let i = 0; i < piles; i++) drops.push({ x: x + (Math.random() * 36 - 18), y: y + (Math.random() * 36 - 18), amt: 2 + Math.floor(Math.random() * 3) });
   }
   var pot = { type: null, t: 0 };
-  var POTIONS = { str: { ic: "💪", nm: "Ogre Strength" }, spd: { ic: "⚡", nm: "Wind Speed" }, stone: { ic: "🛡️", nm: "Stoneskin" } };
   var arrows = [];
   var dummies = [{ x: 660, y: 1265, hp: 3, maxhp: 3, hurtT: 0, respawnT: 0, showBar: false }, { x: 945, y: 1265, hp: 3, maxhp: 3, hurtT: 0, respawnT: 0, showBar: false }];
   var hungerT = 0;
@@ -322,10 +356,10 @@
       col: "#2f5d7d",
       hat: false,
       lines: ["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
-      shop: { label: "🍞 Buy bread — 8 coins (goes to satchel)", fn() {
-        if (P.coins >= 8) {
-          P.coins -= 8;
-          P.inv.bread++;
+      shop: { label: "🍞 Buy bread — " + PRICES.item_bread + " coins (goes to satchel)", fn() {
+        if (P.coins >= PRICES.item_bread) {
+          P.coins -= PRICES.item_bread;
+          P.inv.item_bread++;
           banner("🍞 Bread tucked into your satchel");
         } else banner("Not enough coins!");
       } }
@@ -340,10 +374,10 @@
         "Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
         "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"
       ],
-      shop: { label: "🧪 Mystery potion — 30 coins (goes to satchel)", fn() {
-        if (P.coins >= 30) {
-          P.coins -= 30;
-          P.inv.potion++;
+      shop: { label: "🧪 Mystery potion — " + PRICES.item_potion + " coins (goes to satchel)", fn() {
+        if (P.coins >= PRICES.item_potion) {
+          P.coins -= PRICES.item_potion;
+          P.inv.item_potion++;
           banner("🧪 A mystery potion sloshes in your satchel");
         } else banner("Not enough coins!");
       } }
@@ -567,7 +601,10 @@
       }
     }
   }
-  var dmgBonus = () => pot.type === "str" && pot.t > 0 ? 1 : 0;
+  var dmgBonus = () => {
+    var _a;
+    return pot.t > 0 ? ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.dmgBonus) || 0 : 0;
+  };
   function slash(ang) {
     if (P.slashT > 0 || blocked()) return;
     P.dir = ang;
@@ -595,33 +632,27 @@
     arrows.push({ x: P.x, y: P.y - 6, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 70, dmg: (power > 85 ? 2 : 1) + dmgBonus(), ang });
   }
   function drinkPotion() {
-    const keys2 = Object.keys(POTIONS), k = keys2[Math.floor(Math.random() * keys2.length)];
+    const keys2 = Object.keys(POTION_POWERS), k = keys2[Math.floor(Math.random() * keys2.length)];
     pot.type = k;
-    pot.t = 3e4;
-    banner(POTIONS[k].ic + " The potion takes hold: " + POTIONS[k].nm + "! (30s)");
-    addFloat(P.x, P.y - 40, POTIONS[k].ic + " " + POTIONS[k].nm + "!", "#d9b8ff", 20);
+    pot.t = POTION_DURATION_MS;
+    banner(POTION_POWERS[k].ic + " The potion takes hold: " + POTION_POWERS[k].nm + "! (30s)");
+    addFloat(P.x, P.y - 40, POTION_POWERS[k].ic + " " + POTION_POWERS[k].nm + "!", "#d9b8ff", 20);
   }
-  var ITEMS = {
-    bread: {
-      ic: "🍞",
-      nm: "Warm Bread",
-      st: 'Restores 1 ❤️ and quiets your hunger.<br><i>"Fresh-ish!" — Erik</i>',
-      use() {
-        P.hp = Math.min(P.maxhp, P.hp + 2);
-        hungerT = 0;
-        banner("You eat the bread. +1 ❤️");
-        addFloat(P.x, P.y - 36, "+1 ❤️", "#7ed67e", 18);
-      }
+  var EFFECTS = {
+    heal(e) {
+      P.hp = Math.min(P.maxhp, P.hp + e.halfHearts);
+      if (e.resetHunger) hungerT = 0;
+      banner(e.banner);
+      addFloat(P.x, P.y - 36, e.float, "#7ed67e", 18);
     },
-    potion: {
-      ic: "🧪",
-      nm: "Mystery Potion",
-      st: 'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
-      use() {
-        drinkPotion();
-      }
+    mystery_potion() {
+      drinkPotion();
     }
   };
+  function useItem(id) {
+    const e = ITEM_DEFS[id].effect;
+    EFFECTS[e.kind](e);
+  }
   var invOpen = false;
   var invSel = null;
   function openInv() {
@@ -640,7 +671,7 @@
     if (invSel) {
       g.classList.add("hidden");
       det.classList.remove("hidden");
-      const it = ITEMS[invSel];
+      const it = ITEM_DEFS[invSel];
       det.querySelector(".bigIc").textContent = it.ic;
       det.querySelector(".inm").textContent = it.nm + "  ×" + P.inv[invSel];
       det.querySelector(".ist").innerHTML = it.st;
@@ -650,12 +681,12 @@
     det.classList.add("hidden");
     g.innerHTML = "";
     let any = false;
-    for (const k in ITEMS) {
+    for (const k in ITEM_DEFS) {
       if (P.inv[k] > 0) {
         any = true;
         const d = document.createElement("div");
         d.className = "invItem";
-        d.innerHTML = '<div class="ic">' + ITEMS[k].ic + '</div><div class="ct">' + ITEMS[k].nm + " ×" + P.inv[k] + "</div>";
+        d.innerHTML = '<div class="ic">' + ITEM_DEFS[k].ic + '</div><div class="ct">' + ITEM_DEFS[k].nm + " ×" + P.inv[k] + "</div>";
         d.onclick = () => {
           invSel = k;
           renderInv();
@@ -673,13 +704,14 @@
   $("invUse").onclick = () => {
     if (invSel && P.inv[invSel] > 0) {
       P.inv[invSel]--;
-      ITEMS[invSel].use();
+      useItem(invSel);
       closeInv();
     }
   };
   function hurtPlayer(n, why) {
+    var _a;
     if (P.hurtT > 0) return;
-    if (pot.type === "stone" && pot.t > 0) {
+    if (pot.t > 0 && ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.blocksDamage)) {
       banner("🛡️ Stoneskin absorbs the blow!");
       P.hurtT = 30;
       return;
@@ -764,6 +796,7 @@
   var last = 0;
   var running = false;
   function update(dt) {
+    var _a;
     let mx = 0, my = 0;
     if (joy.active) {
       const m = Math.hypot(joy.dx, joy.dy);
@@ -780,7 +813,7 @@
     if (keys[" "]) {
       slash(P.dir);
     }
-    const spd = P.speed * (pot.type === "spd" && pot.t > 0 ? 1.75 : 1);
+    const spd = P.speed * (pot.t > 0 ? ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.speedMult) || 1 : 1);
     if ((mx || my) && !blocked()) {
       P.x += mx * spd;
       P.y += my * spd;
@@ -1093,7 +1126,7 @@
     }
     const av = AVATARS[chosen < 0 ? 0 : chosen];
     if (pot.t > 0 && pot.type) {
-      const col = pot.type === "str" ? "255,140,60" : pot.type === "spd" ? "90,220,255" : "200,200,215";
+      const col = pot.type === "potion_strength" ? "255,140,60" : pot.type === "potion_speed" ? "90,220,255" : "200,200,215";
       const pulse = 0.28 + 0.16 * Math.sin(performance.now() / 160);
       ctx.fillStyle = "rgba(" + col + "," + pulse * 0.5 + ")";
       ctx.beginPath();
@@ -1270,7 +1303,7 @@
     ctx.textBaseline = "middle";
     ctx.fillText("🎒", bb.x, bb.y + 2);
     ctx.textBaseline = "alphabetic";
-    const nItems = P.inv.bread + P.inv.potion;
+    const nItems = P.inv.item_bread + P.inv.item_potion;
     if (nItems > 0) {
       ctx.fillStyle = "#ffd977";
       ctx.beginPath();
@@ -1309,7 +1342,7 @@
     ctx.textAlign = "center";
     ctx.fillText(P.weapon === "sword" ? "drag from ⚔️: aimed slice • hold: SMASH" : "drag from 🏹 & release to shoot!", ab.x - 24, ab.y + ab.r + 18);
     if (pot.t > 0 && pot.type) {
-      const pp = POTIONS[pot.type], secs = Math.ceil(pot.t / 1e3);
+      const pp = POTION_POWERS[pot.type], secs = Math.ceil(pot.t / 1e3);
       ctx.font = "bold 14px Georgia";
       ctx.textAlign = "right";
       const txt = pp.ic + " " + pp.nm + " — " + secs + "s", tw = ctx.measureText(txt).width;
@@ -1417,8 +1450,8 @@
   }
   if (location.hash === "#inv") {
     chosen = 0;
-    P.inv.bread = 2;
-    P.inv.potion = 1;
+    P.inv.item_bread = 2;
+    P.inv.item_potion = 1;
     startGame();
     openInv();
   }
