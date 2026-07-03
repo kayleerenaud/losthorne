@@ -32,4 +32,4 @@ Open `prototype/index.html` in a browser — everything is one self-contained fi
 4. 🔜 Google / Supabase login
 5. 🔜 Art & sound pass (Puss in Boots: The Last Wish vibes)
 
-The full design spec lives in [`SPEC.md`](SPEC.md), and **every nitty-gritty decision** from the design sessions is preserved in [`DESIGN.md`](DESIGN.md) — the design bible.
+The single source of truth for all game facts is [`DESIGN.md`](DESIGN.md) — the design bible. Our working process lives in [`WORKFLOW.md`](WORKFLOW.md).
