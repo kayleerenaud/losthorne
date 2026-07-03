@@ -37,6 +37,7 @@
   #game { position:absolute; inset:0; width:100%; height:100%; }
   /* ---------- DIALOGUE ---------- */
   #dialog { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(150px + env(safe-area-inset-bottom)); width:min(420px,92vw); background:rgba(20,16,10,.94); border:2px solid #8a6d38; border-radius:14px; padding:14px 16px; color:#f1e4bb; z-index:30; box-shadow:0 6px 24px rgba(0,0,0,.6); }
+  @media (orientation: landscape) { #dialog { bottom:calc(14px + env(safe-area-inset-bottom)); width:min(460px,56vw); } }
   #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
   #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
   #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
@@ -46,6 +47,12 @@
   #deathScr { background:rgba(10,5,5,.93); z-index:50; }
   #deathScr h2 { color:#e05545; font-size:30px; }
   #deathScr p { color:#d8c8a8; margin:12px 0 18px; font-size:16px; max-width:300px; line-height:1.5; }
+  /* ---------- ROTATE HINT (game is landscape) ---------- */
+  #rotate { position:fixed; inset:0; z-index:60; background:#12100e; display:none; flex-direction:column; align-items:center; justify-content:center; color:#e8d9a8; text-align:center; padding:30px; }
+  #rotate .ph { font-size:64px; animation:spin90 1.8s ease-in-out infinite; }
+  @keyframes spin90 { 0%,20%{transform:rotate(0)} 60%,100%{transform:rotate(90deg)} }
+  body.ingame #rotate { display:none; }
+  @media (orientation: portrait) { body.ingame #rotate { display:flex; } }
 </style>
 </head>
 <body>
@@ -94,6 +101,9 @@
 </div>
 <div id="banner"></div>
 
+<!-- ROTATE HINT -->
+<div id="rotate"><div class="ph">📱</div><h2>Turn your phone sideways!</h2><div class="note">Losthorne is played in landscape — like a real adventure.</div></div>
+
 <!-- DEATH -->
 <div id="deathScr" class="screen hidden">
   <h2 id="deathTitle">You have fallen</h2>
@@ -119,7 +129,8 @@ const AVATARS = [
 let chosen = -1;
 
 // ---------- Screen flow ----------
-function show(id){ ['title','lobby','select','gameWrap','deathScr'].forEach(s=>$(s).classList.add('hidden')); $(id).classList.remove('hidden'); }
+function show(id){ ['title','lobby','select','gameWrap','deathScr'].forEach(s=>$(s).classList.add('hidden')); $(id).classList.remove('hidden');
+  document.body.classList.toggle('ingame', id==='gameWrap'); }
 $('btnGuest').onclick = ()=> show('lobby');
 $('btnGoogle').onclick = $('btnSupa').onclick = function(){ this.textContent='🔧 Pretend-login successful!'; setTimeout(()=>show('lobby'),450); };
 $('btnHost').onclick = ()=>{
@@ -169,7 +180,7 @@ addEventListener('resize',resize); resize();
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:500, speed:2.5, slashT:0, hurtT:0, kills:0 };
 let hungerT = 0;
-const HUNGER_EVERY = 24000; // ms until you lose half a heart
+const HUNGER_EVERY = 75000; // ms until you lose half a heart (Kaylee: "give me longer!")
 
 const trees=[], houses=[], bushes=[];
 // forest (north)
@@ -205,6 +216,8 @@ let questDone=false, questRewarded=false;
 // ============================================================
 const joy={active:false,id:-1,sx:0,sy:0,dx:0,dy:0};
 const swp={active:false,id:-1,sx:0,sy:0};
+function joyHome(){ return {x:Math.max(80,vw*0.14), y:vh-95}; }
+function atkBtn(){ return {x:vw-Math.max(80,vw*0.11), y:vh-95, r:40}; }
 const keys={};
 addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
 
@@ -218,8 +231,10 @@ cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches){
 cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches){
   if(joy.active && t.identifier===joy.id){ joy.active=false; joy.dx=joy.dy=0; }
   if(swp.active && t.identifier===swp.id){
-    const dx=t.clientX-swp.sx, dy=t.clientY-swp.sy;
-    if(Math.hypot(dx,dy)>18) slash(Math.atan2(dy,dx)); else tapAction();
+    const dx=t.clientX-swp.sx, dy=t.clientY-swp.sy, ab=atkBtn();
+    if(Math.hypot(dx,dy)>18) slash(Math.atan2(dy,dx));
+    else if(Math.hypot(swp.sx-ab.x, swp.sy-ab.y)<ab.r+14) slash(P.dir); // attack button tap
+    else tapAction();
     swp.active=false;
   }
 } e.preventDefault(); },{passive:false});
@@ -424,16 +439,20 @@ function draw(){
   ctx.fillStyle='rgba(20,16,10,.72)'; rr(ctx, 14, top+38, ctx.measureText(qt).width+22, 26, 8);
   ctx.fillStyle='#e8d9a8'; ctx.fillText(qt, 25, top+56);
 
-  // joystick
-  if(joy.active){
-    ctx.strokeStyle='rgba(240,230,200,.35)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(joy.sx,joy.sy,50,0,7); ctx.stroke();
-    const m=Math.hypot(joy.dx,joy.dy)||1, cl=Math.min(m,50);
-    ctx.fillStyle='rgba(240,230,200,.45)'; ctx.beginPath(); ctx.arc(joy.sx+joy.dx/m*cl, joy.sy+joy.dy/m*cl, 22,0,7); ctx.fill();
-  } else {
-    ctx.fillStyle='rgba(240,230,200,.25)'; ctx.font='12.5px Georgia'; ctx.textAlign='center';
-    ctx.fillText('◐ left thumb: move', vw*.24, vh-26);
-    ctx.fillText('swipe right side: slash ⚔️  •  tap: talk', vw*.72, vh-26);
-  }
+  // joystick — ALWAYS visible (Kaylee: "I want to see the toggle")
+  const jx = joy.active? joy.sx : joyHome().x, jy = joy.active? joy.sy : joyHome().y;
+  ctx.strokeStyle='rgba(240,230,200,.4)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.stroke();
+  ctx.fillStyle='rgba(240,230,200,.08)'; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.fill();
+  { const m=Math.hypot(joy.dx,joy.dy)||1, cl=joy.active? Math.min(m,50):0;
+    ctx.fillStyle='rgba(240,230,200,.5)'; ctx.beginPath(); ctx.arc(jx+(joy.dx/m)*cl, jy+(joy.dy/m)*cl, 22,0,7); ctx.fill(); }
+  // attack button — always visible
+  const ab=atkBtn();
+  ctx.fillStyle='rgba(90,69,38,.55)'; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(240,220,170,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.stroke();
+  ctx.font=(ab.r*0.9)+'px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⚔️', ab.x, ab.y+2); ctx.textBaseline='alphabetic';
+  ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia';
+  ctx.fillText('move', jx, jy+68);
+  ctx.fillText('slash • swipe to aim • tap 💬 near people', ab.x-6, ab.y+ab.r+18);
 }
 function drawPerson(x,y,dir,av,hat,highlight){
   if(highlight){ ctx.strokeStyle='rgba(255,217,119,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,26,0,7); ctx.stroke();
