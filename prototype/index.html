@@ -297,10 +297,15 @@ function chiefLines(){
 // ============================================================
 const joy={active:false,id:-1,sx:0,sy:0,dx:0,dy:0};
 const swp={active:false,id:-1,sx:0,sy:0,cx:0,cy:0,t0:0};
+// Genshin-style lower-right button cluster: big attack in the corner,
+// smaller ability buttons arced around it, contextual talk button when near NPCs
 function joyHome(){ return {x:Math.max(80,vw*0.14), y:vh-95}; }
 function atkBtn(){ return {x:vw-Math.max(80,vw*0.11), y:vh-95, r:40}; }
-function wpnBtn(){ const a=atkBtn(); return {x:a.x, y:a.y-98, r:27}; }
-function bagBtn(){ const a=atkBtn(); return {x:a.x-92, y:a.y+6, r:27}; }
+function smashBtn(){ const a=atkBtn(); return {x:a.x-92, y:a.y+14, r:29}; }   // skill button, left of attack
+function wpnBtn(){ const a=atkBtn(); return {x:a.x, y:a.y-98, r:27}; }        // above attack
+function bagBtn(){ const a=atkBtn(); return {x:a.x-84, y:a.y-76, r:25}; }     // diagonal
+function talkBtn(){ const a=atkBtn(); return {x:a.x, y:a.y-182, r:28}; }      // contextual — only when near someone
+function npcNearby(){ for(const n of NPCS){ if(Math.hypot(n.x-P.x,n.y-P.y)<70) return n; } return null; }
 const blocked = ()=> dialogOpen || invOpen;
 const keys={};
 addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
@@ -326,7 +331,9 @@ cvs.addEventListener('mouseup',e=>{ if(!swp.active)return; const p=pt(e); rightR
 function rightRelease(x,y){
   if(invOpen) return;
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
-  const dur=performance.now()-swp.t0, ab=atkBtn(), wb=wpnBtn(), bb=bagBtn();
+  const dur=performance.now()-swp.t0, ab=atkBtn(), wb=wpnBtn(), bb=bagBtn(), sb=smashBtn(), tb=talkBtn();
+  if(dist<=18 && npcNearby() && Math.hypot(swp.sx-tb.x,swp.sy-tb.y)<tb.r+12 && !dialogOpen){ openDialog(npcNearby()); return; } // contextual talk
+  if(dist<=18 && Math.hypot(swp.sx-sb.x,swp.sy-sb.y)<sb.r+12){ smash(); return; }   // smash skill button
   if(dist<=18 && Math.hypot(swp.sx-bb.x,swp.sy-bb.y)<bb.r+12){ openInv(); return; } // satchel
   if(dist<=18 && Math.hypot(swp.sx-wb.x,swp.sy-wb.y)<wb.r+12){ // weapon toggle
     P.weapon = P.weapon==='sword'?'bow':'sword';
@@ -738,18 +745,33 @@ function draw(){
   ctx.font=(wb.r*0.85)+'px Georgia'; ctx.fillText(P.weapon==='sword'?'🏹':'🗡️', wb.x, wb.y+2);
   ctx.textBaseline='alphabetic';
   ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('switch', wb.x, wb.y+wb.r+13);
+  // smash "skill" button (dims while on cooldown)
+  const sb=smashBtn();
+  ctx.globalAlpha = P.slashT>0? .35 : 1;
+  ctx.fillStyle='rgba(122,63,26,.6)'; ctx.beginPath(); ctx.arc(sb.x,sb.y,sb.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(255,190,110,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(sb.x,sb.y,sb.r,0,7); ctx.stroke();
+  ctx.font=(sb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💥', sb.x, sb.y+2); ctx.textBaseline='alphabetic';
+  ctx.globalAlpha=1;
   // satchel button
   const bb=bagBtn();
   ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.stroke();
   ctx.font=(bb.r*0.85)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('🎒', bb.x, bb.y+2); ctx.textBaseline='alphabetic';
   const nItems=P.inv.bread+P.inv.potion;
-  if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+19,bb.y-19,9,0,7); ctx.fill();
-    ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.fillText(nItems, bb.x+19, bb.y-15); }
-  ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('bag', bb.x, bb.y+bb.r+13);
+  if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+17,bb.y-17,9,0,7); ctx.fill();
+    ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.textBaseline='middle'; ctx.fillText(nItems, bb.x+17, bb.y-16); ctx.textBaseline='alphabetic'; }
+  // contextual TALK button — appears only when near someone (Genshin-style interaction prompt)
+  const nearN=npcNearby();
+  if(nearN && !dialogOpen){
+    const tb=talkBtn(), gl=.5+.25*Math.sin(performance.now()/240);
+    ctx.fillStyle='rgba(58,48,26,.85)'; ctx.beginPath(); ctx.arc(tb.x,tb.y,tb.r,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(255,217,119,'+gl+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(tb.x,tb.y,tb.r,0,7); ctx.stroke();
+    ctx.font=(tb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💬', tb.x, tb.y+2); ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.fillText(nearN.nm.split(' ')[0], tb.x, tb.y-tb.r-8);
+  }
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia';
   ctx.fillText('move', jx, jy+68);
-  ctx.fillText(P.weapon==='sword'? 'swipe: slice • hold: SMASH • tap 💬':'pull back & release to shoot!', ab.x-6, ab.y+ab.r+18);
+  ctx.fillText(P.weapon==='sword'? 'swipe: slice • 💥 or hold: SMASH':'pull back & release to shoot!', ab.x-6, ab.y+ab.r+18);
   // active potion status — lives under the coin counter (right side), away from notifications
   if(pot.t>0 && pot.type){
     const pp=POTIONS[pot.type], secs=Math.ceil(pot.t/1000);
