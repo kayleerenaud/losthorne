@@ -1039,10 +1039,15 @@ if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; s
 let devBuilt=false;
 function buildDevMenu(){
   if(devBuilt) return; devBuilt=true;
+  // a small 🛠 chip (bottom-left, always visible) toggles a scrollable panel — works in tiny windows
+  const chip=document.createElement('button');
+  chip.className='btn ghost'; chip.textContent='🛠';
+  chip.style.cssText='position:fixed;left:8px;bottom:46px;z-index:99;width:42px;height:42px;padding:0;border-radius:50%;font-size:17px;margin:0;';
   const dv=document.createElement('div');
-  dv.style.cssText='position:fixed;left:8px;top:64px;z-index:98;display:flex;flex-direction:column;gap:4px;';
+  dv.style.cssText='position:fixed;left:8px;bottom:94px;z-index:98;display:flex;flex-direction:column;gap:3px;width:150px;max-height:calc(100% - 140px);overflow-y:auto;background:rgba(10,8,5,.88);padding:6px;border-radius:10px;border:1px solid #57534a;';
+  chip.onclick=(e)=>{ e.stopPropagation(); dv.style.display = dv.style.display==='none' ? 'flex' : 'none'; };
   const mk=(label,fn)=>{ const b=document.createElement('button'); b.className='btn ghost';
-    b.style.cssText='padding:5px 8px;font-size:11px;width:170px;margin:0;'; b.textContent=label;
+    b.style.cssText='padding:4px 6px;font-size:10.5px;width:100%;margin:0;'; b.textContent=label;
     b.onclick=(e)=>{e.stopPropagation();fn();banner('🛠 '+label);}; dv.appendChild(b); };
   mk('▶ Q1: goblins', ()=>Quests.debugJump('quest_main_01_goblins'));
   mk('▶ Q2: berries', ()=>Quests.debugJump('quest_main_02_blueberries'));
@@ -1053,8 +1058,8 @@ function buildDevMenu(){
   mk('open both shops', ()=>{ questState.flags.flag_dorgan_shop_open=true; questState.flags.flag_erik_turkey_stock=true; });
   mk('give 4 blueberries', ()=>{ P.inv.item_blueberry=(P.inv.item_blueberry||0)+4; });
   mk('heal full', ()=>{ P.hp=P.maxhp; hungerT=0; });
-  mk('✖ hide dev bar', ()=>{ dv.remove(); devBuilt=false; });
   document.getElementById('app').appendChild(dv);
+  document.getElementById('app').appendChild(chip);
 }
 if(location.hash==='#dev'){ chosen=0; startGame(); buildDevMenu(); }
 var devArmed=false;
