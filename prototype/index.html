@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Losthorne: Last Light</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#12100e; font-family:Georgia,'Times New Roman',serif; touch-action:none; }
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:20; padding:24px; text-align:center; }
+  .hidden { display:none !important; }
+  /* ---------- TITLE ---------- */
+  #title { background: radial-gradient(ellipse at 50% 30%, #3d3324 0%, #241d14 45%, #0e0c09 100%); }
+  #title h1 { color:#e8d9a8; font-size:44px; letter-spacing:2px; text-shadow:0 0 24px rgba(255,190,80,.35), 0 2px 0 #000; line-height:1.05; }
+  #title .sub { color:#c9a85c; font-size:20px; font-style:italic; margin-top:6px; text-shadow:0 1px 0 #000; }
+  .lantern { font-size:52px; margin-bottom:14px; filter:drop-shadow(0 0 18px rgba(255,180,60,.8)); animation:flicker 2.6s infinite; }
+  @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:.82} 72%{opacity:.95} }
+  .btn { display:block; width:min(320px,84vw); margin:9px auto; padding:15px 18px; font-family:inherit; font-size:17px; color:#f1e4bb; background:linear-gradient(#5a4526,#3a2c17); border:2px solid #8a6d38; border-radius:12px; cursor:pointer; box-shadow:0 3px 0 #241a0d, inset 0 1px 0 rgba(255,230,160,.25); }
+  .btn:active { transform:translateY(2px); box-shadow:0 1px 0 #241a0d; }
+  .btn.ghost { background:linear-gradient(#33302a,#242220); border-color:#57534a; color:#cfc7b2; font-size:15px; }
+  .note { color:#8d7f60; font-size:12.5px; margin-top:14px; max-width:300px; line-height:1.45; }
+  /* ---------- LOBBY ---------- */
+  #lobby, #select { background: radial-gradient(ellipse at 50% 20%, #33301f 0%, #1c1912 55%, #0e0c09 100%); }
+  h2 { color:#e8d9a8; font-size:26px; margin-bottom:4px; text-shadow:0 2px 0 #000; }
+  .code-box { font-size:34px; letter-spacing:6px; color:#ffd977; background:#241d10; border:2px dashed #8a6d38; padding:12px 22px; border-radius:12px; margin:14px 0 6px; }
+  input.code { font-family:inherit; font-size:24px; letter-spacing:5px; text-align:center; text-transform:uppercase; width:min(280px,80vw); padding:12px; border-radius:10px; border:2px solid #8a6d38; background:#1c1710; color:#f1e4bb; margin:12px 0; }
+  /* ---------- CHARACTER SELECT ---------- */
+  .avatars { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:min(360px,92vw); margin:16px 0; }
+  .card { background:linear-gradient(#3a3226,#26201660); border:2px solid #6b5730; border-radius:14px; padding:12px 8px 10px; cursor:pointer; color:#e8d9a8; }
+  .card.sel { border-color:#ffd977; box-shadow:0 0 16px rgba(255,215,120,.45); background:linear-gradient(#4d4230,#2c2518); }
+  .card canvas { width:72px; height:72px; }
+  .card .nm { font-size:15px; margin-top:4px; }
+  .card .ds { font-size:11px; color:#a89870; margin-top:2px; line-height:1.35; }
+  /* ---------- GAME ---------- */
+  #gameWrap { position:fixed; inset:0; z-index:5; }
+  #game { position:absolute; inset:0; width:100%; height:100%; }
+  /* ---------- DIALOGUE ---------- */
+  #dialog { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(150px + env(safe-area-inset-bottom)); width:min(420px,92vw); background:rgba(20,16,10,.94); border:2px solid #8a6d38; border-radius:14px; padding:14px 16px; color:#f1e4bb; z-index:30; box-shadow:0 6px 24px rgba(0,0,0,.6); }
+  #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
+  #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
+  #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
+  #dialog .shopBtn { margin-top:8px; width:100%; padding:10px; font-size:15px; }
+  /* ---------- OVERLAY MESSAGES ---------- */
+  #banner { position:fixed; top:calc(64px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:9px 18px; border-radius:10px; font-size:14.5px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:88vw; text-align:center; }
+  #deathScr { background:rgba(10,5,5,.93); z-index:50; }
+  #deathScr h2 { color:#e05545; font-size:30px; }
+  #deathScr p { color:#d8c8a8; margin:12px 0 18px; font-size:16px; max-width:300px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<!-- TITLE / LOGIN -->
+<div id="title" class="screen">
+  <div class="lantern">🏮</div>
+  <h1>LOSTHORNE</h1>
+  <div class="sub">Last Light</div>
+  <div style="height:34px"></div>
+  <button class="btn" id="btnGuest">⚔️ &nbsp;Begin the Quest</button>
+  <button class="btn ghost" id="btnGoogle">Sign in with Google — coming soon</button>
+  <button class="btn ghost" id="btnSupa">Village account (Supabase) — coming soon</button>
+  <div class="note">The last free village needs you.<br>Prototype v0.1 — logins are pretend for now.</div>
+</div>
+
+<!-- LOBBY / ROOM CODE -->
+<div id="lobby" class="screen hidden">
+  <h2>Gather your party</h2>
+  <div class="note" style="margin:0 0 10px">Two warriors defend better than one.</div>
+  <button class="btn" id="btnHost">🔥 Start a fire (host a game)</button>
+  <div id="hostCode" class="hidden">
+    <div class="code-box" id="codeText">LOST-????</div>
+    <div class="note" style="margin-top:2px">Send this code to your friend.<br><b>(Real multiplayer coming soon — you'll scout ahead solo for now.)</b></div>
+    <button class="btn" id="btnGo">Enter Losthorne →</button>
+  </div>
+  <div id="joinBox">
+    <input class="code" id="joinInput" placeholder="LOST-CODE" maxlength="9">
+    <button class="btn ghost" id="btnJoin">Join a friend's fire</button>
+  </div>
+</div>
+
+<!-- CHARACTER SELECT -->
+<div id="select" class="screen hidden">
+  <h2>Choose your villager</h2>
+  <div class="avatars" id="avatarGrid"></div>
+  <button class="btn" id="btnStart" disabled style="opacity:.5">Step into the village</button>
+</div>
+
+<!-- GAME -->
+<div id="gameWrap" class="hidden"><canvas id="game"></canvas></div>
+<div id="dialog" class="hidden">
+  <div class="who"></div><div class="txt"></div>
+  <button class="btn shopBtn hidden" id="shopBtn"></button>
+  <div class="next">tap to continue ▸</div>
+</div>
+<div id="banner"></div>
+
+<!-- DEATH -->
+<div id="deathScr" class="screen hidden">
+  <h2 id="deathTitle">You have fallen</h2>
+  <p id="deathMsg">The light of Losthorne dims… but is not out.</p>
+  <button class="btn" id="btnRespawn">Rise again at the village edge</button>
+</div>
+
+<script>
+'use strict';
+// ============================================================
+// LOSTHORNE: LAST LIGHT — playable prototype slice
+// Top-down Zelda-style • two-thumb controls • mocked login/rooms
+// ============================================================
+const $ = id => document.getElementById(id);
+
+// ---------- Avatars (the 4 designed by Josiah & Malachi) ----------
+const AVATARS = [
+  { nm:'Flute Boy',   ds:'curly dirty-blonde hair, brown vest, wooden flute', hair:'#c9a35a', outfit:'#7a5230', skin:'#e8b98a', item:'flute'  },
+  { nm:'Leather Lad', ds:'black ruffled hair, leather jacket, silver buckle', hair:'#241f1c', outfit:'#4a3826', skin:'#dfa878', item:'buckle' },
+  { nm:'Bone Pin',    ds:'big bun with a bone pin, dress & fur shawl',        hair:'#2e2119', outfit:'#6d4a56', skin:'#9c6b47', item:'pin'    },
+  { nm:'Lute Girl',   ds:'two Dutch braids, always carries her lute',         hair:'#e5c874', outfit:'#54636b', skin:'#eec49a', item:'lute'   },
+];
+let chosen = -1;
+
+// ---------- Screen flow ----------
+function show(id){ ['title','lobby','select','gameWrap','deathScr'].forEach(s=>$(s).classList.add('hidden')); $(id).classList.remove('hidden'); }
+$('btnGuest').onclick = ()=> show('lobby');
+$('btnGoogle').onclick = $('btnSupa').onclick = function(){ this.textContent='🔧 Pretend-login successful!'; setTimeout(()=>show('lobby'),450); };
+$('btnHost').onclick = ()=>{
+  const L='BCDFGHKLMNPRSTVWZ', c=()=>L[Math.floor(Math.random()*L.length)];
+  $('codeText').textContent = 'LOST-'+c()+c()+c()+c();
+  $('hostCode').classList.remove('hidden'); $('joinBox').classList.add('hidden'); $('btnHost').classList.add('hidden');
+};
+$('btnJoin').onclick = ()=>{
+  const v=$('joinInput').value.trim();
+  banner(v? 'Fire "'+v.toUpperCase()+'" found! (multiplayer is pretend for now)' : 'Type a code first!');
+  if(v) setTimeout(()=>show('select'),900);
+};
+$('btnGo').onclick = ()=> show('select');
+$('btnStart').onclick = ()=>{ if(chosen>=0) startGame(); };
+
+// avatar cards
+AVATARS.forEach((a,i)=>{
+  const d=document.createElement('div'); d.className='card';
+  const cv=document.createElement('canvas'); cv.width=cv.height=72;
+  d.appendChild(cv);
+  d.insertAdjacentHTML('beforeend','<div class="nm">'+a.nm+'</div><div class="ds">'+a.ds+'</div>');
+  drawAvatarIcon(cv.getContext('2d'), a);
+  d.onclick=()=>{ document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel')); d.classList.add('sel'); chosen=i; $('btnStart').disabled=false; $('btnStart').style.opacity=1; };
+  $('avatarGrid').appendChild(d);
+});
+function drawAvatarIcon(c,a){
+  c.clearRect(0,0,72,72);
+  c.fillStyle=a.outfit; rr(c,22,34,28,30,8);                    // body
+  c.fillStyle=a.skin; c.beginPath(); c.arc(36,24,13,0,7); c.fill(); // head
+  c.fillStyle=a.hair; c.beginPath(); c.arc(36,19,13,Math.PI,0); c.fill(); c.fillRect(23,17,26,6);
+  c.fillStyle='#1c150e'; c.fillRect(31,25,3,3); c.fillRect(40,25,3,3); // eyes
+  if(a.item==='flute'){ c.strokeStyle='#a87c3f'; c.lineWidth=3.5; c.beginPath(); c.moveTo(48,42); c.lineTo(64,34); c.stroke(); }
+  if(a.item==='lute'){ c.fillStyle='#8a5a28'; c.beginPath(); c.ellipse(56,48,8,11,-.5,0,7); c.fill(); c.strokeStyle='#caa'; c.lineWidth=1.5; c.beginPath(); c.moveTo(50,58); c.lineTo(63,36); c.stroke(); }
+  if(a.item==='buckle'){ c.fillStyle='#cfd4da'; c.fillRect(32,46,8,7); }
+  if(a.item==='pin'){ c.fillStyle='#efe6d0'; c.save(); c.translate(46,14); c.rotate(.6); c.fillRect(-1.5,-8,3,16); c.restore(); }
+}
+function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); c.fill(); }
+
+// ============================================================
+// WORLD
+// ============================================================
+const W=1600, H=1600;                       // world size
+const cvs=$('game'), ctx=cvs.getContext('2d');
+let vw=0, vh=0, dpr=1;
+function resize(){ dpr=Math.min(devicePixelRatio||1,2); vw=innerWidth; vh=innerHeight; cvs.width=vw*dpr; cvs.height=vh*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+addEventListener('resize',resize); resize();
+
+const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:500, speed:2.5, slashT:0, hurtT:0, kills:0 };
+let hungerT = 0;
+const HUNGER_EVERY = 24000; // ms until you lose half a heart
+
+const trees=[], houses=[], bushes=[];
+// forest (north)
+for(let i=0;i<46;i++) trees.push({x:80+Math.random()*(W-160), y:70+Math.random()*560, r:22+Math.random()*14});
+// scattered mid trees
+for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random()*260, r:20+Math.random()*10});
+// village houses
+[[620,1120],[980,1120],[560,1300],[1030,1300],[790,1370]].forEach(h=>houses.push({x:h[0],y:h[1]}));
+// berry bushes: type 'blue' safe, 'red' DEADLY
+[[420,880],[1180,840],[760,760],[300,1020],[1320,1000]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'blue',taken:false}));
+[[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false}));
+
+const NPCS = [
+  { nm:'Chief Bonbottom', x:800, y:1140, col:'#7d2f2f', hat:true,
+    lines:["Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
+           "Goblins have crept into the north forest. They scare the children and steal our bread!",
+           "Drive off 3 goblins, and there'll be 60 coins in it for you.",
+           "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."] },
+  { nm:'Erik the Trader', x:930, y:1195, col:'#2f5d7d', hat:false,
+    lines:["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."], shop:true },
+];
+
+const goblins=[];
+function spawnGoblins(){
+  goblins.length=0;
+  [[600,420],[840,300],[1120,460],[920,560]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:2,maxhp:2,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
+}
+spawnGoblins();
+let questDone=false, questRewarded=false;
+
+// ============================================================
+// INPUT — left thumb = move (joystick), right thumb = swipe to slash
+// ============================================================
+const joy={active:false,id:-1,sx:0,sy:0,dx:0,dy:0};
+const swp={active:false,id:-1,sx:0,sy:0};
+const keys={};
+addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
+
+cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches){
+  if(t.clientX < vw*0.45 && !joy.active){ joy.active=true; joy.id=t.identifier; joy.sx=t.clientX; joy.sy=t.clientY; joy.dx=joy.dy=0; }
+  else if(!swp.active){ swp.active=true; swp.id=t.identifier; swp.sx=t.clientX; swp.sy=t.clientY; }
+} e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches){
+  if(joy.active && t.identifier===joy.id){ joy.dx=t.clientX-joy.sx; joy.dy=t.clientY-joy.sy; }
+} e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches){
+  if(joy.active && t.identifier===joy.id){ joy.active=false; joy.dx=joy.dy=0; }
+  if(swp.active && t.identifier===swp.id){
+    const dx=t.clientX-swp.sx, dy=t.clientY-swp.sy;
+    if(Math.hypot(dx,dy)>18) slash(Math.atan2(dy,dx)); else tapAction();
+    swp.active=false;
+  }
+} e.preventDefault(); },{passive:false});
+// mouse fallback (desktop testing)
+cvs.addEventListener('mousedown',e=>{ swp.active=true; swp.sx=e.clientX; swp.sy=e.clientY; });
+cvs.addEventListener('mouseup',e=>{ if(!swp.active)return; const dx=e.clientX-swp.sx,dy=e.clientY-swp.sy;
+  if(Math.hypot(dx,dy)>18) slash(Math.atan2(dy,dx)); else tapAction(); swp.active=false; });
+
+function tapAction(){ // talk to nearby NPC, or slash forward
+  if(dialogOpen){ advanceDialog(); return; }
+  for(const n of NPCS){ if(Math.hypot(n.x-P.x,n.y-P.y)<70){ openDialog(n); return; } }
+  slash(P.dir);
+}
+
+// ============================================================
+// COMBAT
+// ============================================================
+function slash(ang){
+  if(P.slashT>0 || dialogOpen) return;
+  P.dir=ang; P.slashT=14;
+  for(const g of goblins){ if(!g.alive) continue;
+    const d=Math.hypot(g.x-P.x,g.y-P.y);
+    const a=Math.atan2(g.y-P.y,g.x-P.x);
+    let diff=Math.abs(a-ang); if(diff>Math.PI) diff=2*Math.PI-diff;
+    if(d<74 && diff<1.15){
+      g.hp--; g.hurtT=10; g.showBar=true;
+      const kb=26; g.x+=Math.cos(a)*kb; g.y+=Math.sin(a)*kb;
+      if(g.hp<=0){ g.alive=false; P.kills++; P.coins+=10; banner('Goblin driven off! +10 coins  ('+P.kills+'/3)');
+        if(P.kills>=3 && !questDone){ questDone=true; banner('⚔️ Quest complete! Return to Chief Bonbottom!'); } }
+    }
+  }
+}
+function hurtPlayer(n,why){
+  if(P.hurtT>0) return;
+  P.hp-=n; P.hurtT=45;
+  if(P.hp<=0) die(why||'A goblin got the better of you.');
+}
+function die(msg,title){
+  $('deathTitle').textContent = title||'You have fallen';
+  $('deathMsg').textContent = msg+' You wake at the edge of the territory.';
+  show('deathScr');
+  running=false;
+}
+$('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=P.maxhp; hungerT=0; P.hurtT=60; show('gameWrap'); running=true; loop(); };
+
+// ============================================================
+// DIALOGUE
+// ============================================================
+let dialogOpen=false, dNpc=null, dIdx=0;
+function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0; renderDialog(); $('dialog').classList.remove('hidden'); }
+function renderDialog(){
+  $('dialog').querySelector('.who').textContent=dNpc.nm;
+  let line=dNpc.lines[dIdx];
+  if(dNpc.nm.startsWith('Chief') && questDone && !questRewarded){ line="You did it! Three goblins gone — the children can play again. Here: 60 coins, well earned."; }
+  $('dialog').querySelector('.txt').textContent=line;
+  const sb=$('shopBtn');
+  if(dNpc.shop){ sb.classList.remove('hidden'); sb.textContent='🍞 Buy bread — 8 coins (+1 heart)';
+    sb.onclick=(e)=>{ e.stopPropagation();
+      if(P.coins>=8){ P.coins-=8; P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0; banner('You eat warm bread. +1 ❤️'); }
+      else banner("Not enough coins!"); };
+  } else sb.classList.add('hidden');
+}
+function advanceDialog(){
+  if(dNpc.nm.startsWith('Chief') && questDone && !questRewarded){ questRewarded=true; P.coins+=60; banner('+60 coins!'); closeDialog(); return; }
+  dIdx++;
+  if(dIdx>=dNpc.lines.length) closeDialog(); else renderDialog();
+}
+function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden'); }
+$('dialog').onclick=advanceDialog;
+
+// ============================================================
+// BANNER
+// ============================================================
+let bannerT=null;
+function banner(t){ const b=$('banner'); b.textContent=t; b.style.opacity=1; clearTimeout(bannerT); bannerT=setTimeout(()=>b.style.opacity=0,2600); }
+
+// ============================================================
+// UPDATE
+// ============================================================
+let last=0, running=false;
+function update(dt){
+  // movement
+  let mx=0,my=0;
+  if(joy.active){ const m=Math.hypot(joy.dx,joy.dy); if(m>6){ const cl=Math.min(m,52)/52; mx=joy.dx/m*cl; my=joy.dy/m*cl; } }
+  if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
+  if(keys[' ']){ slash(P.dir); }
+  if((mx||my) && !dialogOpen){
+    P.x+=mx*P.speed; P.y+=my*P.speed; P.dir=Math.atan2(my,mx);
+    P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
+    for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
+    for(const h of houses){ if(Math.abs(P.x-h.x)<62 && Math.abs(P.y-h.y)<56){ if(Math.abs(P.x-h.x)/62>Math.abs(P.y-h.y)/56) P.x=h.x+Math.sign(P.x-h.x)*62; else P.y=h.y+Math.sign(P.y-h.y)*56; } }
+  }
+  if(P.slashT>0)P.slashT--; if(P.hurtT>0)P.hurtT--;
+
+  // hunger
+  hungerT+=dt;
+  if(hungerT>HUNGER_EVERY){ hungerT=0; P.hp--; banner('Your stomach growls… find food! -½ ❤️'); if(P.hp<=0) die('You starved in the wilds.','Hunger wins'); }
+
+  // berries
+  for(const b of bushes){ if(b.taken) continue;
+    if(Math.hypot(b.x-P.x,b.y-P.y)<30){
+      b.taken=true;
+      if(b.type==='blue'){ P.hp=Math.min(P.maxhp,P.hp+1); hungerT=0; banner('Sweet blueberries! +½ ❤️'); }
+      else { die('You ate the RED berries. The Chief warned you…','The red berries'); }
+    } }
+
+  // goblins
+  for(const g of goblins){ if(!g.alive) continue;
+    if(g.hurtT>0){g.hurtT--; continue;}
+    const d=Math.hypot(P.x-g.x,P.y-g.y);
+    if(d<170 && !dialogOpen){ const a=Math.atan2(P.y-g.y,P.x-g.x); g.x+=Math.cos(a)*1.35; g.y+=Math.sin(a)*1.35; g.dir=a;
+      if(d<30 && g.atkT<=0){ hurtPlayer(1); g.atkT=70; banner('A goblin bites you! -½ ❤️'); } }
+    else { g.t+=dt; if(g.t>2200){ g.t=0; g.dir=Math.random()*7; } g.x+=Math.cos(g.dir)*.4; g.y+=Math.sin(g.dir)*.4; }
+    g.x=Math.max(40,Math.min(W-40,g.x)); g.y=Math.max(40,Math.min(H-40,g.y));
+    if(g.atkT>0)g.atkT--;
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function draw(){
+  const camX=Math.max(0,Math.min(W-vw,P.x-vw/2)), camY=Math.max(0,Math.min(H-vh,P.y-vh/2));
+  // ground
+  const grd=ctx.createLinearGradient(0,-camY,0,H-camY);
+  grd.addColorStop(0,'#26331f'); grd.addColorStop(.45,'#33402a'); grd.addColorStop(1,'#4a4a33');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  ctx.save(); ctx.translate(-camX,-camY);
+
+  // dirt path from village to forest
+  ctx.strokeStyle='#5c4d33'; ctx.lineWidth=46; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(800,1340); ctx.quadraticCurveTo(780,900,830,420); ctx.stroke();
+  ctx.strokeStyle='#6b5a3d'; ctx.lineWidth=34; ctx.beginPath(); ctx.moveTo(800,1340); ctx.quadraticCurveTo(780,900,830,420); ctx.stroke();
+
+  // village ground patch
+  ctx.fillStyle='rgba(120,100,60,.25)'; ctx.beginPath(); ctx.ellipse(800,1230,330,210,0,0,7); ctx.fill();
+
+  // bushes
+  for(const b of bushes){ if(b.taken) continue;
+    ctx.fillStyle='#2c4a22'; ctx.beginPath(); ctx.arc(b.x,b.y,16,0,7); ctx.arc(b.x-12,b.y+6,12,0,7); ctx.arc(b.x+12,b.y+6,12,0,7); ctx.fill();
+    ctx.fillStyle = b.type==='blue' ? '#5b8fd4' : '#d43a3a';
+    for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(b.x-10+i*5,b.y-4+((i%2)*8),3.2,0,7); ctx.fill(); }
+  }
+
+  // houses
+  for(const h of houses){
+    ctx.fillStyle='#57452c'; ctx.fillRect(h.x-52,h.y-30,104,66);
+    ctx.fillStyle='#3f331f'; ctx.fillRect(h.x-52,h.y-30,104,8);
+    ctx.fillStyle='#7d2f22'; ctx.beginPath(); ctx.moveTo(h.x-62,h.y-28); ctx.lineTo(h.x,h.y-72); ctx.lineTo(h.x+62,h.y-28); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#2c2214'; ctx.fillRect(h.x-11,h.y+8,22,28);
+    ctx.fillStyle='#ffd977'; ctx.fillRect(h.x-34,h.y-12,14,14); ctx.fillRect(h.x+20,h.y-12,14,14);
+  }
+  // Erik's stall
+  ctx.fillStyle='#6b4a26'; ctx.fillRect(905,1210,56,10);
+  ctx.fillStyle='#8a2f2f'; ctx.fillRect(900,1178,66,10); ctx.fillStyle='#c9c2ac'; ctx.fillRect(900,1168,66,10);
+
+  // NPCs
+  for(const n of NPCS) drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70);
+
+  // goblins
+  for(const g of goblins){ if(!g.alive) continue;
+    ctx.save(); if(g.hurtT>0 && g.hurtT%4<2) ctx.globalAlpha=.4;
+    ctx.fillStyle='#4a6d2c'; ctx.beginPath(); ctx.ellipse(g.x,g.y+6,11,13,0,0,7); ctx.fill();
+    ctx.fillStyle='#5d8438'; ctx.beginPath(); ctx.arc(g.x,g.y-8,9,0,7); ctx.fill();
+    ctx.fillStyle='#5d8438'; ctx.beginPath(); ctx.moveTo(g.x-8,g.y-12); ctx.lineTo(g.x-15,g.y-19); ctx.lineTo(g.x-5,g.y-15); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(g.x+8,g.y-12); ctx.lineTo(g.x+15,g.y-19); ctx.lineTo(g.x+5,g.y-15); ctx.fill();
+    ctx.fillStyle='#ffd42a'; ctx.fillRect(g.x-4,g.y-11,2.6,2.6); ctx.fillRect(g.x+2,g.y-11,2.6,2.6);
+    ctx.restore();
+    if(g.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(g.x-16,g.y-28,32,5); ctx.fillStyle='#d43a3a'; ctx.fillRect(g.x-15,g.y-27,30*(g.hp/g.maxhp),3); }
+  }
+
+  // player
+  const av=AVATARS[chosen<0?0:chosen];
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
+  drawPerson(P.x,P.y,P.dir,av,false,false);
+  ctx.restore();
+  // slash arc
+  if(P.slashT>0){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke();
+    ctx.strokeStyle='rgba(255,215,120,'+(P.slashT/14*.6)+')'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,52,P.dir-.65,P.dir+.65); ctx.stroke(); }
+
+  // trees (drawn after entities so canopies overlap)
+  for(const t of trees){
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(t.x+4,t.y+6,t.r*.9,t.r*.5,0,0,7); ctx.fill();
+    ctx.fillStyle='#1d2e18'; ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,7); ctx.fill();
+    ctx.fillStyle='#2a4020'; ctx.beginPath(); ctx.arc(t.x-t.r*.25,t.y-t.r*.25,t.r*.72,0,7); ctx.fill();
+  }
+  ctx.restore();
+
+  // ---------- HUD ----------
+  const top = 12 + (window.visualViewport? 0:0);
+  // hearts
+  for(let i=0;i<P.maxhp/2;i++){ drawHeart(20+i*26, top+18, (P.hp>=(i+1)*2)?1:(P.hp===i*2+1?.5:0)); }
+  // coins
+  ctx.font='bold 17px Georgia'; ctx.textAlign='right';
+  ctx.fillStyle='rgba(20,16,10,.75)'; rr(ctx, vw-124, top+2, 112, 30, 9);
+  ctx.fillStyle='#ffd977'; ctx.fillText('🪙 '+P.coins, vw-22, top+24);
+  // quest
+  ctx.textAlign='left'; ctx.font='13.5px Georgia';
+  const qt = questRewarded? '✅ The forest is safe… for now.' : questDone? '⚔️ Return to Chief Bonbottom!' : P.kills>0? '⚔️ Goblins driven off: '+P.kills+'/3' : '💬 Talk to Chief Bonbottom (tap near him)';
+  ctx.fillStyle='rgba(20,16,10,.72)'; rr(ctx, 14, top+38, ctx.measureText(qt).width+22, 26, 8);
+  ctx.fillStyle='#e8d9a8'; ctx.fillText(qt, 25, top+56);
+
+  // joystick
+  if(joy.active){
+    ctx.strokeStyle='rgba(240,230,200,.35)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(joy.sx,joy.sy,50,0,7); ctx.stroke();
+    const m=Math.hypot(joy.dx,joy.dy)||1, cl=Math.min(m,50);
+    ctx.fillStyle='rgba(240,230,200,.45)'; ctx.beginPath(); ctx.arc(joy.sx+joy.dx/m*cl, joy.sy+joy.dy/m*cl, 22,0,7); ctx.fill();
+  } else {
+    ctx.fillStyle='rgba(240,230,200,.25)'; ctx.font='12.5px Georgia'; ctx.textAlign='center';
+    ctx.fillText('◐ left thumb: move', vw*.24, vh-26);
+    ctx.fillText('swipe right side: slash ⚔️  •  tap: talk', vw*.72, vh-26);
+  }
+}
+function drawPerson(x,y,dir,av,hat,highlight){
+  if(highlight){ ctx.strokeStyle='rgba(255,217,119,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,26,0,7); ctx.stroke();
+    ctx.fillStyle='#ffd977'; ctx.font='16px Georgia'; ctx.textAlign='center'; ctx.fillText('💬', x, y-34); }
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x,y+16,12,5,0,0,7); ctx.fill();
+  ctx.fillStyle=av.outfit; ctx.beginPath(); ctx.ellipse(x,y+4,11,14,0,0,7); ctx.fill();
+  ctx.fillStyle=av.skin; ctx.beginPath(); ctx.arc(x,y-12,9,0,7); ctx.fill();
+  ctx.fillStyle=av.hair; ctx.beginPath(); ctx.arc(x,y-14.5,9,Math.PI,0); ctx.fill();
+  if(hat){ ctx.fillStyle='#3d2c14'; ctx.beginPath(); ctx.ellipse(x,y-18,11,4,0,0,7); ctx.fill(); ctx.fillRect(x-5,y-27,10,9); }
+  if(av.item==='lute'){ ctx.fillStyle='#8a5a28'; ctx.beginPath(); ctx.ellipse(x+12,y+2,5,7,-.4,0,7); ctx.fill(); }
+}
+function drawHeart(x,y,fill){
+  ctx.save(); ctx.translate(x,y); ctx.scale(1.05,1.05);
+  const path=()=>{ ctx.beginPath(); ctx.moveTo(0,4); ctx.bezierCurveTo(-11,-6,-5,-15,0,-8); ctx.bezierCurveTo(5,-15,11,-6,0,4); ctx.closePath(); };
+  path(); ctx.fillStyle='rgba(15,10,8,.75)'; ctx.fill();
+  if(fill>0){ path(); ctx.save(); ctx.clip(); ctx.fillStyle='#e04545'; ctx.fillRect(-12,-16,(fill===1?24:12),24); ctx.restore(); }
+  path(); ctx.strokeStyle='#f0d8b0'; ctx.lineWidth=1.4; ctx.stroke();
+  ctx.restore();
+}
+
+// ============================================================
+// LOOP
+// ============================================================
+function loop(ts){
+  if(!running) return;
+  const dt=Math.min(50,(ts-last)||16); last=ts;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); requestAnimationFrame(loop); }
+
+// dev shortcuts for self-testing: #game jumps straight in
+if(location.hash==='#game'){ chosen=0; startGame(); }
+if(location.hash==='#select'){ show('select'); }
+if(location.hash==='#lobby'){ show('lobby'); }
+</script>
+</body>
+</html>
