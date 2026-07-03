@@ -38,6 +38,15 @@ export const Quests = {
         questState.progress = 0;
         if(p.banner) hooks.banner(p.banner);
       } }
+    // 'deliver' objectives track live inventory: eat a quest berry and progress drops back
+    const q = defs[questState.currentId];
+    if(q && q.objective.type==='deliver' && (questState.stage==='active' || questState.stage==='complete')){
+      const n = hooks.itemCount ? hooks.itemCount(q.objective.item) : 0;
+      questState.progress = Math.min(n, q.objective.count);
+      const done = n >= q.objective.count;
+      if(done && questState.stage==='active'){ questState.stage='complete'; hooks.banner(q.banners.objectiveDone); }
+      if(!done && questState.stage==='complete'){ questState.stage='active'; }
+    }
   },
 
   // An engine system reports a fact. Returns {counted, progress, count, banner}
@@ -75,16 +84,31 @@ export const Quests = {
     const q = defs[questState.currentId];
     if(!q || this._stageNpc(q)!==npcId) return;
     if(questState.stage==='offer'){
-      questState.stage='active'; questState.progress=0;
+      questState.stage='active';
+      // retroactive quests credit things you already did while exploring
+      questState.progress = (q.retroactive && hooks.retroCount) ? Math.min(hooks.retroCount(q.objective), q.objective.count) : 0;
       hooks.banner(q.banners.start);
+      if(questState.progress >= q.objective.count && q.objective.type!=='deliver'){
+        questState.stage='complete'; hooks.banner(q.banners.objectiveDone);
+      }
     } else if(questState.stage==='complete'){
+      if(q.objective.type==='deliver' && hooks.takeItems) hooks.takeItems(q.objective.item, q.objective.count);
       if(q.reward?.coins) hooks.addCoins(q.reward.coins);
+      if(q.reward?.potion && hooks.givePotion) hooks.givePotion(q.reward.potion);
+      if(q.reward?.item && hooks.giveItem) hooks.giveItem(q.reward.item);
       hooks.banner(q.banners.reward);
       questState.completed.push(q.id);
       if(q.setFlagOnReward) questState.flags[q.setFlagOnReward]=true;
       questState.stage='afterReward';
       if(q.next) questState.pendingNext={questId:q.next.quest, msLeft:q.next.delayMs, banner:q.next.banner};
     }
+  },
+
+  // dev-only: jump the chain to any quest/stage (used by the #dev testing menu)
+  debugJump(questId, stage){
+    if(!defs[questId]) return false;
+    questState.currentId=questId; questState.stage=stage||'offer'; questState.progress=0; questState.pendingNext=null;
+    return true;
   },
 
   trackerText(){

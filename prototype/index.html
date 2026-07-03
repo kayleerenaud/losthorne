@@ -144,10 +144,10 @@
 (() => {
   // prototype/src/js/data/avatars.js
   var AVATARS = [
-    { id: "avatar_flute_boy", nm: "Flute Boy", ds: "curly dirty-blonde hair, brown vest, wooden flute", hair: "#c9a35a", outfit: "#7a5230", skin: "#e8b98a", item: "flute" },
-    { id: "avatar_leather_lad", nm: "Leather Lad", ds: "black ruffled hair, leather jacket, silver buckle", hair: "#241f1c", outfit: "#4a3826", skin: "#dfa878", item: "buckle" },
-    { id: "avatar_bone_pin", nm: "Bone Pin", ds: "big bun with a bone pin, dress & fur shawl", hair: "#2e2119", outfit: "#6d4a56", skin: "#9c6b47", item: "pin" },
-    { id: "avatar_lute_girl", nm: "Lute Girl", ds: "two Dutch braids, always carries her lute", hair: "#e5c874", outfit: "#54636b", skin: "#eec49a", item: "lute" }
+    { id: "avatar_cippy", nm: "Cippy", ds: "curly dirty-blonde hair, brown vest, wooden flute", hair: "#c9a35a", outfit: "#7a5230", skin: "#e8b98a", item: "flute" },
+    { id: "avatar_oak", nm: "Oak", ds: "black ruffled hair, leather jacket, silver buckle", hair: "#241f1c", outfit: "#4a3826", skin: "#dfa878", item: "buckle" },
+    { id: "avatar_willow", nm: "Willow", ds: "big bun with a bone pin, dress & fur shawl", hair: "#2e2119", outfit: "#6d4a56", skin: "#9c6b47", item: "pin" },
+    { id: "avatar_dusty", nm: "Dusty", ds: "two Dutch braids, always carries her lute", hair: "#e5c874", outfit: "#54636b", skin: "#eec49a", item: "lute" }
   ];
 
   // prototype/src/js/data/economy.js
@@ -161,7 +161,7 @@
     item_turkey: 15
     // price = placeholder guess (restores 1.5 hearts vs bread's 1 at 10)
   };
-  var STARTING_COINS = 50;
+  var STARTING_COINS = 10;
 
   // prototype/src/js/data/items.js
   var ITEM_DEFS = {
@@ -185,6 +185,20 @@
       nm: "Roast Turkey",
       st: "Hearty meadow turkey, roasted by Erik. Restores 1½ ❤️ and quiets hunger.",
       effect: { kind: "heal", halfHearts: 3, resetHunger: true, banner: "You feast on roast turkey. +1½ ❤️", float: "+1½ ❤️" }
+    },
+    item_blueberry: {
+      id: "item_blueberry",
+      ic: "🫐",
+      nm: "Blueberry",
+      st: "Sweet and safely BLUE. Eat it (+½ ❤️, calms hunger) — or save it for someone who needs berries…",
+      effect: { kind: "heal", halfHearts: 1, resetHunger: true, banner: "Sweet blueberry! +½ ❤️", float: "+½ ❤️" }
+    },
+    item_shield: {
+      id: "item_shield",
+      ic: "🛡️",
+      nm: "Champion's Shield",
+      st: "Won from the visiting champion. While you HOLD to charge a smash, this shield is raised and blocks blows.",
+      effect: { kind: "passive" }
     },
     item_sword: {
       id: "item_sword",
@@ -231,9 +245,12 @@
   var erik_default = {
     id: "npc_erik",
     name: "Erik the Trader",
-    pos: { x: 930, y: 1195 },
+    building: { x: 980, y: 1120, sign: "🪙" },
+    interior: { w: 520, h: 340, props: [["🍞", 120, 120], ["🧺", 400, 120], ["🫙", 260, 95]] },
+    pos: { x: 260, y: 120 },
+    // position INSIDE his shop
     look: { outfit: "#2f5d7d", hat: false },
-    lines: ["Psst — bread, fresh-ish! Only 10 coins. Nothing in Losthorne is free, friend."],
+    lines: ["Welcome to Erik’s! Bread, fresh-ish — 10 coins. Nothing in Losthorne is free, friend."],
     shop: [
       { item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" },
       { item: "item_turkey", label: "🍗 Turkey meat — {price} coins (+1½ ❤️)", banner: "🍗 Roast turkey wrapped and tucked away", requiresFlag: "flag_erik_turkey_stock" }
@@ -244,7 +261,9 @@
   var dorgan_default = {
     id: "npc_dorgan",
     name: "Dorgan the Potion-Maker",
-    pos: { x: 665, y: 1190 },
+    building: { x: 560, y: 1300, sign: "🧪" },
+    interior: { w: 520, h: 340, props: [["⚗️", 120, 120], ["🕯️", 400, 120], ["📜", 330, 95]] },
+    pos: { x: 260, y: 120 },
     look: { outfit: "#53406e", hat: false },
     lines: [
       "Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
@@ -262,7 +281,9 @@
   var modo_default = {
     id: "npc_modo",
     name: "Modo the Blacksmith",
-    pos: { x: 1015, y: 1235 },
+    building: { x: 1030, y: 1300, sign: "🔨" },
+    interior: { w: 520, h: 340, props: [["🔥", 120, 120], ["⚒️", 400, 120], ["🛡️", 330, 95]] },
+    pos: { x: 260, y: 120 },
     look: { outfit: "#4f4a45", hat: false },
     lines: [
       "Modo likes warriors who hit hard. Fists are free — steel is not.",
@@ -313,6 +334,19 @@
           if (p.banner) hooks.banner(p.banner);
         }
       }
+      const q = defs[questState.currentId];
+      if (q && q.objective.type === "deliver" && (questState.stage === "active" || questState.stage === "complete")) {
+        const n = hooks.itemCount ? hooks.itemCount(q.objective.item) : 0;
+        questState.progress = Math.min(n, q.objective.count);
+        const done = n >= q.objective.count;
+        if (done && questState.stage === "active") {
+          questState.stage = "complete";
+          hooks.banner(q.banners.objectiveDone);
+        }
+        if (!done && questState.stage === "complete") {
+          questState.stage = "active";
+        }
+      }
     },
     // An engine system reports a fact. Returns {counted, progress, count, banner}
     // so the reporting system can compose its own message without knowing quests.
@@ -343,21 +377,37 @@
     },
     // Called when a dialogue with this NPC finishes — drives stage transitions.
     onDialogueEnd(npcId) {
-      var _a;
+      var _a, _b, _c;
       const q = defs[questState.currentId];
       if (!q || this._stageNpc(q) !== npcId) return;
       if (questState.stage === "offer") {
         questState.stage = "active";
-        questState.progress = 0;
+        questState.progress = q.retroactive && hooks.retroCount ? Math.min(hooks.retroCount(q.objective), q.objective.count) : 0;
         hooks.banner(q.banners.start);
+        if (questState.progress >= q.objective.count && q.objective.type !== "deliver") {
+          questState.stage = "complete";
+          hooks.banner(q.banners.objectiveDone);
+        }
       } else if (questState.stage === "complete") {
+        if (q.objective.type === "deliver" && hooks.takeItems) hooks.takeItems(q.objective.item, q.objective.count);
         if ((_a = q.reward) == null ? void 0 : _a.coins) hooks.addCoins(q.reward.coins);
+        if (((_b = q.reward) == null ? void 0 : _b.potion) && hooks.givePotion) hooks.givePotion(q.reward.potion);
+        if (((_c = q.reward) == null ? void 0 : _c.item) && hooks.giveItem) hooks.giveItem(q.reward.item);
         hooks.banner(q.banners.reward);
         questState.completed.push(q.id);
         if (q.setFlagOnReward) questState.flags[q.setFlagOnReward] = true;
         questState.stage = "afterReward";
         if (q.next) questState.pendingNext = { questId: q.next.quest, msLeft: q.next.delayMs, banner: q.next.banner };
       }
+    },
+    // dev-only: jump the chain to any quest/stage (used by the #dev testing menu)
+    debugJump(questId, stage) {
+      if (!defs[questId]) return false;
+      questState.currentId = questId;
+      questState.stage = stage || "offer";
+      questState.progress = 0;
+      questState.pendingNext = null;
+      return true;
     },
     trackerText() {
       const q = defs[questState.currentId];
@@ -376,65 +426,67 @@
       offer: [
         "Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
         "Goblins have crept into the north forest. They scare the children and steal our bread!",
-        "Drive off 3 goblins, and there'll be 60 coins in it for you.",
-        "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."
+        "Drive off 3 goblins, and there'll be 110 coins in it for you.",
+        "Oh — and NEVER eat the red berries. The blue ones are safe. The red ones… we lost old Gregor that way."
       ],
       active: ["The goblins won't leave on their own, warrior! North, up the path, through the woods."],
       complete: [
-        "HA! You did it! Three goblins gone — the children can play again.",
-        "You have my thanks, and 60 coins, well earned. Now rest and explore — I'll send for you when Losthorne needs you."
+        "HA! You did it! Three goblins gone — the children can play again. Here: 110 coins, well earned.",
+        "But tell me… wasn't that BRUTAL with bare hands? You could use some strength. Or a shield.",
+        "Talk to DORGAN, our potion-maker — the shop with the 🧪 sign. Tell him I sent you."
       ],
-      afterReward: ["Enjoy the calm, warrior. Stretch your legs, taste the blueberries. I'll call when there's work."]
+      afterReward: ["Dorgan, warrior! The 🧪 sign! He brews things that would curl Gregor's beard. Rest his soul."]
     },
     tracker: {
-      offer: "💬 Talk to Chief Bonbottom (tap near him)",
-      active: "⚔️ Goblins driven off: {n}/3",
-      complete: "🏆 Return to Chief Bonbottom!",
-      afterReward: "🌿 Explore! The Chief will call on you again…"
+      offer: "💬 Find Chief Bonbottom",
+      active: "⚔️ Goblins: {n}/3",
+      complete: "🏆 Return to the Chief",
+      afterReward: "🧪 Find Dorgan’s shop"
     },
     banners: {
       start: "📜 Quest: drive off 3 goblins in the north forest!",
       objectiveDone: "⚔️ Quest complete! Return to Chief Bonbottom!",
-      reward: "🎉 The Chief congratulates you! +60 coins"
+      reward: "🎉 The Chief pays you 110 coins!"
     },
-    reward: { coins: 60 },
-    next: { quest: "quest_main_02_blueberries", delayMs: 4e4, banner: "📜 Chief Bonbottom has a new task for you!" }
+    reward: { coins: 110 },
+    next: { quest: "quest_main_02_blueberries", delayMs: 1500, banner: "🧪 Dorgan might be able to help you…" }
   };
 
   // prototype/src/js/data/quests/main-02-blueberries.js
   var main_02_blueberries_default = {
     id: "quest_main_02_blueberries",
-    giver: "npc_chief_bonbottom",
+    giver: "npc_dorgan",
     turnIn: "npc_dorgan",
-    objective: { type: "collect", target: "item_blueberry", count: 4 },
+    objective: { type: "deliver", item: "item_blueberry", count: 4 },
     dialogue: {
       offer: [
-        "There you are! Dorgan is brewing a potion of courage, and he's short on ingredients.",
-        "Gather 4 blueberries from the wild bushes and bring them straight to DORGAN.",
-        "The BLUE ones, mind you. Blue. I cannot stress this enough."
+        "The Chief sent you? Ha! Then you'll want what everyone wants — a potion.",
+        "I could brew you a SHIELD of stone for your very skin… but my cupboard is bare.",
+        "Bring me 4 blueberries from the wild bushes — the BLUE ones, mind — and the potion is yours, free."
       ],
-      active: ["Blueberries! Four! And take them to Dorgan, not to me — my hands are full of chiefly business."],
+      active: ["Four blueberries, warrior — in your satchel, not in your belly! The meadow bushes regrow quickly."],
       complete: [
-        "Ohh — plump and perfectly BLUE! With these I can brew again. You have my thanks, warrior.",
-        "Here, 40 coins from my own purse. And now that I'm restocked… my potions are for sale. 100 coins for a mystery — courage chooses its own shape."
+        "Ohh, plump and perfectly BLUE! Watch the cauldron… there. Drink this when danger comes: STONESKIN.",
+        "And now that I'm restocked, my shop is open to you — 100 coins a mystery, when you have it.",
+        "Low on coin? Erik always has a scheme for earning some. The shop with the 🪙 sign."
       ],
-      afterReward: []
+      afterReward: ["Erik, the 🪙 sign! Tell him the turkeys owe me nothing."]
     },
     tracker: {
-      offer: "💬 Talk to Chief Bonbottom (tap near him)",
-      active: "🫐 Blueberries: {n}/4",
-      complete: "🏆 Bring the berries to Dorgan!",
-      afterReward: "🌿 Explore! Erik looks like he is scheming something…"
+      offer: "🧪 Talk to Dorgan",
+      active: "🫐 Berries in satchel: {n}/4",
+      complete: "🏆 Deliver the berries to Dorgan",
+      afterReward: "🪙 Erik has work for you…"
     },
     banners: {
-      start: "📜 Quest: gather 4 blueberries for Dorgan!",
-      objectiveDone: "🫐 4/4! Bring them to Dorgan!",
-      reward: "🎉 Dorgan pays you 40 coins — his potion shop is OPEN!",
-      progress: "🫐 Blueberries: {n}/4  (+½ ❤️)"
+      start: "📜 Quest: gather 4 blueberries for Dorgan (keep them in your satchel!)",
+      objectiveDone: "🫐 4/4 in the satchel! Take them to Dorgan!",
+      reward: "🎉 Dorgan brews you a FREE Stoneskin potion — his shop is OPEN!",
+      progress: "🫐 Satchel: {n}/4"
     },
-    reward: { coins: 40 },
+    reward: { potion: "potion_stoneskin" },
     setFlagOnReward: "flag_dorgan_shop_open",
-    next: { quest: "quest_main_03_turkeys", delayMs: 3e4, banner: "📜 Erik is waving you over — he has a job!" }
+    next: { quest: "quest_main_03_turkeys", delayMs: 1500, banner: null }
   };
 
   // prototype/src/js/data/quests/main-03-turkeys.js
@@ -443,33 +495,68 @@
     giver: "npc_erik",
     turnIn: "npc_erik",
     objective: { type: "catch", target: "entity_turkey", count: 3 },
+    retroactive: true,
     dialogue: {
       offer: [
         "Psst — warrior! Business idea. The wild turkeys in the meadow? Their feathers sell like fresh bread.",
-        "Catch me 3 of them. Sneak up close and GRAB one with your hands — a 🤲 button appears when you're close enough.",
-        "50 coins in it for you. Nothing in Losthorne is free… except my excellent advice."
+        "Catch me 3. Sneak close and GRAB one — the 🤲 button appears when you're near enough.",
+        "That stoneskin of Dorgan's? Drink it first and the goblins can't interrupt your turkey chase. 90 coins for you!"
       ],
-      active: ["Three turkeys, warrior! Chase them down in the meadow south of the woods and GRAB them when you're close."],
+      active: ["Three turkeys! Chase them in the meadow and GRAB when close. My feather empire awaits."],
       complete: [
-        "HA! Look at these beauties — feathers for WEEKS! Here's your 50 coins, well earned.",
-        "And with turkey to spare… I'll sell you the roast meat. 15 coins, restores a heart and a half. Erik provides!"
+        "HA! Feathers for WEEKS! Here's your 90 coins — and look at that, that's JUST enough for a basic sword.",
+        "Modo's forge — the 🔨 sign. Tell him Erik wants a discount he won't give.",
+        "And with turkey to spare, I'll sell you the roast meat too. Erik provides!"
       ],
       afterReward: []
     },
     tracker: {
-      offer: "💬 Erik is waving you over…",
-      active: "🦃 Turkeys caught: {n}/3",
-      complete: "🏆 Bring the turkeys to Erik!",
-      afterReward: "✅ All quests done — explore Losthorne!"
+      offer: "🪙 Talk to Erik",
+      active: "🦃 Turkeys: {n}/3",
+      complete: "🏆 Bring the turkeys to Erik",
+      afterReward: "🔨 A sword awaits at Modo’s…"
     },
     banners: {
       start: "📜 Quest: catch 3 turkeys for Erik! (get close and GRAB)",
       objectiveDone: "🦃 3/3! Bring them to Erik!",
-      reward: "🎉 Erik pays you 50 coins — turkey meat now for sale!",
+      reward: "🎉 Erik pays 90 coins — turkey meat now for sale!",
       progress: "🦃 Turkey caught! {n}/3"
     },
-    reward: { coins: 50 },
+    reward: { coins: 90 },
     setFlagOnReward: "flag_erik_turkey_stock",
+    next: { quest: "quest_main_04_champion", delayMs: 15e3, banner: "📯 A stranger marches into the village square…" }
+  };
+
+  // prototype/src/js/data/quests/main-04-champion.js
+  var main_04_champion_default = {
+    id: "quest_main_04_champion",
+    giver: "npc_chief_bonbottom",
+    objective: { type: "kill", target: "enemy_champion", count: 1 },
+    dialogue: {
+      offer: [
+        "Warrior! A champion from a rival village has marched into OUR square. He demands an 'entertainment fight' with our toughest.",
+        "And… well. I volunteered you. Don't look at me like that — you caught TURKEYS, you're clearly ready.",
+        "Watch him: when his shield is up you cannot harm him. When he rears back — MOVE or block. Strike in between!"
+      ],
+      active: ["He's waiting in the square, warrior. Shield up: don't bother. Wind-up: get clear. In between: STRIKE!"],
+      complete: [
+        "INCREDIBLE! The whole village saw it! And by challenge-law his shield is YOURS.",
+        "Hold your ground to raise it — steel between you and the world. Losthorne breathes easier tonight."
+      ],
+      afterReward: ["The last free village has a champion of its own now. Rest — greater adventures are stirring…"]
+    },
+    tracker: {
+      offer: "📯 The Chief needs you!",
+      active: "⚔️ Defeat the champion!",
+      complete: "🏆 Report to the Chief",
+      afterReward: "✅ All quests done — explore Losthorne!"
+    },
+    banners: {
+      start: "📯 QUEST: defeat the visiting champion in the square!",
+      objectiveDone: "🏆 The champion yields! Report to Chief Bonbottom!",
+      reward: "🛡️ You won the Champion’s Shield! (hold to charge = shield raised)"
+    },
+    reward: { item: "item_shield" },
     next: null
   };
 
@@ -620,7 +707,10 @@
     weapons: { fists: true, sword: false, bow: false },
     arrows: 0,
     potionRolls: [],
-    inv: { item_bread: 0, item_potion: 0, item_turkey: 0 }
+    inv: { item_bread: 0, item_potion: 0, item_turkey: 0, item_blueberry: 0, item_shield: 0 },
+    hasShield: false,
+    dashT: 0,
+    dashCd: 0
   };
   var WEAPONS = { fists: { icon: "👊", dmg: 1, range: 50 }, sword: { icon: "⚔️", dmg: 3, range: 74 }, bow: { icon: "🏹" } };
   function ownedWeapons() {
@@ -716,7 +806,7 @@
   var goblins = [];
   function spawnGoblins() {
     goblins.length = 0;
-    [[600, 420], [840, 300], [1120, 460], [920, 560]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 8, maxhp: 8, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
+    [[600, 420], [840, 300], [1120, 460], [920, 560]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 6, maxhp: 6, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
   }
   spawnGoblins();
   var turkeys = [];
@@ -725,6 +815,39 @@
     [[500, 860], [900, 930], [1250, 880], [700, 1010]].forEach((t) => turkeys.push({ x: t[0], y: t[1], dir: Math.random() * 7, t: 0 }));
   }
   spawnTurkeys();
+  var scene = "village";
+  var SHOP_NPCS = [erik_default, dorgan_default, modo_default];
+  function shopDoorNearby() {
+    if (scene !== "village") return null;
+    for (const d of SHOP_NPCS) {
+      const b = d.building;
+      if (Math.hypot(P.x - b.x, P.y - (b.y + 40)) < 46) return d;
+    }
+    return null;
+  }
+  function enterShop(d) {
+    scene = d.id;
+    P.x = d.interior.w / 2;
+    P.y = d.interior.h - 78;
+    banner("🚪 " + d.name + "'s " + d.building.sign + " shop");
+  }
+  function leaveShop() {
+    const d = SHOP_NPCS.find((n) => n.id === scene);
+    scene = "village";
+    if (d) {
+      P.x = d.building.x;
+      P.y = d.building.y + 52;
+    }
+  }
+  function interiorDoorNear() {
+    if (scene === "village") return false;
+    const d = SHOP_NPCS.find((n) => n.id === scene);
+    return d && Math.hypot(P.x - d.interior.w / 2, P.y - (d.interior.h - 20)) < 28;
+  }
+  var champion = null;
+  function spawnChampion() {
+    champion = { x: 800, y: 1240, hp: 20, maxhp: 20, dir: 0, state: "approach", t: 0, hurtT: 0, showBar: false, alive: true };
+  }
   function turkeyNearby() {
     let best = null, bd = 60;
     for (const tk of turkeys) {
@@ -736,26 +859,40 @@
     }
     return best;
   }
+  var caughtTurkeys = 0;
+  var turkeyRespawnT = 0;
   function catchTurkey() {
     var _a;
     const tk = turkeyNearby();
     if (!tk) return;
+    turkeys.splice(turkeys.indexOf(tk), 1);
+    caughtTurkeys++;
+    addFloat(P.x, P.y - 36, "🦃 grabbed!", "#f0d8a0", 18);
     const r = Quests.emit("catch", { target: "entity_turkey" });
-    if (r.counted) {
-      turkeys.splice(turkeys.indexOf(tk), 1);
-      banner((_a = r.banner) != null ? _a : "🦃 Caught one!");
-      addFloat(P.x, P.y - 36, "🦃 grabbed!", "#f0d8a0", 18);
-    } else {
-      banner("🦃 You grab the turkey… it squirms free. (No reason to keep it right now)");
-      tk.x = 200 + Math.random() * 1200;
-      tk.y = 760 + Math.random() * 280;
-    }
+    banner((_a = r.banner) != null ? _a : r.counted ? "🦃 Caught one!" : "🦃 Caught! Erik might pay for these one day…");
   }
-  Quests.init([main_01_goblins_default, main_02_blueberries_default, main_03_turkeys_default], "quest_main_01_goblins", {
-    banner: (t) => banner(t),
+  Quests.init([main_01_goblins_default, main_02_blueberries_default, main_03_turkeys_default, main_04_champion_default], "quest_main_01_goblins", {
+    banner: (t) => {
+      if (t) banner(t);
+    },
     addCoins: (n) => {
       P.coins += n;
-    }
+    },
+    itemCount: (id) => P.inv[id] || 0,
+    takeItems: (id, n) => {
+      P.inv[id] = Math.max(0, (P.inv[id] || 0) - n);
+    },
+    givePotion: (k) => {
+      P.potionRolls.push(k);
+      P.inv.item_potion = (P.inv.item_potion || 0) + 1;
+    },
+    giveItem: (id) => {
+      if (id === "item_shield") {
+        P.hasShield = true;
+      }
+      P.inv[id] = (P.inv[id] || 0) + 1;
+    },
+    retroCount: (o) => o.target === "entity_turkey" ? caughtTurkeys : 0
   });
   var gobRespawnT = 0;
   var joy = { active: false, id: -1, sx: 0, sy: 0, dx: 0, dy: 0 };
@@ -775,15 +912,43 @@
     const a = atkBtn();
     return { x: a.x - 84, y: a.y - 76, r: 25 };
   }
-  function talkBtn() {
-    const a = atkBtn();
-    return { x: a.x, y: a.y - 182, r: 28 };
-  }
   function npcNearby() {
-    for (const n of NPCS) {
-      if (Math.hypot(n.x - P.x, n.y - P.y) < 70) return n;
+    if (scene !== "village") {
+      const d = SHOP_NPCS.find((n2) => n2.id === scene);
+      const n = NPCS.find((x) => x.id === scene);
+      if (d && n && Math.hypot(d.pos.x - P.x, d.pos.y - P.y) < 86) return n;
+      return null;
     }
-    return null;
+    const chief = NPCS.find((x) => x.id === "npc_chief_bonbottom");
+    return chief && Math.hypot(chief.x - P.x, chief.y - P.y) < 70 ? chief : null;
+  }
+  function enemyNearby() {
+    if (scene !== "village") return false;
+    if (champion && champion.alive && Math.hypot(champion.x - P.x, champion.y - P.y) < 200) return true;
+    for (const g of goblins) {
+      if (g.alive && Math.hypot(g.x - P.x, g.y - P.y) < 200) return true;
+    }
+    for (const d of dummies) {
+      if (d.hp > 0 && Math.hypot(d.x - P.x, d.y - P.y) < 120) return true;
+    }
+    return false;
+  }
+  function contextAction() {
+    if (dialogOpen || invOpen) return null;
+    if (scene !== "village") {
+      if (npcNearby()) return { icon: "💬", label: NPCS.find((x) => x.id === scene).nm.split(" ")[0], kind: "talk" };
+      if (interiorDoorNear()) return { icon: "🚪", label: "leave", kind: "leave" };
+      return { icon: "🚪", label: "to the door", kind: "none" };
+    }
+    const n = npcNearby();
+    if (n) return { icon: "💬", label: n.nm.split(" ")[0], kind: "talk" };
+    const d = shopDoorNearby();
+    if (d) return { icon: "🚪", label: "enter " + d.building.sign, kind: "enter", npc: d };
+    if (turkeyNearby()) return { icon: "🤲", label: "GRAB!", kind: "grab" };
+    if (enemyNearby()) return { icon: "💥", label: "smash", kind: "smash" };
+    const av = AVATARS[chosen < 0 ? 0 : chosen];
+    const musical = av.item === "flute" || av.item === "lute";
+    return musical ? { icon: "🎵", label: "play " + av.item, kind: "music" } : { icon: "💤", label: "rest", kind: "rest" };
   }
   var blocked = () => dialogOpen || invOpen;
   var keys = {};
@@ -793,18 +958,19 @@
   function buttonAt(x, y) {
     const near = (b, pad) => Math.hypot(x - b.x, y - b.y) < b.r + (pad || 10);
     if (near(atkBtn(), 14)) return "atk";
-    if (near(smashBtn(), 12)) return "smash";
+    if (near(smashBtn(), 12)) return "ctx";
     if (near(wpnBtn(), 12)) return "wpn";
     if (near(bagBtn(), 12)) return "bag";
-    if ((npcNearby() || turkeyNearby()) && !dialogOpen && near(talkBtn(), 12)) return "talk";
     return null;
   }
   function pointerDown(p, id) {
+    var _a;
     if (invOpen) return;
     const b = buttonAt(p.x, p.y);
-    if ((b === "atk" || b === "smash") && !swp.active) {
+    const ctxIsSmash = b === "ctx" && ((_a = contextAction()) == null ? void 0 : _a.kind) === "smash";
+    if ((b === "atk" || ctxIsSmash) && !swp.active) {
       swp.active = true;
-      swp.smashOnly = b === "smash";
+      swp.smashOnly = ctxIsSmash;
       swp.id = id;
       swp.sx = p.x;
       swp.sy = p.y;
@@ -852,11 +1018,19 @@
       swp.active = false;
     }
   }
+  var lastTapT = 0;
   function groundTap() {
     if (dialogOpen) {
       advanceDialog();
       return;
     }
+    const now = performance.now();
+    if (now - lastTapT < 320) {
+      lastTapT = 0;
+      dash();
+      return;
+    }
+    lastTapT = now;
     const n = npcNearby();
     if (n) {
       openDialog(n);
@@ -864,13 +1038,34 @@
     }
     if (turkeyNearby()) catchTurkey();
   }
+  function dash() {
+    if (P.dashCd > 0 || blocked()) return;
+    P.dashT = 9;
+    P.dashCd = 60;
+    addFloat(P.x, P.y - 30, "💨", "#cfc7b2", 18);
+  }
   function pressButton(kind) {
     if (kind === "bag") {
       openInv();
-    } else if (kind === "talk") {
-      const n = npcNearby();
-      if (n && !dialogOpen) openDialog(n);
-      else if (!dialogOpen) catchTurkey();
+    } else if (kind === "ctx") {
+      const a = contextAction();
+      if (!a) return;
+      if (a.kind === "talk") {
+        const n = npcNearby();
+        if (n) openDialog(n);
+      } else if (a.kind === "enter") {
+        enterShop(a.npc);
+      } else if (a.kind === "leave") {
+        leaveShop();
+      } else if (a.kind === "grab") {
+        catchTurkey();
+      } else if (a.kind === "music") {
+        banner("🎵 You play a gentle tune… the village hums along.");
+        for (let i = 0; i < 3; i++) addFloat(P.x + (i - 1) * 16, P.y - 30 - i * 8, "♪", "#ffd977", 15 + i * 2);
+      } else if (a.kind === "rest") {
+        banner("💤 You rest a moment, watching the clouds.");
+        addFloat(P.x, P.y - 34, "💤", "#cfc7b2", 18);
+      }
     } else if (kind === "wpn") {
       const ows = ownedWeapons();
       if (ows.length < 2) {
@@ -919,14 +1114,17 @@
   cvs.addEventListener("mousemove", (e) => pointerMove(pt(e), "m"));
   cvs.addEventListener("mouseup", (e) => pointerUp(pt(e), "m"));
   function eachTarget(cb) {
+    if (scene !== "village") return;
     for (const g of goblins) {
       if (g.alive) cb(g, "gob");
     }
     for (const d of dummies) {
       if (d.hp > 0) cb(d, "dum");
     }
+    if (champion && champion.alive) cb(champion, "champ");
   }
   function hitTarget(t, kind, dmg, ang) {
+    var _a;
     t.hp -= dmg;
     t.hurtT = 10;
     t.showBar = true;
@@ -940,6 +1138,20 @@
         const r = Quests.emit("kill", { target: "enemy_goblin" });
         banner("Goblin driven off!" + (r.counted ? "  (" + r.progress + "/" + r.count + ")" : ""));
         if (r.banner && r.progress === r.count) banner(r.banner);
+      }
+    } else if (kind === "champ") {
+      if (t.state === "shield") {
+        t.hp += dmg;
+        addFloat(t.x, t.y - 40, "🛡️ BLOCKED", "#cfd4da", 15);
+        return;
+      }
+      const kb = 14;
+      t.x += Math.cos(ang) * kb;
+      t.y += Math.sin(ang) * kb;
+      if (t.hp <= 0) {
+        t.alive = false;
+        const r = Quests.emit("kill", { target: "enemy_champion" });
+        banner((_a = r.banner) != null ? _a : "🏆 The champion yields!");
       }
     } else {
       if (t.hp <= 0) {
@@ -1090,6 +1302,12 @@
   function hurtPlayer(n, why) {
     var _a;
     if (P.hurtT > 0) return;
+    if (P.hasShield && chargeInfo()) {
+      banner("🛡️ Blocked with the Champion’s Shield!");
+      addFloat(P.x, P.y - 36, "🛡️", "#cfd4da", 20);
+      P.hurtT = 25;
+      return;
+    }
     if (pot.t > 0 && ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.blocksDamage)) {
       banner("🛡️ Stoneskin absorbs the blow!");
       P.hurtT = 30;
@@ -1157,7 +1375,7 @@
   var last = 0;
   var running = false;
   function update(dt) {
-    var _a, _b;
+    var _a;
     let mx = 0, my = 0;
     if (joy.active) {
       const m = Math.hypot(joy.dx, joy.dy);
@@ -1174,6 +1392,12 @@
     if (keys[" "]) {
       slash(P.dir);
     }
+    if (P.dashT > 0) {
+      P.dashT--;
+      P.x += Math.cos(P.dir) * 7.5;
+      P.y += Math.sin(P.dir) * 7.5;
+    }
+    if (P.dashCd > 0) P.dashCd--;
     const spd = P.speed * (pot.t > 0 ? ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.speedMult) || 1 : 1);
     const charging = chargeInfo();
     if ((mx || my) && !blocked() && !charging) {
@@ -1227,7 +1451,56 @@
       });
       if (dead) arrows.splice(i, 1);
     }
-    for (const tk of turkeys) {
+    if (scene !== "village") {
+      const d = SHOP_NPCS.find((n) => n.id === scene);
+      if (d) {
+        P.x = Math.max(26, Math.min(d.interior.w - 26, P.x));
+        P.y = Math.max(70, Math.min(d.interior.h - 18, P.y));
+      }
+    }
+    if (scene === "village" && turkeys.length < 4) {
+      turkeyRespawnT += dt;
+      if (turkeyRespawnT > 2e4) {
+        turkeyRespawnT = 0;
+        turkeys.push({ x: 200 + Math.random() * 1200, y: 760 + Math.random() * 280, dir: Math.random() * 7, t: 0 });
+      }
+    }
+    if (questState.currentId === "quest_main_04_champion" && questState.stage === "active" && !champion) spawnChampion();
+    if (champion && champion.alive && scene === "village" && !blocked()) {
+      const c = champion;
+      c.t += dt;
+      const d = Math.hypot(P.x - c.x, P.y - c.y);
+      if (c.hurtT > 0) c.hurtT--;
+      if (c.state === "approach") {
+        if (d > 60) {
+          const a = Math.atan2(P.y - c.y, P.x - c.x);
+          c.x += Math.cos(a) * 1.15;
+          c.y += Math.sin(a) * 1.15;
+          c.dir = a;
+        }
+        if (c.t > 2600) {
+          c.t = 0;
+          c.state = "shield";
+        }
+      } else if (c.state === "shield") {
+        if (c.t > 1500) {
+          c.t = 0;
+          c.state = "windup";
+        }
+      } else if (c.state === "windup") {
+        if (c.t > 650) {
+          c.t = 0;
+          c.state = "strike";
+          if (d < 70) hurtPlayer(2, "The champion’s blow lands like a falling tree.");
+        }
+      } else if (c.state === "strike") {
+        if (c.t > 500) {
+          c.t = 0;
+          c.state = "approach";
+        }
+      }
+    }
+    if (scene === "village") for (const tk of turkeys) {
       const d = Math.hypot(P.x - tk.x, P.y - tk.y);
       if (d < 120 && !blocked()) {
         const a = Math.atan2(tk.y - P.y, tk.x - P.x);
@@ -1246,7 +1519,7 @@
       tk.x = Math.max(160, Math.min(W - 160, tk.x));
       tk.y = Math.max(720, Math.min(1080, tk.y));
     }
-    for (const d of dummies) {
+    if (scene === "village") for (const d of dummies) {
       if (d.hp <= 0) {
         d.respawnT -= dt;
         if (d.respawnT <= 0) {
@@ -1262,7 +1535,7 @@
       f.y -= 0.8;
       if (f.t <= 0) floats.splice(i, 1);
     }
-    for (let i = drops.length - 1; i >= 0; i--) {
+    if (scene === "village") for (let i = drops.length - 1; i >= 0; i--) {
       const c = drops[i];
       if (Math.hypot(c.x - P.x, c.y - P.y) < 30) {
         P.coins += c.amt;
@@ -1285,7 +1558,7 @@
       banner("Your stomach growls… find food! -½ ❤️");
       if (P.hp <= 0) die("You starved in the wilds.", "Hunger wins");
     }
-    for (const b of bushes) {
+    if (scene === "village") for (const b of bushes) {
       if (b.taken) {
         b.respawn -= dt;
         if (b.respawn <= 0 && b.type === "blue") b.taken = false;
@@ -1295,17 +1568,17 @@
         b.taken = true;
         b.respawn = 25e3;
         if (b.type === "blue") {
-          P.hp = Math.min(P.maxhp, P.hp + 1);
-          hungerT = 0;
-          const r = Quests.emit("collect", { target: "item_blueberry" });
-          banner((_b = r.banner) != null ? _b : "Sweet blueberries! +½ ❤️");
+          P.inv.item_blueberry = (P.inv.item_blueberry || 0) + 1;
+          addFloat(P.x, P.y - 34, "+🫐", "#7ea8d6", 17);
+          const q = questState.currentId === "quest_main_02_blueberries" && questState.stage !== "afterReward";
+          banner(q ? "🫐 Satchel: " + Math.min(P.inv.item_blueberry, 4) + "/4" : "🫐 Blueberry into the satchel");
         } else {
           die("You ate the RED berries. The Chief warned you…", "The red berries");
         }
       }
     }
     Quests.update(dt);
-    for (const g of goblins) {
+    if (scene === "village") for (const g of goblins) {
       if (!g.alive) continue;
       if (g.hurtT > 0) {
         g.hurtT--;
@@ -1337,286 +1610,346 @@
     }
   }
   function draw() {
-    const camX = Math.max(0, Math.min(W - vw, P.x - vw / 2)), camY = Math.max(0, Math.min(H - vh, P.y - vh / 2));
-    const grd = ctx.createLinearGradient(0, -camY, 0, H - camY);
-    grd.addColorStop(0, "#26331f");
-    grd.addColorStop(0.45, "#33402a");
-    grd.addColorStop(1, "#4a4a33");
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, vw, vh);
-    ctx.save();
-    ctx.translate(-camX, -camY);
-    ctx.strokeStyle = "#5c4d33";
-    ctx.lineWidth = 46;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(800, 1340);
-    ctx.quadraticCurveTo(780, 900, 830, 420);
-    ctx.stroke();
-    ctx.strokeStyle = "#6b5a3d";
-    ctx.lineWidth = 34;
-    ctx.beginPath();
-    ctx.moveTo(800, 1340);
-    ctx.quadraticCurveTo(780, 900, 830, 420);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(120,100,60,.25)";
-    ctx.beginPath();
-    ctx.ellipse(800, 1230, 330, 210, 0, 0, 7);
-    ctx.fill();
-    for (const b of bushes) {
-      if (b.taken) continue;
-      ctx.fillStyle = "#2c4a22";
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, 16, 0, 7);
-      ctx.arc(b.x - 12, b.y + 6, 12, 0, 7);
-      ctx.arc(b.x + 12, b.y + 6, 12, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = b.type === "blue" ? "#5b8fd4" : "#d43a3a";
-      for (let i = 0; i < 5; i++) {
-        ctx.beginPath();
-        ctx.arc(b.x - 10 + i * 5, b.y - 4 + i % 2 * 8, 3.2, 0, 7);
-        ctx.fill();
-      }
-    }
-    for (const h of houses) {
-      ctx.fillStyle = "#57452c";
-      ctx.fillRect(h.x - 52, h.y - 30, 104, 66);
-      ctx.fillStyle = "#3f331f";
-      ctx.fillRect(h.x - 52, h.y - 30, 104, 8);
-      ctx.fillStyle = "#7d2f22";
-      ctx.beginPath();
-      ctx.moveTo(h.x - 62, h.y - 28);
-      ctx.lineTo(h.x, h.y - 72);
-      ctx.lineTo(h.x + 62, h.y - 28);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#2c2214";
-      ctx.fillRect(h.x - 11, h.y + 8, 22, 28);
-      ctx.fillStyle = "#ffd977";
-      ctx.fillRect(h.x - 34, h.y - 12, 14, 14);
-      ctx.fillRect(h.x + 20, h.y - 12, 14, 14);
-    }
-    ctx.fillStyle = "#6b4a26";
-    ctx.fillRect(905, 1210, 56, 10);
-    ctx.fillStyle = "#8a2f2f";
-    ctx.fillRect(900, 1178, 66, 10);
-    ctx.fillStyle = "#c9c2ac";
-    ctx.fillRect(900, 1168, 66, 10);
-    for (const d of dummies) {
-      if (d.hp > 0) {
-        ctx.save();
-        if (d.hurtT > 0 && d.hurtT % 4 < 2) ctx.globalAlpha = 0.5;
-        ctx.fillStyle = "#6b4a26";
-        ctx.fillRect(d.x - 3, d.y - 14, 6, 30);
-        ctx.fillRect(d.x - 16, d.y - 8, 32, 5);
-        ctx.fillStyle = "#c9b06a";
-        ctx.beginPath();
-        ctx.arc(d.x, d.y - 20, 8, 0, 7);
-        ctx.fill();
-        ctx.strokeStyle = "#8a6d38";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(d.x - 8, d.y - 2, 16, 12);
-        ctx.restore();
-        if (d.showBar) {
-          ctx.fillStyle = "#1c150e";
-          ctx.fillRect(d.x - 16, d.y - 36, 32, 5);
-          ctx.fillStyle = "#d4a23a";
-          ctx.fillRect(d.x - 15, d.y - 35, 30 * (d.hp / d.maxhp), 3);
-        }
-      } else {
-        ctx.fillStyle = "#4a3a22";
-        ctx.beginPath();
-        ctx.ellipse(d.x, d.y, 14, 6, 0, 0, 7);
-        ctx.fill();
-      }
-    }
-    for (const a of arrows) {
-      ctx.strokeStyle = "#d8c090";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(a.x - Math.cos(a.ang) * 10, a.y - Math.sin(a.ang) * 10);
-      ctx.lineTo(a.x, a.y);
-      ctx.stroke();
-      ctx.fillStyle = "#efe6d0";
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, 2.2, 0, 7);
-      ctx.fill();
-    }
-    for (const tk of turkeys) {
-      ctx.fillStyle = "rgba(0,0,0,.25)";
-      ctx.beginPath();
-      ctx.ellipse(tk.x, tk.y + 9, 10, 4, 0, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#5d4028";
-      ctx.beginPath();
-      ctx.ellipse(tk.x, tk.y, 11, 9, 0, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#7a5a38";
-      ctx.beginPath();
-      ctx.arc(tk.x - 8, tk.y - 2, 6, Math.PI * 0.6, Math.PI * 1.6);
-      ctx.fill();
-      const hx = tk.x + Math.cos(tk.dir) * 9, hy = tk.y + Math.sin(tk.dir) * 9 - 6;
-      ctx.fillStyle = "#6d4a2e";
-      ctx.beginPath();
-      ctx.arc(hx, hy, 4.2, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#c23c3c";
-      ctx.fillRect(hx - 1, hy + 2, 2, 4);
-      ctx.fillStyle = "#ffd42a";
-      ctx.beginPath();
-      ctx.moveTo(hx + 3, hy);
-      ctx.lineTo(hx + 8, hy + 1);
-      ctx.lineTo(hx + 3, hy + 3);
-      ctx.fill();
-    }
-    for (const n of NPCS) drawPerson(n.x, n.y, 0, { hair: "#555", outfit: n.col, skin: "#e0b088" }, n.hat, Math.hypot(n.x - P.x, n.y - P.y) < 70);
-    for (const g of goblins) {
-      if (!g.alive) continue;
+    if (scene !== "village") {
+      drawInterior();
+    } else {
+      const camX = Math.max(0, Math.min(W - vw, P.x - vw / 2)), camY = Math.max(0, Math.min(H - vh, P.y - vh / 2));
+      const grd = ctx.createLinearGradient(0, -camY, 0, H - camY);
+      grd.addColorStop(0, "#26331f");
+      grd.addColorStop(0.45, "#33402a");
+      grd.addColorStop(1, "#4a4a33");
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, vw, vh);
       ctx.save();
-      if (g.hurtT > 0 && g.hurtT % 4 < 2) ctx.globalAlpha = 0.4;
-      ctx.fillStyle = "#4a6d2c";
+      ctx.translate(-camX, -camY);
+      ctx.strokeStyle = "#5c4d33";
+      ctx.lineWidth = 46;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.ellipse(g.x, g.y + 6, 11, 13, 0, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#5d8438";
-      ctx.beginPath();
-      ctx.arc(g.x, g.y - 8, 9, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#5d8438";
-      ctx.beginPath();
-      ctx.moveTo(g.x - 8, g.y - 12);
-      ctx.lineTo(g.x - 15, g.y - 19);
-      ctx.lineTo(g.x - 5, g.y - 15);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(g.x + 8, g.y - 12);
-      ctx.lineTo(g.x + 15, g.y - 19);
-      ctx.lineTo(g.x + 5, g.y - 15);
-      ctx.fill();
-      ctx.fillStyle = "#ffd42a";
-      ctx.fillRect(g.x - 4, g.y - 11, 2.6, 2.6);
-      ctx.fillRect(g.x + 2, g.y - 11, 2.6, 2.6);
-      ctx.restore();
-      if (g.showBar) {
-        ctx.fillStyle = "#1c150e";
-        ctx.fillRect(g.x - 16, g.y - 28, 32, 5);
-        ctx.fillStyle = "#d43a3a";
-        ctx.fillRect(g.x - 15, g.y - 27, 30 * (g.hp / g.maxhp), 3);
-      }
-    }
-    for (const c of drops) {
-      ctx.fillStyle = "#8a6d1e";
-      ctx.beginPath();
-      ctx.arc(c.x, c.y + 1.5, 6, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#ffd53e";
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, 6, 0, 7);
-      ctx.fill();
-      ctx.strokeStyle = "#8a6d1e";
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, 3.4, 0, 7);
+      ctx.moveTo(800, 1340);
+      ctx.quadraticCurveTo(780, 900, 830, 420);
       ctx.stroke();
-    }
-    const av = AVATARS[chosen < 0 ? 0 : chosen];
-    if (pot.t > 0 && pot.type) {
-      const col = pot.type === "potion_strength" ? "255,140,60" : pot.type === "potion_speed" ? "90,220,255" : "200,200,215";
-      const pulse = 0.28 + 0.16 * Math.sin(performance.now() / 160);
-      ctx.fillStyle = "rgba(" + col + "," + pulse * 0.5 + ")";
+      ctx.strokeStyle = "#6b5a3d";
+      ctx.lineWidth = 34;
       ctx.beginPath();
-      ctx.arc(P.x, P.y, 30, 0, 7);
+      ctx.moveTo(800, 1340);
+      ctx.quadraticCurveTo(780, 900, 830, 420);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(120,100,60,.25)";
+      ctx.beginPath();
+      ctx.ellipse(800, 1230, 330, 210, 0, 0, 7);
       ctx.fill();
-      ctx.strokeStyle = "rgba(" + col + "," + (0.5 + pulse) + ")";
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, 26 + 3 * Math.sin(performance.now() / 200), 0, 7);
-      ctx.stroke();
-    }
-    ctx.save();
-    if (P.hurtT > 0 && P.hurtT % 6 < 3) ctx.globalAlpha = 0.45;
-    drawPerson(P.x, P.y, P.dir, av, false, false);
-    ctx.restore();
-    if (P.slashT > 0 && !P.smashT) {
-      ctx.strokeStyle = "rgba(240,230,200," + P.slashT / 14 * 0.9 + ")";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, 44, P.dir - 0.8, P.dir + 0.8);
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(255,215,120," + P.slashT / 14 * 0.6 + ")";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, 52, P.dir - 0.65, P.dir + 0.65);
-      ctx.stroke();
-    }
-    if (P.smashT > 0) {
-      const pr = (P.smashT0 - P.smashT) / P.smashT0;
-      ctx.strokeStyle = "rgba(255,190,90," + (1 - pr) * 0.9 + ")";
-      ctx.lineWidth = 7 - pr * 5;
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, 25 + pr * (P.smashR - 20), 0, 7);
-      ctx.stroke();
-    }
-    {
-      const ch = chargeInfo();
-      if (ch) {
-        ctx.strokeStyle = ch.full ? "rgba(255,215,90,.95)" : "rgba(255,190,110," + (0.4 + ch.p * 0.5) + ")";
-        ctx.lineWidth = 4 + ch.p * 3;
+      for (const b of bushes) {
+        if (b.taken) continue;
+        ctx.fillStyle = "#2c4a22";
         ctx.beginPath();
-        ctx.arc(P.x, P.y, 22 + ch.p * 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch.p);
-        ctx.stroke();
-        if (ch.full) {
-          ctx.fillStyle = "#ffd75a";
-          ctx.font = "bold 13px Georgia";
-          ctx.textAlign = "center";
-          ctx.fillText("SMASH READY!", P.x, P.y - 46);
+        ctx.arc(b.x, b.y, 16, 0, 7);
+        ctx.arc(b.x - 12, b.y + 6, 12, 0, 7);
+        ctx.arc(b.x + 12, b.y + 6, 12, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = b.type === "blue" ? "#5b8fd4" : "#d43a3a";
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.arc(b.x - 10 + i * 5, b.y - 4 + i % 2 * 8, 3.2, 0, 7);
+          ctx.fill();
         }
       }
-    }
-    if (P.weapon === "bow" && swp.active && !dialogOpen) {
-      const ddx = swp.cx - swp.sx, ddy = swp.cy - swp.sy, dd = Math.hypot(ddx, ddy);
-      if (dd > 25) {
-        const ang = Math.atan2(-ddy, -ddx), pw = Math.min(dd, 130) / 130;
-        ctx.setLineDash([6, 7]);
-        ctx.strokeStyle = "rgba(255,230,160,.75)";
+      for (const h of houses) {
+        ctx.fillStyle = "#57452c";
+        ctx.fillRect(h.x - 52, h.y - 30, 104, 66);
+        ctx.fillStyle = "#3f331f";
+        ctx.fillRect(h.x - 52, h.y - 30, 104, 8);
+        ctx.fillStyle = "#7d2f22";
+        ctx.beginPath();
+        ctx.moveTo(h.x - 62, h.y - 28);
+        ctx.lineTo(h.x, h.y - 72);
+        ctx.lineTo(h.x + 62, h.y - 28);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#2c2214";
+        ctx.fillRect(h.x - 11, h.y + 8, 22, 28);
+        ctx.fillStyle = "#ffd977";
+        ctx.fillRect(h.x - 34, h.y - 12, 14, 14);
+        ctx.fillRect(h.x + 20, h.y - 12, 14, 14);
+      }
+      for (const d of SHOP_NPCS) {
+        const b = d.building;
+        ctx.fillStyle = "#3d2c14";
+        ctx.fillRect(b.x - 17, b.y + 34, 34, 24);
+        ctx.strokeStyle = "#8a6d38";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(b.x - 17, b.y + 34, 34, 24);
+        ctx.font = "16px Georgia";
+        ctx.textAlign = "center";
+        ctx.fillText(d.building.sign, b.x, b.y + 52);
+        if (shopDoorNearby() === d) {
+          ctx.strokeStyle = "rgba(255,217,119,.8)";
+          ctx.strokeRect(b.x - 13, b.y + 30, 26, 34);
+        }
+      }
+      for (const d of dummies) {
+        if (d.hp > 0) {
+          ctx.save();
+          if (d.hurtT > 0 && d.hurtT % 4 < 2) ctx.globalAlpha = 0.5;
+          ctx.fillStyle = "#6b4a26";
+          ctx.fillRect(d.x - 3, d.y - 14, 6, 30);
+          ctx.fillRect(d.x - 16, d.y - 8, 32, 5);
+          ctx.fillStyle = "#c9b06a";
+          ctx.beginPath();
+          ctx.arc(d.x, d.y - 20, 8, 0, 7);
+          ctx.fill();
+          ctx.strokeStyle = "#8a6d38";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(d.x - 8, d.y - 2, 16, 12);
+          ctx.restore();
+          if (d.showBar) {
+            ctx.fillStyle = "#1c150e";
+            ctx.fillRect(d.x - 16, d.y - 36, 32, 5);
+            ctx.fillStyle = "#d4a23a";
+            ctx.fillRect(d.x - 15, d.y - 35, 30 * (d.hp / d.maxhp), 3);
+          }
+        } else {
+          ctx.fillStyle = "#4a3a22";
+          ctx.beginPath();
+          ctx.ellipse(d.x, d.y, 14, 6, 0, 0, 7);
+          ctx.fill();
+        }
+      }
+      for (const a of arrows) {
+        ctx.strokeStyle = "#d8c090";
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(P.x, P.y);
-        ctx.lineTo(P.x + Math.cos(ang) * (60 + pw * 110), P.y + Math.sin(ang) * (60 + pw * 110));
+        ctx.moveTo(a.x - Math.cos(a.ang) * 10, a.y - Math.sin(a.ang) * 10);
+        ctx.lineTo(a.x, a.y);
         ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = "rgba(255,190,90," + (0.4 + pw * 0.5) + ")";
+        ctx.fillStyle = "#efe6d0";
         ctx.beginPath();
-        ctx.arc(P.x, P.y, 10 + pw * 10, 0, 7);
+        ctx.arc(a.x, a.y, 2.2, 0, 7);
         ctx.fill();
       }
+      for (const tk of turkeys) {
+        ctx.fillStyle = "rgba(0,0,0,.25)";
+        ctx.beginPath();
+        ctx.ellipse(tk.x, tk.y + 9, 10, 4, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#5d4028";
+        ctx.beginPath();
+        ctx.ellipse(tk.x, tk.y, 11, 9, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#7a5a38";
+        ctx.beginPath();
+        ctx.arc(tk.x - 8, tk.y - 2, 6, Math.PI * 0.6, Math.PI * 1.6);
+        ctx.fill();
+        const hx = tk.x + Math.cos(tk.dir) * 9, hy = tk.y + Math.sin(tk.dir) * 9 - 6;
+        ctx.fillStyle = "#6d4a2e";
+        ctx.beginPath();
+        ctx.arc(hx, hy, 4.2, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#c23c3c";
+        ctx.fillRect(hx - 1, hy + 2, 2, 4);
+        ctx.fillStyle = "#ffd42a";
+        ctx.beginPath();
+        ctx.moveTo(hx + 3, hy);
+        ctx.lineTo(hx + 8, hy + 1);
+        ctx.lineTo(hx + 3, hy + 3);
+        ctx.fill();
+      }
+      {
+        const n = NPCS.find((x) => x.id === "npc_chief_bonbottom");
+        drawPerson(n.x, n.y, 0, { hair: "#555", outfit: n.col, skin: "#e0b088" }, n.hat, Math.hypot(n.x - P.x, n.y - P.y) < 70);
+      }
+      if (champion && champion.alive) {
+        const c = champion;
+        ctx.save();
+        if (c.hurtT > 0 && c.hurtT % 4 < 2) ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "rgba(0,0,0,.3)";
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y + 20, 15, 6, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#7a2d2d";
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y + 4, 15, 19, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#e0b088";
+        ctx.beginPath();
+        ctx.arc(c.x, c.y - 18, 11, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#3a3a3f";
+        ctx.beginPath();
+        ctx.arc(c.x, c.y - 21, 11, Math.PI, 0);
+        ctx.fill();
+        if (c.state === "shield") {
+          ctx.fillStyle = "#cfd4da";
+          ctx.strokeStyle = "#8a8f96";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(c.x + Math.cos(c.dir) * 16, c.y - 2 + Math.sin(c.dir) * 8, 9, 15, 0, 0, 7);
+          ctx.fill();
+          ctx.stroke();
+        }
+        if (c.state === "windup") {
+          ctx.strokeStyle = "rgba(255,80,60," + (0.5 + 0.4 * Math.sin(performance.now() / 60)) + ")";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 32, 0, 7);
+          ctx.stroke();
+        }
+        ctx.restore();
+        if (c.hp < c.maxhp) {
+          ctx.fillStyle = "#1c150e";
+          ctx.fillRect(c.x - 20, c.y - 42, 40, 6);
+          ctx.fillStyle = "#d43a3a";
+          ctx.fillRect(c.x - 19, c.y - 41, 38 * (c.hp / c.maxhp), 4);
+        }
+      }
+      for (const g of goblins) {
+        if (!g.alive) continue;
+        ctx.save();
+        if (g.hurtT > 0 && g.hurtT % 4 < 2) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = "#4a6d2c";
+        ctx.beginPath();
+        ctx.ellipse(g.x, g.y + 6, 11, 13, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#5d8438";
+        ctx.beginPath();
+        ctx.arc(g.x, g.y - 8, 9, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#5d8438";
+        ctx.beginPath();
+        ctx.moveTo(g.x - 8, g.y - 12);
+        ctx.lineTo(g.x - 15, g.y - 19);
+        ctx.lineTo(g.x - 5, g.y - 15);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(g.x + 8, g.y - 12);
+        ctx.lineTo(g.x + 15, g.y - 19);
+        ctx.lineTo(g.x + 5, g.y - 15);
+        ctx.fill();
+        ctx.fillStyle = "#ffd42a";
+        ctx.fillRect(g.x - 4, g.y - 11, 2.6, 2.6);
+        ctx.fillRect(g.x + 2, g.y - 11, 2.6, 2.6);
+        ctx.restore();
+        if (g.showBar) {
+          ctx.fillStyle = "#1c150e";
+          ctx.fillRect(g.x - 16, g.y - 28, 32, 5);
+          ctx.fillStyle = "#d43a3a";
+          ctx.fillRect(g.x - 15, g.y - 27, 30 * (g.hp / g.maxhp), 3);
+        }
+      }
+      for (const c of drops) {
+        ctx.fillStyle = "#8a6d1e";
+        ctx.beginPath();
+        ctx.arc(c.x, c.y + 1.5, 6, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#ffd53e";
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 6, 0, 7);
+        ctx.fill();
+        ctx.strokeStyle = "#8a6d1e";
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 3.4, 0, 7);
+        ctx.stroke();
+      }
+      const av = AVATARS[chosen < 0 ? 0 : chosen];
+      if (pot.t > 0 && pot.type) {
+        const col = pot.type === "potion_strength" ? "255,140,60" : pot.type === "potion_speed" ? "90,220,255" : "200,200,215";
+        const pulse = 0.28 + 0.16 * Math.sin(performance.now() / 160);
+        ctx.fillStyle = "rgba(" + col + "," + pulse * 0.5 + ")";
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 30, 0, 7);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(" + col + "," + (0.5 + pulse) + ")";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 26 + 3 * Math.sin(performance.now() / 200), 0, 7);
+        ctx.stroke();
+      }
+      ctx.save();
+      if (P.hurtT > 0 && P.hurtT % 6 < 3) ctx.globalAlpha = 0.45;
+      drawPerson(P.x, P.y, P.dir, av, false, false);
+      ctx.restore();
+      if (P.slashT > 0 && !P.smashT) {
+        ctx.strokeStyle = "rgba(240,230,200," + P.slashT / 14 * 0.9 + ")";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 44, P.dir - 0.8, P.dir + 0.8);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255,215,120," + P.slashT / 14 * 0.6 + ")";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 52, P.dir - 0.65, P.dir + 0.65);
+        ctx.stroke();
+      }
+      if (P.smashT > 0) {
+        const pr = (P.smashT0 - P.smashT) / P.smashT0;
+        ctx.strokeStyle = "rgba(255,190,90," + (1 - pr) * 0.9 + ")";
+        ctx.lineWidth = 7 - pr * 5;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 25 + pr * (P.smashR - 20), 0, 7);
+        ctx.stroke();
+      }
+      {
+        const ch = chargeInfo();
+        if (ch) {
+          ctx.strokeStyle = ch.full ? "rgba(255,215,90,.95)" : "rgba(255,190,110," + (0.4 + ch.p * 0.5) + ")";
+          ctx.lineWidth = 4 + ch.p * 3;
+          ctx.beginPath();
+          ctx.arc(P.x, P.y, 22 + ch.p * 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch.p);
+          ctx.stroke();
+          if (ch.full) {
+            ctx.fillStyle = "#ffd75a";
+            ctx.font = "bold 13px Georgia";
+            ctx.textAlign = "center";
+            ctx.fillText("SMASH READY!", P.x, P.y - 46);
+          }
+        }
+      }
+      if (P.weapon === "bow" && swp.active && !dialogOpen) {
+        const ddx = swp.cx - swp.sx, ddy = swp.cy - swp.sy, dd = Math.hypot(ddx, ddy);
+        if (dd > 25) {
+          const ang = Math.atan2(-ddy, -ddx), pw = Math.min(dd, 130) / 130;
+          ctx.setLineDash([6, 7]);
+          ctx.strokeStyle = "rgba(255,230,160,.75)";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(P.x, P.y);
+          ctx.lineTo(P.x + Math.cos(ang) * (60 + pw * 110), P.y + Math.sin(ang) * (60 + pw * 110));
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = "rgba(255,190,90," + (0.4 + pw * 0.5) + ")";
+          ctx.beginPath();
+          ctx.arc(P.x, P.y, 10 + pw * 10, 0, 7);
+          ctx.fill();
+        }
+      }
+      for (const f of floats) {
+        ctx.globalAlpha = Math.min(1, f.t / 22);
+        ctx.font = "bold " + f.size + "px Georgia";
+        ctx.textAlign = "center";
+        ctx.strokeStyle = "rgba(0,0,0,.7)";
+        ctx.lineWidth = 3;
+        ctx.strokeText(f.txt, f.x, f.y);
+        ctx.fillStyle = f.col;
+        ctx.fillText(f.txt, f.x, f.y);
+        ctx.globalAlpha = 1;
+      }
+      for (const t of trees) {
+        ctx.fillStyle = "rgba(0,0,0,.25)";
+        ctx.beginPath();
+        ctx.ellipse(t.x + 4, t.y + 6, t.r * 0.9, t.r * 0.5, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#1d2e18";
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#2a4020";
+        ctx.beginPath();
+        ctx.arc(t.x - t.r * 0.25, t.y - t.r * 0.25, t.r * 0.72, 0, 7);
+        ctx.fill();
+      }
+      ctx.restore();
     }
-    for (const f of floats) {
-      ctx.globalAlpha = Math.min(1, f.t / 22);
-      ctx.font = "bold " + f.size + "px Georgia";
-      ctx.textAlign = "center";
-      ctx.strokeStyle = "rgba(0,0,0,.7)";
-      ctx.lineWidth = 3;
-      ctx.strokeText(f.txt, f.x, f.y);
-      ctx.fillStyle = f.col;
-      ctx.fillText(f.txt, f.x, f.y);
-      ctx.globalAlpha = 1;
-    }
-    for (const t of trees) {
-      ctx.fillStyle = "rgba(0,0,0,.25)";
-      ctx.beginPath();
-      ctx.ellipse(t.x + 4, t.y + 6, t.r * 0.9, t.r * 0.5, 0, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#1d2e18";
-      ctx.beginPath();
-      ctx.arc(t.x, t.y, t.r, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = "#2a4020";
-      ctx.beginPath();
-      ctx.arc(t.x - t.r * 0.25, t.y - t.r * 0.25, t.r * 0.72, 0, 7);
-      ctx.fill();
-    }
-    ctx.restore();
     const top = 12 + (window.visualViewport ? 0 : 0);
     for (let i = 0; i < P.maxhp / 2; i++) {
       drawHeart(20 + i * 26, top + 18, P.hp >= (i + 1) * 2 ? 1 : P.hp === i * 2 + 1 ? 0.5 : 0);
@@ -1627,13 +1960,15 @@
     rr(ctx, vw - 124, top + 2, 112, 30, 9);
     ctx.fillStyle = "#ffd977";
     ctx.fillText("🪙 " + P.coins, vw - 22, top + 24);
-    ctx.textAlign = "left";
-    ctx.font = "13.5px Georgia";
     const qt = Quests.trackerText();
-    ctx.fillStyle = "rgba(20,16,10,.72)";
-    rr(ctx, 14, top + 38, ctx.measureText(qt).width + 22, 26, 8);
-    ctx.fillStyle = "#e8d9a8";
-    ctx.fillText(qt, 25, top + 56);
+    if (qt) {
+      ctx.textAlign = "left";
+      ctx.font = "11.5px Georgia";
+      ctx.fillStyle = "rgba(20,16,10,.5)";
+      rr(ctx, 14, top + 38, ctx.measureText(qt).width + 14, 19, 6);
+      ctx.fillStyle = "#cbbc90";
+      ctx.fillText(qt, 21, top + 52);
+    }
     if (joy.active) {
       const jx = joy.sx, jy = joy.sy;
       ctx.strokeStyle = "rgba(240,230,200,.4)";
@@ -1687,22 +2022,28 @@
     ctx.fillStyle = "rgba(240,230,200,.35)";
     ctx.font = "10.5px Georgia";
     ctx.fillText("switch", wb.x, wb.y + wb.r + 13);
-    const sb = smashBtn();
-    ctx.globalAlpha = P.smashT > 0 ? 0.35 : 1;
-    ctx.fillStyle = "rgba(122,63,26,.6)";
-    ctx.beginPath();
-    ctx.arc(sb.x, sb.y, sb.r, 0, 7);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,190,110,.55)";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(sb.x, sb.y, sb.r, 0, 7);
-    ctx.stroke();
-    ctx.font = sb.r * 0.9 + "px Georgia";
-    ctx.textBaseline = "middle";
-    ctx.fillText("💥", sb.x, sb.y + 2);
-    ctx.textBaseline = "alphabetic";
-    ctx.globalAlpha = 1;
+    const sb = smashBtn(), ca = contextAction();
+    if (ca) {
+      ctx.globalAlpha = ca.kind === "smash" && P.smashT > 0 ? 0.35 : ca.kind === "none" ? 0.35 : 1;
+      const glow = ca.kind === "talk" || ca.kind === "grab" || ca.kind === "enter" ? 0.5 + 0.25 * Math.sin(performance.now() / 240) : 0.55;
+      ctx.fillStyle = ca.kind === "smash" ? "rgba(122,63,26,.6)" : "rgba(58,48,26,.85)";
+      ctx.beginPath();
+      ctx.arc(sb.x, sb.y, sb.r, 0, 7);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,217,119," + glow + ")";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(sb.x, sb.y, sb.r, 0, 7);
+      ctx.stroke();
+      ctx.font = sb.r * 0.9 + "px Georgia";
+      ctx.textBaseline = "middle";
+      ctx.fillText(ca.icon, sb.x, sb.y + 2);
+      ctx.textBaseline = "alphabetic";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#ffd977";
+      ctx.font = "10.5px Georgia";
+      ctx.fillText(ca.label, sb.x, sb.y - sb.r - 7);
+    }
     const bb = bagBtn();
     ctx.fillStyle = "rgba(51,48,42,.6)";
     ctx.beginPath();
@@ -1728,26 +2069,6 @@
       ctx.textBaseline = "middle";
       ctx.fillText(nItems, bb.x + 17, bb.y - 16);
       ctx.textBaseline = "alphabetic";
-    }
-    const nearN = npcNearby(), nearT = turkeyNearby();
-    if ((nearN || nearT) && !dialogOpen) {
-      const tb = talkBtn(), gl = 0.5 + 0.25 * Math.sin(performance.now() / 240);
-      ctx.fillStyle = "rgba(58,48,26,.85)";
-      ctx.beginPath();
-      ctx.arc(tb.x, tb.y, tb.r, 0, 7);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,217,119," + gl + ")";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(tb.x, tb.y, tb.r, 0, 7);
-      ctx.stroke();
-      ctx.font = tb.r * 0.9 + "px Georgia";
-      ctx.textBaseline = "middle";
-      ctx.fillText(nearN ? "💬" : "🤲", tb.x, tb.y + 2);
-      ctx.textBaseline = "alphabetic";
-      ctx.fillStyle = "#ffd977";
-      ctx.font = "11px Georgia";
-      ctx.fillText(nearN ? nearN.nm.split(" ")[0] : "GRAB!", tb.x, tb.y - tb.r - 8);
     }
     ctx.fillStyle = "rgba(240,230,200,.3)";
     ctx.font = "11.5px Georgia";
@@ -1858,6 +2179,64 @@
     banner("Welcome to Losthorne. Find Chief Bonbottom in the square!");
     requestAnimationFrame(loop);
   }
+  function drawInterior() {
+    const d = SHOP_NPCS.find((n2) => n2.id === scene);
+    if (!d) return;
+    const r = d.interior, ox = (vw - r.w) / 2, oy = Math.max(30, (vh - r.h) / 2);
+    ctx.fillStyle = "#12100e";
+    ctx.fillRect(0, 0, vw, vh);
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.fillStyle = "#4a3b28";
+    ctx.fillRect(0, 0, r.w, r.h);
+    ctx.fillStyle = "rgba(92,74,51,.6)";
+    for (let i = 0; i < r.w; i += 44) ctx.fillRect(i, 0, 22, r.h);
+    ctx.strokeStyle = "#2c2214";
+    ctx.lineWidth = 14;
+    ctx.strokeRect(7, 7, r.w - 14, r.h - 14);
+    ctx.fillStyle = "#6b4a26";
+    ctx.fillRect(r.w / 2 - 95, 152, 190, 20);
+    ctx.fillStyle = "#8a6d38";
+    ctx.fillRect(r.w / 2 - 34, r.h - 18, 68, 12);
+    ctx.font = "24px Georgia";
+    ctx.textAlign = "center";
+    for (const pr of d.interior.props) ctx.fillText(pr[0], pr[1], pr[2]);
+    ctx.font = "bold 15px Georgia";
+    ctx.fillStyle = "#ffd977";
+    ctx.fillText(d.building.sign + "  " + d.name, r.w / 2, 42);
+    ctx.font = "12px Georgia";
+    ctx.fillStyle = "rgba(240,230,200,.5)";
+    ctx.fillText("🚪 walk here to leave", r.w / 2, r.h + 18 < r.h ? r.h - 26 : r.h - 26);
+    const n = NPCS.find((x) => x.id === scene);
+    drawPerson(d.pos.x, d.pos.y, 0, { hair: "#555", outfit: n.col, skin: "#e0b088" }, n.hat, Math.hypot(d.pos.x - P.x, d.pos.y - P.y) < 86);
+    if (pot.t > 0 && pot.type) {
+      const col = pot.type === "potion_strength" ? "255,140,60" : pot.type === "potion_speed" ? "90,220,255" : "200,200,215";
+      ctx.strokeStyle = "rgba(" + col + ",.6)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(P.x, P.y, 26, 0, 7);
+      ctx.stroke();
+    }
+    ctx.save();
+    if (P.hurtT > 0 && P.hurtT % 6 < 3) ctx.globalAlpha = 0.45;
+    drawPerson(P.x, P.y, P.dir, AVATARS[chosen < 0 ? 0 : chosen], false, false);
+    ctx.restore();
+    for (const f of floats) {
+      ctx.globalAlpha = Math.min(1, f.t / 22);
+      ctx.font = "bold " + f.size + "px Georgia";
+      ctx.textAlign = "center";
+      ctx.strokeStyle = "rgba(0,0,0,.7)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(f.txt, f.x, f.y);
+      ctx.fillStyle = f.col;
+      ctx.fillText(f.txt, f.x, f.y);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+  setInterval(() => {
+    if (running && scene !== "village" && interiorDoorNear() && !dialogOpen && !invOpen) leaveShop();
+  }, 250);
   if (location.hash === "#game") {
     chosen = 0;
     startGame();
@@ -1875,105 +2254,147 @@
     startGame();
     openInv();
   }
+  if (location.hash === "#dev") {
+    chosen = 0;
+    startGame();
+    const dv = document.createElement("div");
+    dv.style.cssText = "position:fixed;left:8px;top:64px;z-index:98;display:flex;flex-direction:column;gap:4px;";
+    const mk = (label, fn) => {
+      const b = document.createElement("button");
+      b.className = "btn ghost";
+      b.style.cssText = "padding:5px 8px;font-size:11px;width:170px;margin:0;";
+      b.textContent = label;
+      b.onclick = (e) => {
+        e.stopPropagation();
+        fn();
+        banner("🛠 " + label);
+      };
+      dv.appendChild(b);
+    };
+    mk("▶ Q1: goblins", () => Quests.debugJump("quest_main_01_goblins"));
+    mk("▶ Q2: berries", () => Quests.debugJump("quest_main_02_blueberries"));
+    mk("▶ Q3: turkeys", () => Quests.debugJump("quest_main_03_turkeys"));
+    mk("▶ Q4: CHAMPION", () => Quests.debugJump("quest_main_04_champion"));
+    mk("+200 coins", () => {
+      P.coins += 200;
+    });
+    mk("give sword/bow/shield", () => {
+      P.weapons.sword = true;
+      P.weapons.bow = true;
+      P.arrows += 10;
+      P.hasShield = true;
+    });
+    mk("open both shops", () => {
+      questState.flags.flag_dorgan_shop_open = true;
+      questState.flags.flag_erik_turkey_stock = true;
+    });
+    mk("give 4 blueberries", () => {
+      P.inv.item_blueberry = (P.inv.item_blueberry || 0) + 4;
+    });
+    mk("heal full", () => {
+      P.hp = P.maxhp;
+      hungerT = 0;
+    });
+    document.getElementById("app").appendChild(dv);
+  }
   if (location.hash === "#test-quests") {
     chosen = 0;
     startGame();
     const R = [], ok = (c, m) => R.push((c ? "✅ PASS" : "❌ FAIL") + " — " + m);
     const chief = NPCS.find((n) => n.id === "npc_chief_bonbottom");
     const dorgan = NPCS.find((n) => n.id === "npc_dorgan");
-    const modo = NPCS.find((n) => n.id === "npc_modo");
-    ok(P.weapon === "fists" && !P.weapons.sword && !P.weapons.bow, "you start with FISTS only");
-    ok(goblins[0].hp === 8, "goblin takes 8 punches (or 3 sword hits at dmg 3)");
-    ok(dummies[0].hp === 5, "training dummy takes 5 hits");
-    ok(PRICES.item_bread === 10 && PRICES.item_potion === 100 && PRICES.item_sword === 200 && PRICES.item_bow === 100 && PRICES.item_arrows === 80, "prices: bread 10 · potion 100 · sword 200 · bow 100 · arrows 80");
-    ok(P.arrows === 0, "no arrows until you buy a pack");
-    openDialog(dorgan);
-    ok(dLines === dorgan.raw.linesLocked, 'Dorgan: "out of supplies, come back later"');
-    ok($("shopBox").children.length === 0, "Dorgan sells nothing yet");
-    while (dialogOpen) advanceDialog();
-    openDialog(chief);
-    while (dialogOpen) advanceDialog();
-    const c0 = P.coins;
-    goblins.slice(0, 3).forEach((g) => hitTarget(g, "gob", 99, 0));
-    ok(questState.stage === "complete", "3 goblins → quest complete");
-    ok(drops.length === 0, "goblins drop NO coins anymore");
-    openDialog(chief);
-    while (dialogOpen) advanceDialog();
-    ok(P.coins === c0 + 60, "chief pays exactly 60");
-    Quests.update(40001);
-    openDialog(chief);
-    while (dialogOpen) advanceDialog();
-    ok(questState.currentId === "quest_main_02_blueberries" && questState.stage === "active", "berry quest active");
-    for (let i = 0; i < 4; i++) Quests.emit("collect", { target: "item_blueberry" });
-    ok(Quests.trackerText() === "🏆 Bring the berries to Dorgan!", "tracker sends you to DORGAN, not the chief");
-    ok(Quests.dialogueFor("npc_chief_bonbottom") === null, "chief is not the turn-in");
-    const c1 = P.coins;
-    openDialog(dorgan);
-    ok(dLines[0].startsWith("Ohh"), "Dorgan congratulates you");
-    while (dialogOpen) advanceDialog();
-    ok(P.coins === c1 + 40, "Dorgan pays 40");
-    ok(questState.flags.flag_dorgan_shop_open === true, "Dorgan shop unlocked by the quest");
-    openDialog(dorgan);
-    ok($("shopBox").children.length === 1 && $("shopBox").children[0].textContent.includes("100"), "Dorgan now sells potions at 100");
-    while (dialogOpen) advanceDialog();
-    ok(P.coins === 150, "coins after two quests = 150");
     const erik = NPCS.find((n) => n.id === "npc_erik");
-    openDialog(erik);
-    ok($("shopBox").children.length === 1, "Erik sells only bread before the turkey quest");
+    const modo = NPCS.find((n) => n.id === "npc_modo");
+    ok(AVATARS[0].nm === "Cippy" && AVATARS[1].nm === "Oak" && AVATARS[2].nm === "Willow" && AVATARS[3].nm === "Dusty", "avatars renamed: Cippy, Oak, Willow, Dusty");
+    ok(P.coins === 10, "start with 10 coins (one loaf of bread)");
+    ok(P.weapon === "fists" && !P.weapons.sword, "start with fists");
+    ok(goblins[0].hp === 6, "goblins take 6 punches now");
+    openDialog(dorgan);
+    ok(dLines === dorgan.raw.linesLocked, "Dorgan: out of supplies before his quest");
     while (dialogOpen) advanceDialog();
-    Quests.update(30001);
-    ok(questState.currentId === "quest_main_03_turkeys" && questState.stage === "offer", "30s later: Erik offers the turkey quest");
+    openDialog(chief);
+    while (dialogOpen) advanceDialog();
+    goblins.slice(0, 3).forEach((g) => hitTarget(g, "gob", 99, 0));
+    ok(questState.stage === "complete" && drops.length === 0, "3 goblins → complete, no coin drops");
+    openDialog(chief);
+    while (dialogOpen) advanceDialog();
+    ok(P.coins === 120, "chief pays 110 (10+110=120)");
+    ok(Quests.trackerText().includes("Dorgan"), "chief points you to Dorgan");
+    Quests.update(2e3);
+    ok(questState.currentId === "quest_main_02_blueberries" && questState.stage === "offer", "berry quest is offered by Dorgan");
+    openDialog(dorgan);
+    ok(dLines[0].startsWith("The Chief sent you"), "Dorgan gives the quest himself");
+    while (dialogOpen) advanceDialog();
+    P.inv.item_blueberry = 4;
+    Quests.update(16);
+    ok(questState.stage === "complete", "4 berries in satchel → ready to deliver");
+    P.inv.item_blueberry = 3;
+    Quests.update(16);
+    ok(questState.stage === "active", "EAT one and the quest drops back to 3/4 — berries are real items");
+    P.inv.item_blueberry = 4;
+    Quests.update(16);
+    const rolls0 = P.potionRolls.length;
+    openDialog(dorgan);
+    while (dialogOpen) advanceDialog();
+    ok(P.inv.item_blueberry === 0, "delivery consumes the 4 berries");
+    ok(P.potionRolls[rolls0] === "potion_stoneskin" && P.inv.item_potion === 1, "reward: a FREE Stoneskin potion (not coins)");
+    ok(P.coins === 120, "no coins from Dorgan — the potion is the pay");
+    ok(questState.flags.flag_dorgan_shop_open === true, "Dorgan’s shop opens");
+    caughtTurkeys = 1;
+    Quests.update(2e3);
     openDialog(erik);
     while (dialogOpen) advanceDialog();
-    ok(questState.stage === "active", "turkey quest active");
-    ok(turkeys.length === 4, "4 turkeys wander the meadow");
-    const t0 = turkeys.length;
-    P.x = turkeys[0].x;
-    P.y = turkeys[0].y;
-    catchTurkey();
-    ok(turkeys.length === t0 - 1, "GRAB catches a nearby turkey");
-    for (let i = 0; i < 2; i++) Quests.emit("catch", { target: "entity_turkey" });
-    ok(Quests.trackerText() === "🏆 Bring the turkeys to Erik!", "tracker sends you back to Erik");
-    const c2 = P.coins;
+    ok(questState.stage === "active" && questState.progress === 1, "turkey caught while exploring counts retroactively (1/3)");
+    Quests.emit("catch", { target: "entity_turkey" });
+    Quests.emit("catch", { target: "entity_turkey" });
+    ok(questState.stage === "complete", "3 turkeys → complete");
     openDialog(erik);
     while (dialogOpen) advanceDialog();
-    ok(P.coins === c2 + 50, "Erik pays 50");
-    ok(P.coins === 200, "THE ECONOMY WORKS: all quests = exactly one sword (200)");
-    ok(questState.flags.flag_erik_turkey_stock === true, "turkey meat unlocked at Erik");
+    ok(P.coins === 210, "Erik pays 90 → 210 total");
     openDialog(erik);
     ok($("shopBox").children.length === 2, "Erik now sells bread AND turkey meat");
-    $("shopBox").children[1].click();
-    ok(P.inv.item_turkey === 1 && P.coins === 185, "bought turkey meat for 15");
     while (dialogOpen) advanceDialog();
-    P.hp = 4;
-    P.inv.item_turkey--;
-    useItem("item_turkey");
-    ok(P.hp === 7, "turkey meat restores 1½ hearts (3 halves)");
     openDialog(modo);
-    ok($("shopBox").children.length === 3, "Modo sells sword / bow / arrows");
-    P.coins = 200;
     $("shopBox").children[0].click();
-    ok(P.weapons.sword === true && P.coins === 0, "bought the sword with quest earnings (200→0)");
-    ok($("shopBox").children[0].disabled, "sword button now says owned");
-    P.coins = 300;
-    $("shopBox").children[1].click();
-    $("shopBox").children[2].click();
-    ok(P.weapons.bow === true && P.arrows === 10 && P.coins === 120, "bought bow (100) + arrow pack (80) → 10 arrows");
+    ok(P.weapons.sword === true && P.coins === 10, "earned coins buy the sword (210−200=10 left for bread!)");
     while (dialogOpen) advanceDialog();
-    ok(ownedWeapons().length === 3, "weapon switch now cycles fists → sword → bow");
-    openDialog(dorgan);
-    $("shopBox").children[0].click();
-    ok(P.inv.item_potion === 1 && P.potionRolls.length === 1, "potion power rolled AT PURCHASE");
+    Quests.update(16e3);
+    ok(questState.currentId === "quest_main_04_champion" && questState.stage === "offer", "the champion arrives");
+    openDialog(chief);
     while (dialogOpen) advanceDialog();
-    drinkPotion(P.potionRolls.shift());
-    P.inv.item_potion--;
-    ok(pot.t > 0, "potion active (30s bar)");
-    die("test death");
-    ok(pot.t === 0 && !pot.type, "death removes your active potion");
+    update(16);
+    ok(champion && champion.alive, "champion spawns in the square");
+    champion.state = "shield";
+    const hp0 = champion.hp;
+    hitTarget(champion, "champ", 5, 0);
+    ok(champion.hp === hp0, "his raised shield blocks your hits");
+    champion.state = "approach";
+    hitTarget(champion, "champ", 99, 0);
+    ok(!champion.alive && questState.stage === "complete", "strike the open window → he yields");
+    openDialog(chief);
+    while (dialogOpen) advanceDialog();
+    ok(P.hasShield === true && P.inv.item_shield === 1, "you win the Champion’s Shield");
+    swp.active = true;
+    swp.smashOnly = true;
+    swp.t0 = performance.now() - 1e3;
+    swp.sx = swp.cx = 0;
+    swp.sy = swp.cy = 0;
+    const hpB = P.hp;
+    hurtPlayer(2, "test");
+    ok(P.hp === hpB, "HOLD-to-charge raises the shield and blocks the blow");
+    swp.active = false;
+    dash();
+    ok(P.dashT > 0, "double-tap dash bursts you forward");
+    P.x = 200;
+    P.y = 1180;
+    champion = null;
+    const caT = contextAction();
+    ok(caT && caT.kind === "music" && caT.icon === "🎵", "context button idles as 🎵 (Cippy has a flute)");
+    ok(Quests.trackerText() === "✅ All quests done — explore Losthorne!", "chain complete");
     const div = document.createElement("div");
-    div.style.cssText = "position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12.5px/1.65 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;";
+    div.style.cssText = "position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;";
     const fails = R.filter((r) => r.startsWith("❌")).length;
-    div.textContent = "FULL QUEST-CHAIN + ECONOMY SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
+    div.textContent = "STORY REWORK SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
     document.getElementById("app").appendChild(div);
   }
 })();

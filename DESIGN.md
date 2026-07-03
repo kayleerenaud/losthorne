@@ -34,8 +34,9 @@
 - **Feel target:** Genshin Impact's phone-smoothness + Zelda's intuitiveness.
 - **Layout reference — Genshin Impact mobile** (game8.co controls guide):
   - Movement joystick: invisible until pressed; appears wherever the finger lands on open ground ✅
-  - Attack cluster lower-RIGHT: big crossed-swords attack button in the corner, smaller ability buttons arced around it ✅ (💥 smash skill button, 🏹/🗡️ weapon switch, 🎒 satchel)
-  - **Contextual interaction prompts:** a 💬 talk button APPEARS near the cluster only when you're close to someone you can talk to, labeled with their name ✅ (Genshin shows special commands only when relevant)
+  - Attack cluster lower-RIGHT: big attack button in the corner, smaller buttons arced around it ✅ (context button, 🏹/🗡️/👊 weapon switch, 🎒 satchel)
+  - **THE CONTEXT BUTTON** ✅: ONE slot that morphs to what you need right now — 💬 talk (near people), 🚪 enter/leave (at shop doors), 🤲 GRAB (near turkeys), 💥 smash (near enemies/dummies, hold to charge), and when nothing's happening: 🎵 play your instrument (Cippy/Dusty) or 💤 rest (Oak/Willow) — the leisure activity from §4.
+  - **Dash** ✅: double-tap anywhere on open ground = a quick burst forward (gesture, not a button — controls stay uncrowded). Short cooldown.
   - Skill buttons support tap AND hold-for-stronger ✅ (tap 💥, or press-and-hold the attack button = smash). The 💥 button dims only during a smash cooldown, never during a slice ✅
   - Attack gestures start FROM the attack button: tap = quick attack, drag from it = aimed slice / bow pull-back ✅
   - Bow aiming: pull-back slingshot (touch-native take on Genshin's aim mode) ✅
@@ -43,7 +44,7 @@
 - **Inventory:** a satchel button (🎒 bag icon) opens your bag — slots holding armor, artifacts, supplies, food. Always accessible. Tap an item to enlarge it and see its stats, then decide whether to use it. Purchases (bread, potions) go INTO the satchel rather than taking effect instantly. ✅
 - **Two weapons carried at once**, quick-switch between them. ✅ (sword ↔ bow)
 - **Dialogue:** tap next-next-next through each line an NPC says. ✅
-- **UI zones are fixed so text never overlaps** ✅: dialogue bottom-center; notifications top-center only; quest tracker top-left under the hearts; potion status right side under the coins.
+- **UI zones are fixed so text never overlaps** ✅: dialogue bottom-center; notifications top-center only; potion status right side under the coins. The quest tracker is now SLIM — small, quiet, translucent, top-left. ✅
 - **Breakaway cutscenes:** the game pauses to tell story bits, then returns to gameplay. 🔜
 - **Map screen:** shows where you are. Unvisited territories are just outlines; they color in once explored. Bigger maps can be BOUGHT from villagers to reveal other islands — some islands don't appear at all until you buy the next map. 🔜
 
@@ -51,10 +52,10 @@
 
 Each avatar has their own unique personal side quest that the others don't — replaying with a different character is a different experience.
 
-1. **Flute Boy**: starts as a normal villager (no armor). Short, curly, dirty-blonde hair. Brown vest as his core piece over regular Middle Ages clothing. Carries a little **wooden flute** he can play.
-2. **Leather Lad**: black, roughly ruffled hair. Leather **jacket**, tunic and pants, leather **belt with a cool silver buckle**.
-3. **Bone Pin** (female): darker skin. Hair tied in a **big bun** held by a **pin made out of bone**. Wears a dress, a **fur shawl/cape**, and a belt.
-4. **Lute Girl** (female): blonde with **two Dutch braids**. Pants and a shirt. She ALWAYS carries a **mini guitar/lute across her back**.
+1. **Cippy**: starts as a normal villager (no armor). Short, curly, dirty-blonde hair. Brown vest as his core piece over regular Middle Ages clothing. Carries a little **wooden flute** he can play.
+2. **Oak**: black, roughly ruffled hair. Leather **jacket**, tunic and pants, leather **belt with a cool silver buckle**.
+3. **Willow** (female): darker skin. Hair tied in a **big bun** held by a **pin made out of bone**. Wears a dress, a **fur shawl/cape**, and a belt.
+4. **Dusty** (female): blonde with **two Dutch braids**. Pants and a shirt. She ALWAYS carries a **mini guitar/lute across her back**.
 
 - **Instruments are leisure:** when idle, instrument-carrying avatars can sit and play music — a chill, rejuvenating activity.
 - **Musical taming:** avatars with an instrument can tame animals by playing music; avatars without one tame animals a different way.
@@ -64,7 +65,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 | Name | Role | Details |
 |---|---|---|
-| **Chief Bonbottom** | Village chief, quest-giver | A peaceful chief (BONBOTTOM, all one word). Gives you tasks and congratulates you when they're done. ✅ |
+| **Chief Bonbottom** | Village chief, quest-giver | A peaceful chief (BONBOTTOM, all one word). Stands in the village square (he's the chief — no shop). Gives quests and congratulates you. ✅ |
 | **Dorgan** | Potion-maker (druid/wizard type) | His potions grant a **RANDOM temporary power** — rolled the moment you BUY one (100 coins), so each bottle in your satchel already knows what it is. His shop is CLOSED ("out of supplies") until you finish the blueberry quest for him. Bring supplies; **better materials = potion lasts longer** 🔜. **Underwater-breathing potion** 🔜. ✅ |
 | **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. Gives the turkey mini-quest (catch 3 → 50 coins); afterward he also sells **roast turkey meat** (15 coins, +1½ ❤️). ✅ |
 | **Modo** | Blacksmith | IN THE GAME ✅ — sells the forged sword (200), hunting bow (100), and arrow packs (80). Personal-scale gear only — no siege weapons. Armor 🔜 |
@@ -72,13 +73,19 @@ Each avatar has their own unique personal side quest that the others don't — r
 | Villagers | Ambience | Small characters you can greet — people just being pleasant, not quest-givers. They might occasionally give you something. 🔜 |
 | **Little Tommy** | Quest hook | A village kid who gets kidnapped (see the Barbarian, §9). 🔜 |
 
+## 5b. Shops are BUILDINGS you enter ✅
+
+- Erik, Dorgan, and Modo each live INSIDE a shop building marked by a hanging **icon sign**: 🪙 (trade), 🧪 (potions), 🔨 (forge).
+- Walk to the door → the context button becomes 🚪 ENTER → inside is a themed workshop (props match the trade) where you approach and talk/buy. Walk onto the door mat to leave.
+- To talk to a shopkeeper you must ENTER their shop; only the Chief is met outdoors.
+
 ## 6. Economy & Money
 
-- Start with **50 coins**. ✅
+- Start with **10 coins** — exactly one loaf of bread. Free forest berries handle hunger; money must be EARNED. ✅
 - **You start with your FISTS** — no weapons. A goblin takes ~8 punches, or 3 hits with a bought sword. Earn coins → buy gear from Modo. ✅
 - **Coins are never automatic.** Coins come ONLY from people (quest rewards) and special boss hoards. Regular creatures like goblins drop NOTHING — treasure is what makes beating the Troll special. ✅
 - **Price anchors:** bread **10** · turkey meat **15** (price is a placeholder guess) · mystery potion **100** · forged (basic) sword **200** · hunting bow **100** · arrow pack **80** (10 arrows — pack size is a placeholder guess) · horse ≈ **500** · best sword ≈ **300** · small hammer ≈ **100**. Premium materials cost more. ✅ (bow is cheaper up front but arrows are a recurring cost, so it totals more than the sword — intentional)
-- **The starter economy balances exactly:** 50 start + 60 (goblins) + 40 (berries) + 50 (turkeys) = **200 = one forged sword**. ✅
+- **Challenge rewards:** goblins **110 coins** · berries **a free Stoneskin potion** (no coins — the potion is the pay) · turkeys **90 coins**. Total: 10+110+90 = **210 → the 200-coin sword with 10 left over for bread**. Erik even points it out: "just enough for a basic sword." ✅
 - Money is spent on: weapons/armor, supplies for Dorgan's potions, food, animal feed, **bridge tolls** (fancier villages charge to cross into their land), bigger maps, small taxes.
 - **Village specialty armor:** every village's armory is different and suited to different things — like every country having its own soccer uniform. The lake village sells **underwater armor** (wanted before the Kraken). 🔜
 - Rewards: goblins drop coins ✅; the Troll guards a treasure hoard (big payout) 🔜.
@@ -101,7 +108,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 - Start with **5 hearts**; damage comes in **half-hearts**. ✅
 - **Hunger:** go too long without eating and you slowly lose half-hearts (currently ~75s per half-heart — tunable). ✅
 - **Food in the wild:** berries ✅, wild turkey ✅ (catch them — they flee!), fish 🔜. In villages: buy food (Erik's bread ✅, Erik's roast turkey +1½ ❤️ ✅).
-- **THE BERRY RULE:** only eat **blueberries** (+½ ❤️ ✅). **Red berries = instant death** and you restart at the edge of that territory. ✅
+- **THE BERRY RULE:** only **blueberries** are safe. Picking one puts it **in your satchel** — eat it from there by choice (+½ ❤️) or save it for delivery; no auto-eating. **Red berries = instant death** on touch. ✅
 - **Special meal:** a multi-ingredient cooked dish (blueberries among the ingredients) restoring **up to 4 hearts** — never beyond your heart cap. 🔜
 - **Heart cap:** 5 hearts until the Evilcorn is defeated (see §9) → then **10 hearts** going into the final boss. 🔜
 - **Death = respawn at the edge of that territory.** 🔜 (currently the code respawns you at the village square — only one territory exists so far)
@@ -114,7 +121,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 **The village (home base):** resupply, sleep, your own house — you start with a **hut** and can expand/upgrade it over time. 🔜
 
 ### Regular enemies
-- **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest.
+- **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest. 6 punches (or 2 sword hits) to defeat.
+- **The Visiting Champion** ✅ (quest 4) — a larger human who FIGHTS BACK: raises his shield (unhittable), telegraphs a wind-up (get clear or block!), then strikes hard (2 half-hearts). Learn the window between shield-down and wind-up. Defeat him WITHOUT killing him — it's an entertainment fight — and his shield becomes yours.
 - **Wisps** 🔜 — little magical things.
 - **Bears** 🔜 — big wild animals.
 - **Giant wolves** 🔜 — abnormally-sized scary wolves hunting in PACKS. Tougher than goblins (take notably more hits). **Pack rule:** kill the whole pack within a time window; if one is left standing shortly after the others fall, it **summons more wolves**.
@@ -131,7 +139,10 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 ## 10. Quest Structure & Story Rhythm
 
-- **The rhythm:** quest → congratulations + reward → **free exploration** → the next task. ✅
+- **The rhythm:** challenge → congratulations + reward → **free exploration** → the next hook. ✅
+- **Terminology:** the small onboarding tasks are "challenges"; QUESTS are the big story beats. The challenges guide you through town and teach every control.
+- **The onboarding chain flows person-to-person** ✅: shopkeepers hint "come back later" until their moment → the Chief gives the goblin challenge (110 coins) and, at the payout, points you to Dorgan ("you could use strength… or a shield") → DORGAN himself asks for 4 blueberries and brews you a **free Stoneskin potion** (his shop opens; he points at Erik when you're broke) → ERIK teaches the GRAB with his turkey scheme (turkeys caught early count retroactively) and pays 90 — "just enough for a basic sword" → Modo's forge → **THE FIRST REAL QUEST: the visiting champion** (the §10 tutorial-fight, now drafted): beat him in the square, win his shield.
+- **Your shield (DRAFT mechanic, awaiting approval):** holding to charge a smash RAISES the won shield — blocks blows while you stand your ground. One button, no crowding; the champion literally teaches you his own move. 🚩
 - **Quests can be turned in to someone other than the giver:** the blueberry quest is GIVEN by the chief but DELIVERED to Dorgan — he congratulates you, pays 40 coins, and only then opens his potion shop. ✅
 - **Quest 3 — Erik's turkeys** ✅: catch 3 wild turkeys in the meadow (they flee — chase and GRAB). Reward 50 coins + Erik starts selling turkey meat. Teaches the grab function. (Turkey count 3, 30s delay before offer, and meadow location are placeholder guesses.)
 - Big quests come from chiefs; villagers giving mini-quests is an idea under discussion (see §13).
@@ -182,5 +193,6 @@ Each avatar has their own unique personal side quest that the others don't — r
 - *v0.4 — forced-landscape rendering everywhere, works in any window shape*
 - *v0.5 — slice/hold-to-SMASH, pull-back archery, weapon switch, random potions, training dummies, goblin respawns*
 - *v0.6 — floating damage numbers, potion auras, satchel inventory (tap item → stats → use), 50-coin start, creatures drop coin piles, fixed UI text zones*
+- *v0.12 — avatar names (Cippy/Oak/Willow/Dusty), morphing context button, double-tap dash, shop interiors with icon signs, satchel blueberries, story rework (110/potion/90), the Visiting Champion + won shield, dev testing menu (#dev)*
 - *v0.7 — Genshin-referenced control cluster, 💥 smash skill button, contextual 💬 talk button near NPCs*
 - *v0.8 — one-finger play: invisible anywhere-joystick, attack gestures anchored to the attack button, smash-dim fix*

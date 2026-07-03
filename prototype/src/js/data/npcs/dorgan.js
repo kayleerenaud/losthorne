@@ -1,7 +1,9 @@
 // DATA: Dorgan (DESIGN.md §5) — potion-maker; random gifts.
 export default {
   id:'npc_dorgan', name:'Dorgan the Potion-Maker',
-  pos:{x:665,y:1190},
+  building:{ x:560, y:1300, sign:'🧪' },
+  interior:{ w:520, h:340, props:[['⚗️',120,120],['🕯️',400,120],['📜',330,95]] },
+  pos:{x:260,y:120},
   look:{ outfit:'#53406e', hat:false },
   lines:["Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
          "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"],
