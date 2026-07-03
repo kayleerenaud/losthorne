@@ -51,8 +51,8 @@
   #rotate { position:fixed; inset:0; z-index:60; background:#12100e; display:none; flex-direction:column; align-items:center; justify-content:center; color:#e8d9a8; text-align:center; padding:30px; }
   #rotate .ph { font-size:64px; animation:spin90 1.8s ease-in-out infinite; }
   @keyframes spin90 { 0%,20%{transform:rotate(0)} 60%,100%{transform:rotate(90deg)} }
-  body.ingame #rotate { display:none; }
-  @media (orientation: portrait) { body.ingame #rotate { display:flex; } }
+  /* whole app is landscape-only — user rotates the phone */
+  @media (orientation: portrait) { #rotate { display:flex; } }
 </style>
 </head>
 <body>
@@ -190,8 +190,8 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 // village houses
 [[620,1120],[980,1120],[560,1300],[1030,1300],[790,1370]].forEach(h=>houses.push({x:h[0],y:h[1]}));
 // berry bushes: type 'blue' safe, 'red' DEADLY
-[[420,880],[1180,840],[760,760],[300,1020],[1320,1000]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'blue',taken:false}));
-[[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false}));
+[[420,880],[1180,840],[760,760],[300,1020],[1320,1000]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'blue',taken:false,respawn:0}));
+[[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
 const NPCS = [
   { nm:'Chief Bonbottom', x:800, y:1140, col:'#7d2f2f', hat:true,
@@ -209,7 +209,32 @@ function spawnGoblins(){
   [[600,420],[840,300],[1120,460],[920,560]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:2,maxhp:2,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
 }
 spawnGoblins();
-let questDone=false, questRewarded=false;
+
+// ---------- QUEST STATE MACHINE ----------
+// stage: 'new' = chief has a quest to give • 'active' = doing it
+//        'complete' = objective met, return to chief • 'rewarded' = free exploring
+let questIdx=0, questStage='new', betweenT=0, berriesGot=0;
+const CHIEF_LINES = {
+  q0new: ["Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
+          "Goblins have crept into the north forest. They scare the children and steal our bread!",
+          "Drive off 3 goblins, and there'll be 60 coins in it for you.",
+          "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."],
+  q0active: ["The goblins won't leave on their own, warrior! North, up the path, through the woods."],
+  q0complete: ["HA! You did it! Three goblins gone — the children can play again.",
+               "You have my thanks, and 60 coins, well earned. Now rest and explore — I'll send for you when Losthorne needs you."],
+  q0rewarded: ["Enjoy the calm, warrior. Stretch your legs, taste the blueberries. I'll call when there's work."],
+  q1new: ["There you are! Dorgan is brewing a potion of courage, and he's short on ingredients.",
+          "Bring me 4 blueberries from the wild bushes. The BLUE ones, mind you. Blue. I cannot stress this enough."],
+  q1active: ["Blueberries! Four! The bushes in the meadows regrow quickly — off you go."],
+  q1complete: ["Perfect — plump and blue! Dorgan sends his thanks… and I'll add 40 coins from the village purse.",
+               "You've done all I have for now, warrior. Explore Losthorne freely — greater adventures are stirring…"],
+  done: ["The village is safe and the fires are warm, thanks to you. Explore! Adventure will come knocking soon enough."],
+};
+function chiefLines(){
+  if(questIdx===0) return CHIEF_LINES['q0'+questStage] || CHIEF_LINES.q0active;
+  if(questIdx===1) return CHIEF_LINES['q1'+questStage] || CHIEF_LINES.q1active;
+  return CHIEF_LINES.done;
+}
 
 // ============================================================
 // INPUT — left thumb = move (joystick), right thumb = swipe to slash
@@ -263,7 +288,7 @@ function slash(ang){
       g.hp--; g.hurtT=10; g.showBar=true;
       const kb=26; g.x+=Math.cos(a)*kb; g.y+=Math.sin(a)*kb;
       if(g.hp<=0){ g.alive=false; P.kills++; P.coins+=10; banner('Goblin driven off! +10 coins  ('+P.kills+'/3)');
-        if(P.kills>=3 && !questDone){ questDone=true; banner('⚔️ Quest complete! Return to Chief Bonbottom!'); } }
+        if(P.kills>=3 && questIdx===0 && questStage==='active'){ questStage='complete'; banner('⚔️ Quest complete! Return to Chief Bonbottom!'); } }
     }
   }
 }
@@ -283,13 +308,13 @@ $('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=P.maxhp; hungerT=0; P.hurt
 // ============================================================
 // DIALOGUE
 // ============================================================
-let dialogOpen=false, dNpc=null, dIdx=0;
-function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0; renderDialog(); $('dialog').classList.remove('hidden'); }
+let dialogOpen=false, dNpc=null, dIdx=0, dLines=[];
+function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
+  dLines = n.nm.startsWith('Chief') ? chiefLines() : n.lines;
+  renderDialog(); $('dialog').classList.remove('hidden'); }
 function renderDialog(){
   $('dialog').querySelector('.who').textContent=dNpc.nm;
-  let line=dNpc.lines[dIdx];
-  if(dNpc.nm.startsWith('Chief') && questDone && !questRewarded){ line="You did it! Three goblins gone — the children can play again. Here: 60 coins, well earned."; }
-  $('dialog').querySelector('.txt').textContent=line;
+  $('dialog').querySelector('.txt').textContent=dLines[dIdx];
   const sb=$('shopBtn');
   if(dNpc.shop){ sb.classList.remove('hidden'); sb.textContent='🍞 Buy bread — 8 coins (+1 heart)';
     sb.onclick=(e)=>{ e.stopPropagation();
@@ -298,9 +323,20 @@ function renderDialog(){
   } else sb.classList.add('hidden');
 }
 function advanceDialog(){
-  if(dNpc.nm.startsWith('Chief') && questDone && !questRewarded){ questRewarded=true; P.coins+=60; banner('+60 coins!'); closeDialog(); return; }
   dIdx++;
-  if(dIdx>=dNpc.lines.length) closeDialog(); else renderDialog();
+  if(dIdx>=dLines.length){
+    // chief dialogue endings drive the quest state machine
+    if(dNpc.nm.startsWith('Chief')){
+      if(questStage==='new') { questStage='active'; banner(questIdx===0? '📜 Quest: drive off 3 goblins in the north forest!' : '📜 Quest: gather 4 blueberries!'); }
+      else if(questStage==='complete'){
+        const reward = questIdx===0? 60 : 40;
+        P.coins+=reward; banner('🎉 The Chief congratulates you! +'+reward+' coins');
+        questStage='rewarded'; betweenT=0;
+        if(questIdx===1) questIdx=2; // all quests done → explore freely
+      }
+    }
+    closeDialog();
+  } else renderDialog();
 }
 function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden'); }
 $('dialog').onclick=advanceDialog;
@@ -333,13 +369,25 @@ function update(dt){
   hungerT+=dt;
   if(hungerT>HUNGER_EVERY){ hungerT=0; P.hp--; banner('Your stomach growls… find food! -½ ❤️'); if(P.hp<=0) die('You starved in the wilds.','Hunger wins'); }
 
-  // berries
-  for(const b of bushes){ if(b.taken) continue;
+  // berries (blue bushes regrow after ~25s)
+  for(const b of bushes){
+    if(b.taken){ b.respawn-=dt; if(b.respawn<=0 && b.type==='blue') b.taken=false; continue; }
     if(Math.hypot(b.x-P.x,b.y-P.y)<30){
-      b.taken=true;
-      if(b.type==='blue'){ P.hp=Math.min(P.maxhp,P.hp+1); hungerT=0; banner('Sweet blueberries! +½ ❤️'); }
+      b.taken=true; b.respawn=25000;
+      if(b.type==='blue'){ P.hp=Math.min(P.maxhp,P.hp+1); hungerT=0;
+        if(questIdx===1 && questStage==='active'){ berriesGot++;
+          if(berriesGot>=4){ questStage='complete'; banner('🫐 4/4! Bring them to Chief Bonbottom!'); }
+          else banner('🫐 Blueberries: '+berriesGot+'/4  (+½ ❤️)');
+        } else banner('Sweet blueberries! +½ ❤️');
+      }
       else { die('You ate the RED berries. The Chief warned you…','The red berries'); }
     } }
+
+  // between quests: let them explore, then the chief calls
+  if(questStage==='rewarded' && questIdx<1){
+    betweenT+=dt;
+    if(betweenT>40000){ questIdx=1; questStage='new'; berriesGot=0; banner('📜 Chief Bonbottom has a new task for you!'); }
+  }
 
   // goblins
   for(const g of goblins){ if(!g.alive) continue;
@@ -435,7 +483,10 @@ function draw(){
   ctx.fillStyle='#ffd977'; ctx.fillText('🪙 '+P.coins, vw-22, top+24);
   // quest
   ctx.textAlign='left'; ctx.font='13.5px Georgia';
-  const qt = questRewarded? '✅ The forest is safe… for now.' : questDone? '⚔️ Return to Chief Bonbottom!' : P.kills>0? '⚔️ Goblins driven off: '+P.kills+'/3' : '💬 Talk to Chief Bonbottom (tap near him)';
+  let qt='💬 Talk to Chief Bonbottom (tap near him)';
+  if(questStage==='active') qt = questIdx===0? '⚔️ Goblins driven off: '+P.kills+'/3' : '🫐 Blueberries: '+berriesGot+'/4';
+  else if(questStage==='complete') qt='🏆 Return to Chief Bonbottom!';
+  else if(questStage==='rewarded') qt = questIdx>=1? '✅ All quests done — explore Losthorne!' : '🌿 Explore! The Chief will call on you again…';
   ctx.fillStyle='rgba(20,16,10,.72)'; rr(ctx, 14, top+38, ctx.measureText(qt).width+22, 26, 8);
   ctx.fillStyle='#e8d9a8'; ctx.fillText(qt, 25, top+56);
 
