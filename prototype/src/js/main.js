@@ -38,7 +38,7 @@ $('btnStart').onclick = ()=>{ if(chosen>=0) startGame(); };
 
 // avatar cards
 AVATARS.forEach((a,i)=>{
-  const d=document.createElement('div'); d.className='card';
+  const d=document.createElement('div'); d.className='card'; d.dataset.ref='avatar-card-'+a.id.replace('avatar_','').replace(/_/g,'-');
   const cv=document.createElement('canvas'); cv.width=cv.height=72;
   d.appendChild(cv);
   d.insertAdjacentHTML('beforeend','<div class="nm">'+a.nm+'</div><div class="ds">'+a.ds+'</div>');

@@ -1,0 +1,10 @@
+{
+  "name": "Losthorne: Last Light",
+  "slug": "losthorne",
+  "kind": "web",
+  "runtime": "browser (single-file HTML, no server)",
+  "run_cmd": "npm run build && open prototype/index.html",
+  "entry": "prototype/index.html",
+  "source": "prototype/src/",
+  "docs": ["DESIGN.md", "WORKFLOW.md"]
+}

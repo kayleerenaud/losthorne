@@ -74,68 +74,68 @@
 <div id="app">
 
 <!-- TITLE / LOGIN -->
-<div id="title" class="screen">
+<div id="title" class="screen" data-ref="title-screen">
   <div class="lantern">🏮</div>
   <h1>LOSTHORNE</h1>
   <div class="sub">Last Light</div>
   <div style="height:34px"></div>
-  <button class="btn" id="btnGuest">⚔️ &nbsp;Begin the Quest</button>
-  <button class="btn ghost" id="btnGoogle">Sign in with Google — coming soon</button>
-  <button class="btn ghost" id="btnSupa">Village account (Supabase) — coming soon</button>
+  <button class="btn" id="btnGuest" data-ref="begin-quest-button">⚔️ &nbsp;Begin the Quest</button>
+  <button class="btn ghost" id="btnGoogle" data-ref="google-login-button">Sign in with Google — coming soon</button>
+  <button class="btn ghost" id="btnSupa" data-ref="supabase-login-button">Village account (Supabase) — coming soon</button>
   <div class="note">The last free village needs you.<br>Prototype v0.1 — logins are pretend for now.</div>
 </div>
 
 <!-- LOBBY / ROOM CODE -->
-<div id="lobby" class="screen hidden">
+<div id="lobby" class="screen hidden" data-ref="lobby-screen">
   <h2>Gather your party</h2>
   <div class="note" style="margin:0 0 10px">Two warriors defend better than one.</div>
-  <button class="btn" id="btnHost">🔥 Start a fire (host a game)</button>
+  <button class="btn" id="btnHost" data-ref="host-fire-button">🔥 Start a fire (host a game)</button>
   <div id="hostCode" class="hidden">
-    <div class="code-box" id="codeText">LOST-????</div>
+    <div class="code-box" id="codeText" data-ref="room-code">LOST-????</div>
     <div class="note" style="margin-top:2px">Send this code to your friend.<br><b>(Real multiplayer coming soon — you'll scout ahead solo for now.)</b></div>
-    <button class="btn" id="btnGo">Enter Losthorne →</button>
+    <button class="btn" id="btnGo" data-ref="enter-losthorne-button">Enter Losthorne →</button>
   </div>
   <div id="joinBox">
-    <input class="code" id="joinInput" placeholder="LOST-CODE" maxlength="9">
-    <button class="btn ghost" id="btnJoin">Join a friend's fire</button>
+    <input class="code" id="joinInput" data-ref="join-code-input" placeholder="LOST-CODE" maxlength="9">
+    <button class="btn ghost" id="btnJoin" data-ref="join-fire-button">Join a friend's fire</button>
   </div>
 </div>
 
 <!-- CHARACTER SELECT -->
-<div id="select" class="screen hidden">
+<div id="select" class="screen hidden" data-ref="character-select-screen">
   <h2>Choose your villager</h2>
-  <div class="avatars" id="avatarGrid"></div>
-  <button class="btn" id="btnStart" disabled style="opacity:.5">Step into the village</button>
+  <div class="avatars" id="avatarGrid" data-ref="avatar-grid"></div>
+  <button class="btn" id="btnStart" data-ref="start-game-button" disabled style="opacity:.5">Step into the village</button>
 </div>
 
 <!-- GAME -->
-<div id="gameWrap" class="hidden"><canvas id="game"></canvas></div>
-<div id="dialog" class="hidden">
+<div id="gameWrap" class="hidden"><canvas id="game" data-ref="game-canvas"></canvas></div>
+<div id="dialog" class="hidden" data-ref="dialogue-box">
   <div class="who"></div><div class="txt"></div>
-  <button class="btn shopBtn hidden" id="shopBtn"></button>
+  <button class="btn shopBtn hidden" id="shopBtn" data-ref="shop-buy-button"></button>
   <div class="next">tap to continue ▸</div>
 </div>
-<div id="banner"></div>
+<div id="banner" data-ref="notification-banner"></div>
 
 <!-- INVENTORY / SATCHEL -->
-<div id="inv" class="hidden">
+<div id="inv" class="hidden" data-ref="satchel-panel">
   <h3>🎒 Satchel</h3>
   <div id="invGrid"></div>
   <div id="invDetail" class="hidden">
     <div class="bigIc"></div>
     <div class="inm"></div>
     <div class="ist"></div>
-    <button class="btn" id="invUse">Use it</button>
+    <button class="btn" id="invUse" data-ref="use-item-button">Use it</button>
     <button class="btn ghost" id="invBack">← Back</button>
   </div>
-  <button class="btn ghost" id="invClose">Close satchel</button>
+  <button class="btn ghost" id="invClose" data-ref="close-satchel-button">Close satchel</button>
 </div>
 
 <!-- DEATH -->
-<div id="deathScr" class="screen hidden">
+<div id="deathScr" class="screen hidden" data-ref="death-screen">
   <h2 id="deathTitle">You have fallen</h2>
   <p id="deathMsg">The light of Losthorne dims… but is not out.</p>
-  <button class="btn" id="btnRespawn">Rise again at the village edge</button>
+  <button class="btn" id="btnRespawn" data-ref="respawn-button">Rise again at the village edge</button>
 </div>
 
 </div><!-- /#app -->
@@ -401,6 +401,7 @@
   AVATARS.forEach((a, i) => {
     const d = document.createElement("div");
     d.className = "card";
+    d.dataset.ref = "avatar-card-" + a.id.replace("avatar_", "").replace(/_/g, "-");
     const cv = document.createElement("canvas");
     cv.width = cv.height = 72;
     d.appendChild(cv);
