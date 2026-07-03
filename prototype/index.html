@@ -54,7 +54,7 @@
   #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
   #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
   #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
-  #dialog .shopBtn { margin-top:8px; width:100%; padding:10px; font-size:15px; }
+  #dialog .shopBtn { margin-top:7px; width:100%; padding:9px; font-size:14px; display:block; }
   /* ---------- OVERLAY MESSAGES ---------- */
   /* notifications live TOP-CENTER only — dialogue lives bottom-center, quest tracker top-left */
   #banner { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:8px 16px; border-radius:10px; font-size:14px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:330px; text-align:center; }
@@ -112,7 +112,7 @@
 <div id="gameWrap" class="hidden"><canvas id="game" data-ref="game-canvas"></canvas></div>
 <div id="dialog" class="hidden" data-ref="dialogue-box">
   <div class="who"></div><div class="txt"></div>
-  <button class="btn shopBtn hidden" id="shopBtn" data-ref="shop-buy-button"></button>
+  <div id="shopBox" data-ref="shop-box"></div>
   <div class="next">tap to continue ▸</div>
 </div>
 <div id="banner" data-ref="notification-banner"></div>
@@ -152,8 +152,12 @@
 
   // prototype/src/js/data/economy.js
   var PRICES = {
-    item_bread: 8,
-    item_potion: 30
+    item_bread: 10,
+    item_potion: 100,
+    item_sword: 200,
+    item_bow: 100,
+    item_arrows: 80
+    // pack of 10 (pack size = placeholder guess, not spec'd)
   };
   var STARTING_COINS = 50;
 
@@ -170,14 +174,35 @@
       id: "item_potion",
       ic: "🧪",
       nm: "Mystery Potion",
-      st: 'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
+      st: 'A power for 30 seconds — rolled the moment you buy it:<br>💪 Ogre Strength (hit much harder)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
       effect: { kind: "mystery_potion" }
+    },
+    item_sword: {
+      id: "item_sword",
+      ic: "🗡️",
+      nm: "Forged Sword",
+      st: "Moto Moto steel. Goblins fall in 3 good hits instead of 8 punches.",
+      effect: { kind: "unlock_weapon", weapon: "sword" }
+    },
+    item_bow: {
+      id: "item_bow",
+      ic: "🏹",
+      nm: "Hunting Bow",
+      st: "Strike from a distance — but every shot costs an arrow.",
+      effect: { kind: "unlock_weapon", weapon: "bow" }
+    },
+    item_arrows: {
+      id: "item_arrows",
+      ic: "🎯",
+      nm: "Arrow Pack",
+      st: "A bundle of 10 arrows for the hunting bow.",
+      effect: { kind: "ammo", amount: 10 }
     }
   };
 
   // prototype/src/js/data/potions.js
   var POTION_POWERS = {
-    potion_strength: { id: "potion_strength", ic: "💪", nm: "Ogre Strength", dmgBonus: 1 },
+    potion_strength: { id: "potion_strength", ic: "💪", nm: "Ogre Strength", dmgBonus: 2 },
     potion_speed: { id: "potion_speed", ic: "⚡", nm: "Wind Speed", speedMult: 1.75 },
     potion_stoneskin: { id: "potion_stoneskin", ic: "🛡️", nm: "Stoneskin", blocksDamage: true }
   };
@@ -199,8 +224,8 @@
     name: "Erik the Trader",
     pos: { x: 930, y: 1195 },
     look: { outfit: "#2f5d7d", hat: false },
-    lines: ["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
-    shop: { item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" }
+    lines: ["Psst — bread, fresh-ish! Only 10 coins. Nothing in Losthorne is free, friend."],
+    shop: [{ item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" }]
   };
 
   // prototype/src/js/data/npcs/dorgan.js
@@ -213,7 +238,29 @@
       "Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
       "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"
     ],
-    shop: { item: "item_potion", label: "🧪 Mystery potion — {price} coins (goes to satchel)", banner: "🧪 A mystery potion sloshes in your satchel" }
+    linesLocked: [
+      "Hm? Ah — a warrior. I make potions… marvelous ones. But my supplies are gone — not a berry in the cupboard.",
+      "Come back after I've restocked. If only someone would bring me something BLUE…"
+    ],
+    shopRequiresFlag: "flag_dorgan_shop_open",
+    shop: [{ item: "item_potion", label: "🧪 Mystery potion — {price} coins (rolled when you buy!)", banner: null }]
+  };
+
+  // prototype/src/js/data/npcs/moto-moto.js
+  var moto_moto_default = {
+    id: "npc_moto_moto",
+    name: "Moto Moto the Blacksmith",
+    pos: { x: 1015, y: 1235 },
+    look: { outfit: "#4f4a45", hat: false },
+    lines: [
+      "Moto Moto likes warriors who hit hard. Fists are free — steel is not.",
+      "A forged sword, a hunting bow, arrows by the pack. Coins first, friend."
+    ],
+    shop: [
+      { item: "item_sword", label: "🗡️ Forged sword — {price} coins", banner: "🗡️ The sword is yours. Switch weapons to draw it!" },
+      { item: "item_bow", label: "🏹 Hunting bow — {price} coins", banner: "🏹 The bow is yours — you'll need arrows!" },
+      { item: "item_arrows", label: "🎯 Arrow pack (10) — {price} coins", banner: "🎯 +10 arrows in your quiver" }
+    ]
   };
 
   // prototype/src/js/engine/quests.js
@@ -270,10 +317,15 @@
       }
       return { counted: true, progress: Math.min(questState.progress, o.count), count: o.count, banner: bannerText };
     },
+    // Which NPC owns the current stage: giver runs offer/active, turnIn runs complete/afterReward.
+    _stageNpc(q) {
+      const turnIn = q.turnIn || q.giver;
+      return questState.stage === "complete" || questState.stage === "afterReward" ? turnIn : q.giver;
+    },
     // What should this NPC say right now? null = not quest business (NPC uses own lines).
     dialogueFor(npcId) {
       const q = defs[questState.currentId];
-      if (!q || q.giver !== npcId) return null;
+      if (!q || this._stageNpc(q) !== npcId) return null;
       const lines = q.dialogue[questState.stage];
       return lines && lines.length ? lines : null;
     },
@@ -281,7 +333,7 @@
     onDialogueEnd(npcId) {
       var _a;
       const q = defs[questState.currentId];
-      if (!q || q.giver !== npcId) return;
+      if (!q || this._stageNpc(q) !== npcId) return;
       if (questState.stage === "offer") {
         questState.stage = "active";
         questState.progress = 0;
@@ -290,6 +342,7 @@
         if ((_a = q.reward) == null ? void 0 : _a.coins) hooks.addCoins(q.reward.coins);
         hooks.banner(q.banners.reward);
         questState.completed.push(q.id);
+        if (q.setFlagOnReward) questState.flags[q.setFlagOnReward] = true;
         questState.stage = "afterReward";
         if (q.next) questState.pendingNext = { questId: q.next.quest, msLeft: q.next.delayMs, banner: q.next.banner };
       }
@@ -340,32 +393,35 @@
   var main_02_blueberries_default = {
     id: "quest_main_02_blueberries",
     giver: "npc_chief_bonbottom",
+    turnIn: "npc_dorgan",
     objective: { type: "collect", target: "item_blueberry", count: 4 },
     dialogue: {
       offer: [
         "There you are! Dorgan is brewing a potion of courage, and he's short on ingredients.",
-        "Bring me 4 blueberries from the wild bushes. The BLUE ones, mind you. Blue. I cannot stress this enough."
+        "Gather 4 blueberries from the wild bushes and bring them straight to DORGAN.",
+        "The BLUE ones, mind you. Blue. I cannot stress this enough."
       ],
-      active: ["Blueberries! Four! The bushes in the meadows regrow quickly — off you go."],
+      active: ["Blueberries! Four! And take them to Dorgan, not to me — my hands are full of chiefly business."],
       complete: [
-        "Perfect — plump and blue! Dorgan sends his thanks… and I'll add 40 coins from the village purse.",
-        "You've done all I have for now, warrior. Explore Losthorne freely — greater adventures are stirring…"
+        "Ohh — plump and perfectly BLUE! With these I can brew again. You have my thanks, warrior.",
+        "Here, 40 coins from my own purse. And now that I'm restocked… my potions are for sale. 100 coins for a mystery — courage chooses its own shape."
       ],
       afterReward: []
     },
     tracker: {
       offer: "💬 Talk to Chief Bonbottom (tap near him)",
       active: "🫐 Blueberries: {n}/4",
-      complete: "🏆 Return to Chief Bonbottom!",
+      complete: "🏆 Bring the berries to Dorgan!",
       afterReward: "✅ All quests done — explore Losthorne!"
     },
     banners: {
-      start: "📜 Quest: gather 4 blueberries!",
-      objectiveDone: "🫐 4/4! Bring them to Chief Bonbottom!",
-      reward: "🎉 The Chief congratulates you! +40 coins",
+      start: "📜 Quest: gather 4 blueberries for Dorgan!",
+      objectiveDone: "🫐 4/4! Bring them to Dorgan!",
+      reward: "🎉 Dorgan pays you 40 coins — his potion shop is OPEN!",
       progress: "🫐 Blueberries: {n}/4  (+½ ❤️)"
     },
     reward: { coins: 40 },
+    setFlagOnReward: "flag_dorgan_shop_open",
     next: null
   };
 
@@ -499,19 +555,37 @@
   function pt(t) {
     return rotated ? { x: t.clientY, y: innerWidth - t.clientX } : { x: t.clientX, y: t.clientY };
   }
-  var P = { x: 800, y: 1210, dir: 0, hp: 10, maxhp: 10, coins: STARTING_COINS, speed: 2.5, slashT: 0, smashT: 0, hurtT: 0, weapon: "sword", inv: { item_bread: 0, item_potion: 0 } };
+  var P = {
+    x: 800,
+    y: 1210,
+    dir: 0,
+    hp: 10,
+    maxhp: 10,
+    coins: STARTING_COINS,
+    speed: 2.5,
+    slashT: 0,
+    smashT: 0,
+    smashT0: 16,
+    smashR: 95,
+    hurtT: 0,
+    weapon: "fists",
+    weapons: { fists: true, sword: false, bow: false },
+    arrows: 0,
+    potionRolls: [],
+    inv: { item_bread: 0, item_potion: 0 }
+  };
+  var WEAPONS = { fists: { icon: "👊", dmg: 1, range: 50 }, sword: { icon: "⚔️", dmg: 3, range: 74 }, bow: { icon: "🏹" } };
+  function ownedWeapons() {
+    return ["fists", "sword", "bow"].filter((w) => P.weapons[w]);
+  }
   var floats = [];
   var drops = [];
   function addFloat(x, y, txt, col, size) {
     floats.push({ x, y, txt, col, size: size || 16, t: 44 });
   }
-  function dropCoins(x, y) {
-    const piles = 2 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < piles; i++) drops.push({ x: x + (Math.random() * 36 - 18), y: y + (Math.random() * 36 - 18), amt: 2 + Math.floor(Math.random() * 3) });
-  }
   var pot = { type: null, t: 0 };
   var arrows = [];
-  var dummies = [{ x: 660, y: 1265, hp: 3, maxhp: 3, hurtT: 0, respawnT: 0, showBar: false }, { x: 945, y: 1265, hp: 3, maxhp: 3, hurtT: 0, respawnT: 0, showBar: false }];
+  var dummies = [{ x: 660, y: 1265, hp: 5, maxhp: 5, hurtT: 0, respawnT: 0, showBar: false }, { x: 945, y: 1265, hp: 5, maxhp: 5, hurtT: 0, respawnT: 0, showBar: false }];
   var hungerT = 0;
   var HUNGER_EVERY = 75e3;
   var trees = [];
@@ -522,31 +596,78 @@
   [[620, 1120], [980, 1120], [560, 1300], [1030, 1300], [790, 1370]].forEach((h) => houses.push({ x: h[0], y: h[1] }));
   [[420, 880], [1180, 840], [760, 760], [300, 1020], [1320, 1e3]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "blue", taken: false, respawn: 0 }));
   [[560, 940], [1050, 760]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "red", taken: false, respawn: 0 }));
-  function makeShop(shopData) {
-    if (!shopData) return null;
-    const price = PRICES[shopData.item];
-    return { label: shopData.label.replace("{price}", price), fn() {
-      if (P.coins >= price) {
-        P.coins -= price;
-        P.inv[shopData.item]++;
-        banner(shopData.banner);
-      } else banner("Not enough coins!");
-    } };
-  }
-  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default].map((d) => ({
+  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default, moto_moto_default].map((d) => ({
     id: d.id,
     nm: d.name,
     x: d.pos.x,
     y: d.pos.y,
     col: d.look.outfit,
     hat: !!d.look.hat,
-    lines: d.lines || d.idleLines,
-    shop: makeShop(d.shop)
+    raw: d
   }));
+  function npcLines(n) {
+    const d = n.raw;
+    if (d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
+    return d.lines || d.idleLines;
+  }
+  function buyItem(entry) {
+    const price = PRICES[entry.item], def = ITEM_DEFS[entry.item], e = def.effect;
+    if (P.coins < price) {
+      banner("Not enough coins!");
+      return;
+    }
+    if (e.kind === "unlock_weapon") {
+      if (P.weapons[e.weapon]) {
+        banner("You already own that!");
+        return;
+      }
+      P.coins -= price;
+      P.weapons[e.weapon] = true;
+      banner(entry.banner);
+    } else if (e.kind === "ammo") {
+      P.coins -= price;
+      P.arrows += e.amount;
+      banner(entry.banner);
+    } else if (e.kind === "mystery_potion") {
+      P.coins -= price;
+      const k = rollPotion();
+      P.potionRolls.push(k);
+      P.inv.item_potion++;
+      banner("🧪 Dorgan hands you a potion… " + POTION_POWERS[k].ic + " " + POTION_POWERS[k].nm + "!");
+    } else {
+      P.coins -= price;
+      P.inv[entry.item]++;
+      banner(entry.banner);
+    }
+    renderShop();
+  }
+  function renderShop() {
+    const box = $("shopBox");
+    box.innerHTML = "";
+    const d = dNpc && dNpc.raw;
+    if (!d || !d.shop) return;
+    if (d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag]) return;
+    for (const entry of d.shop) {
+      const def = ITEM_DEFS[entry.item], price = PRICES[entry.item];
+      const b = document.createElement("button");
+      b.className = "btn shopBtn";
+      const owned = def.effect.kind === "unlock_weapon" && P.weapons[def.effect.weapon];
+      b.textContent = owned ? "✔ " + def.nm + " — owned" : entry.label.replace("{price}", price);
+      if (owned) {
+        b.disabled = true;
+        b.style.opacity = 0.55;
+      }
+      b.onclick = (ev) => {
+        ev.stopPropagation();
+        buyItem(entry);
+      };
+      box.appendChild(b);
+    }
+  }
   var goblins = [];
   function spawnGoblins() {
     goblins.length = 0;
-    [[600, 420], [840, 300], [1120, 460], [920, 560]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 2, maxhp: 2, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
+    [[600, 420], [840, 300], [1120, 460], [920, 560]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 8, maxhp: 8, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
   }
   spawnGoblins();
   Quests.init([main_01_goblins_default, main_02_blueberries_default], "quest_main_01_goblins", {
@@ -600,8 +721,9 @@
   function pointerDown(p, id) {
     if (invOpen) return;
     const b = buttonAt(p.x, p.y);
-    if (b === "atk" && !swp.active) {
+    if ((b === "atk" || b === "smash") && !swp.active) {
       swp.active = true;
+      swp.smashOnly = b === "smash";
       swp.id = id;
       swp.sx = p.x;
       swp.sy = p.y;
@@ -658,22 +780,31 @@
     if (n) openDialog(n);
   }
   function pressButton(kind) {
-    if (kind === "smash") {
-      smash();
-    } else if (kind === "bag") {
+    if (kind === "bag") {
       openInv();
     } else if (kind === "talk") {
       const n = npcNearby();
       if (n && !dialogOpen) openDialog(n);
     } else if (kind === "wpn") {
-      P.weapon = P.weapon === "sword" ? "bow" : "sword";
-      banner(P.weapon === "sword" ? "🗡️ Sword drawn — drag from ⚔️ to aim a slice" : "🏹 Bow ready — drag from the button & release!");
+      const ows = ownedWeapons();
+      if (ows.length < 2) {
+        banner("👊 Only your fists for now — visit Moto Moto the blacksmith!");
+        return;
+      }
+      P.weapon = ows[(ows.indexOf(P.weapon) + 1) % ows.length];
+      banner(P.weapon === "fists" ? "👊 Fists up!" : P.weapon === "sword" ? "🗡️ Sword drawn" : "🏹 Bow ready — pull back and release! Arrows: " + P.arrows);
     }
   }
   function attackRelease(x, y) {
     if (invOpen) return;
     const dx = x - swp.sx, dy = y - swp.sy, dist = Math.hypot(dx, dy);
     const dur = performance.now() - swp.t0;
+    if (swp.smashOnly) {
+      if (dur >= 3e3) fullSmash();
+      else if (dur >= 350) miniSmash();
+      else banner("💥 HOLD to charge a smash — 3 full seconds for the big one!");
+      return;
+    }
     if (P.weapon === "bow") {
       if (dist > 25) {
         const ang = Math.atan2(-dy, -dx);
@@ -682,7 +813,8 @@
       return;
     }
     if (dist > 18) slash(Math.atan2(dy, dx));
-    else if (dur > 350) smash();
+    else if (dur >= 3e3) fullSmash();
+    else if (dur >= 350) miniSmash();
     else slash(P.dir);
   }
   cvs.addEventListener("touchstart", (e) => {
@@ -712,16 +844,15 @@
     t.hp -= dmg;
     t.hurtT = 10;
     t.showBar = true;
-    addFloat(t.x, t.y - 30, "-" + dmg, dmg >= 3 ? "#ff7b47" : dmg >= 2 ? "#ffb347" : "#f0e6d0", dmg >= 3 ? 26 : dmg >= 2 ? 22 : 15);
+    addFloat(t.x, t.y - 30, "-" + dmg, dmg >= 8 ? "#ff7b47" : dmg >= 3 ? "#ffb347" : "#f0e6d0", dmg >= 8 ? 26 : dmg >= 3 ? 21 : 15);
     if (kind === "gob") {
-      const kb = dmg >= 2 ? 42 : 26;
+      const kb = dmg >= 8 ? 46 : dmg >= 3 ? 34 : 22;
       t.x += Math.cos(ang) * kb;
       t.y += Math.sin(ang) * kb;
       if (t.hp <= 0) {
         t.alive = false;
-        dropCoins(t.x, t.y);
         const r = Quests.emit("kill", { target: "enemy_goblin" });
-        banner("Goblin driven off!" + (r.counted ? "  (" + r.progress + "/" + r.count + ")" : "") + " It dropped coins!");
+        banner("Goblin driven off!" + (r.counted ? "  (" + r.progress + "/" + r.count + ")" : ""));
         if (r.banner && r.progress === r.count) banner(r.banner);
       }
     } else {
@@ -737,32 +868,59 @@
   };
   function slash(ang) {
     if (P.slashT > 0 || blocked()) return;
+    const w = WEAPONS[P.weapon] || WEAPONS.fists;
     P.dir = ang;
     P.slashT = 14;
     eachTarget((t, kind) => {
       const d = Math.hypot(t.x - P.x, t.y - P.y), a = Math.atan2(t.y - P.y, t.x - P.x);
       let diff = Math.abs(a - ang);
       if (diff > Math.PI) diff = 2 * Math.PI - diff;
-      if (d < 74 && diff < 1.15) hitTarget(t, kind, 1 + dmgBonus(), a);
+      if (d < w.range && diff < 1.15) hitTarget(t, kind, w.dmg + dmgBonus(), a);
     });
   }
-  function smash() {
+  function miniSmash() {
+    doSmash(4, 80, 16);
+  }
+  function fullSmash() {
+    doSmash(8, 130, 22);
+  }
+  function doSmash(dmg, radius, fx) {
     if (P.slashT > 0 || blocked()) return;
     P.slashT = 22;
-    P.smashT = 16;
+    P.smashT = fx;
+    P.smashT0 = fx;
+    P.smashR = radius;
     eachTarget((t, kind) => {
       const d = Math.hypot(t.x - P.x, t.y - P.y);
-      if (d < 95) hitTarget(t, kind, 2 + dmgBonus(), Math.atan2(t.y - P.y, t.x - P.x));
+      if (d < radius) hitTarget(t, kind, dmg + dmgBonus(), Math.atan2(t.y - P.y, t.x - P.x));
     });
+  }
+  function chargeInfo() {
+    if (!swp.active) return null;
+    if (P.weapon === "bow" && !swp.smashOnly) return null;
+    const dist = Math.hypot(swp.cx - swp.sx, swp.cy - swp.sy);
+    if (dist > 18 && !swp.smashOnly) return null;
+    const dur = performance.now() - swp.t0;
+    if (dur < 350) return null;
+    return { p: Math.min(1, (dur - 350) / 2650), full: dur >= 3e3 };
   }
   function fireArrow(ang, power) {
     if (blocked()) return;
+    if (P.arrows <= 0) {
+      banner("🎯 Out of arrows! Moto Moto sells packs.");
+      return;
+    }
+    P.arrows--;
     P.dir = ang;
     const sp = 5 + power / 130 * 8;
-    arrows.push({ x: P.x, y: P.y - 6, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 70, dmg: (power > 85 ? 2 : 1) + dmgBonus(), ang });
+    arrows.push({ x: P.x, y: P.y - 6, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 70, dmg: (power > 85 ? 4 : 3) + dmgBonus(), ang });
   }
-  function drinkPotion() {
-    const keys2 = Object.keys(POTION_POWERS), k = keys2[Math.floor(Math.random() * keys2.length)];
+  function rollPotion() {
+    const keys2 = Object.keys(POTION_POWERS);
+    return keys2[Math.floor(Math.random() * keys2.length)];
+  }
+  function drinkPotion(k) {
+    if (!k) k = rollPotion();
     pot.type = k;
     pot.t = POTION_DURATION_MS;
     banner(POTION_POWERS[k].ic + " The potion takes hold: " + POTION_POWERS[k].nm + "! (30s)");
@@ -776,7 +934,7 @@
       addFloat(P.x, P.y - 36, e.float, "#7ed67e", 18);
     },
     mystery_potion() {
-      drinkPotion();
+      drinkPotion(P.potionRolls.shift());
     }
   };
   function useItem(id) {
@@ -804,7 +962,12 @@
       const it = ITEM_DEFS[invSel];
       det.querySelector(".bigIc").textContent = it.ic;
       det.querySelector(".inm").textContent = it.nm + "  ×" + P.inv[invSel];
-      det.querySelector(".ist").innerHTML = it.st;
+      let stHtml = it.st;
+      if (invSel === "item_potion" && P.potionRolls[0]) {
+        const pp = POTION_POWERS[P.potionRolls[0]];
+        stHtml += '<br><b style="color:#d9b8ff">This one is: ' + pp.ic + " " + pp.nm + "</b>";
+      }
+      det.querySelector(".ist").innerHTML = stHtml;
       return;
     }
     g.classList.remove("hidden");
@@ -851,6 +1014,8 @@
     if (P.hp <= 0) die(why || "A goblin got the better of you.");
   }
   function die(msg, title) {
+    pot.type = null;
+    pot.t = 0;
     $("deathTitle").textContent = title || "You have fallen";
     $("deathMsg").textContent = msg + " You wake at the edge of the territory.";
     show("deathScr");
@@ -874,22 +1039,14 @@
     dialogOpen = true;
     dNpc = n;
     dIdx = 0;
-    dLines = Quests.dialogueFor(n.id) || n.lines;
+    dLines = Quests.dialogueFor(n.id) || npcLines(n);
     renderDialog();
     $("dialog").classList.remove("hidden");
   }
   function renderDialog() {
     $("dialog").querySelector(".who").textContent = dNpc.nm;
     $("dialog").querySelector(".txt").textContent = dLines[dIdx];
-    const sb = $("shopBtn");
-    if (dNpc.shop) {
-      sb.classList.remove("hidden");
-      sb.textContent = dNpc.shop.label;
-      sb.onclick = (e) => {
-        e.stopPropagation();
-        dNpc.shop.fn();
-      };
-    } else sb.classList.add("hidden");
+    renderShop();
   }
   function advanceDialog() {
     dIdx++;
@@ -932,7 +1089,8 @@
       slash(P.dir);
     }
     const spd = P.speed * (pot.t > 0 ? ((_a = POTION_POWERS[pot.type]) == null ? void 0 : _a.speedMult) || 1 : 1);
-    if ((mx || my) && !blocked()) {
+    const charging = chargeInfo();
+    if ((mx || my) && !blocked() && !charging) {
       P.x += mx * spd;
       P.y += my * spd;
       P.dir = Math.atan2(my, mx);
@@ -1260,12 +1418,28 @@
       ctx.stroke();
     }
     if (P.smashT > 0) {
-      const pr = (16 - P.smashT) / 16;
+      const pr = (P.smashT0 - P.smashT) / P.smashT0;
       ctx.strokeStyle = "rgba(255,190,90," + (1 - pr) * 0.9 + ")";
       ctx.lineWidth = 7 - pr * 5;
       ctx.beginPath();
-      ctx.arc(P.x, P.y, 25 + pr * 75, 0, 7);
+      ctx.arc(P.x, P.y, 25 + pr * (P.smashR - 20), 0, 7);
       ctx.stroke();
+    }
+    {
+      const ch = chargeInfo();
+      if (ch) {
+        ctx.strokeStyle = ch.full ? "rgba(255,215,90,.95)" : "rgba(255,190,110," + (0.4 + ch.p * 0.5) + ")";
+        ctx.lineWidth = 4 + ch.p * 3;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 22 + ch.p * 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch.p);
+        ctx.stroke();
+        if (ch.full) {
+          ctx.fillStyle = "#ffd75a";
+          ctx.font = "bold 13px Georgia";
+          ctx.textAlign = "center";
+          ctx.fillText("SMASH READY!", P.x, P.y - 46);
+        }
+      }
     }
     if (P.weapon === "bow" && swp.active && !dialogOpen) {
       const ddx = swp.cx - swp.sx, ddy = swp.cy - swp.sy, dd = Math.hypot(ddx, ddy);
@@ -1358,7 +1532,7 @@
     ctx.font = ab.r * 0.9 + "px Georgia";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(P.weapon === "sword" ? "⚔️" : "🏹", ab.x, ab.y + 2);
+    ctx.fillText(WEAPONS[P.weapon].icon, ab.x, ab.y + 2);
     const wb = wpnBtn();
     ctx.fillStyle = "rgba(51,48,42,.6)";
     ctx.beginPath();
@@ -1370,7 +1544,13 @@
     ctx.arc(wb.x, wb.y, wb.r, 0, 7);
     ctx.stroke();
     ctx.font = wb.r * 0.85 + "px Georgia";
-    ctx.fillText(P.weapon === "sword" ? "🏹" : "🗡️", wb.x, wb.y + 2);
+    (() => {
+      const ows = ownedWeapons();
+      const nxt = ows.length > 1 ? ows[(ows.indexOf(P.weapon) + 1) % ows.length] : null;
+      if (!nxt) ctx.globalAlpha = 0.4;
+      ctx.fillText(nxt ? WEAPONS[nxt].icon : "🔒", wb.x, wb.y + 2);
+      ctx.globalAlpha = 1;
+    })();
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "rgba(240,230,200,.35)";
     ctx.font = "10.5px Georgia";
@@ -1442,16 +1622,22 @@
     ctx.textAlign = "left";
     if (!joy.active) ctx.fillText("press & drag anywhere to move", 18, vh - 20);
     ctx.textAlign = "center";
-    ctx.fillText(P.weapon === "sword" ? "drag from ⚔️: aimed slice • hold: SMASH" : "drag from 🏹 & release to shoot!", ab.x - 24, ab.y + ab.r + 18);
+    ctx.fillText(P.weapon === "fists" ? "tap: punch • hold: charge SMASH" : P.weapon === "sword" ? "drag from the button: aimed slice • hold: charge SMASH" : "pull back & release • arrows: " + P.arrows, ab.x - 24, ab.y + ab.r + 18);
     if (pot.t > 0 && pot.type) {
-      const pp = POTION_POWERS[pot.type], secs = Math.ceil(pot.t / 1e3);
-      ctx.font = "bold 14px Georgia";
-      ctx.textAlign = "right";
-      const txt = pp.ic + " " + pp.nm + " — " + secs + "s", tw = ctx.measureText(txt).width;
-      ctx.fillStyle = "rgba(46,26,66,.8)";
-      rr(ctx, vw - tw - 36, top + 38, tw + 26, 26, 8);
-      ctx.fillStyle = "#d9b8ff";
-      ctx.fillText(txt, vw - 22, top + 56);
+      const pp = POTION_POWERS[pot.type], frac = Math.max(0, Math.min(1, pot.t / POTION_DURATION_MS));
+      const bw = 180, bx = vw - bw - 24, by = top + 40;
+      ctx.fillStyle = "rgba(30,20,44,.85)";
+      rr(ctx, bx - 6, by - 5, bw + 12, 28, 8);
+      ctx.fillStyle = "rgba(120,80,190,.3)";
+      rr(ctx, bx, by, bw, 18, 6);
+      if (frac > 0) {
+        ctx.fillStyle = "#8e5bd6";
+        rr(ctx, bx, by, Math.max(8, bw * frac), 18, 6);
+      }
+      ctx.fillStyle = "#f0e6ff";
+      ctx.font = "bold 12.5px Georgia";
+      ctx.textAlign = "left";
+      ctx.fillText(pp.ic + " " + pp.nm, bx + 7, by + 14);
       ctx.textAlign = "center";
     }
   }
@@ -1562,45 +1748,67 @@
     startGame();
     const R = [], ok = (c, m) => R.push((c ? "✅ PASS" : "❌ FAIL") + " — " + m);
     const chief = NPCS.find((n) => n.id === "npc_chief_bonbottom");
-    ok(Quests.trackerText() === "💬 Talk to Chief Bonbottom (tap near him)", "tracker starts at offer");
-    openDialog(chief);
-    ok(dLines.length === 4, "chief offers quest in 4 lines");
+    const dorgan = NPCS.find((n) => n.id === "npc_dorgan");
+    const moto = NPCS.find((n) => n.id === "npc_moto_moto");
+    ok(P.weapon === "fists" && !P.weapons.sword && !P.weapons.bow, "you start with FISTS only");
+    ok(goblins[0].hp === 8, "goblin takes 8 punches (or 3 sword hits at dmg 3)");
+    ok(dummies[0].hp === 5, "training dummy takes 5 hits");
+    ok(PRICES.item_bread === 10 && PRICES.item_potion === 100 && PRICES.item_sword === 200 && PRICES.item_bow === 100 && PRICES.item_arrows === 80, "prices: bread 10 · potion 100 · sword 200 · bow 100 · arrows 80");
+    ok(P.arrows === 0, "no arrows until you buy a pack");
+    openDialog(dorgan);
+    ok(dLines === dorgan.raw.linesLocked, 'Dorgan: "out of supplies, come back later"');
+    ok($("shopBox").children.length === 0, "Dorgan sells nothing yet");
     while (dialogOpen) advanceDialog();
-    ok(questState.stage === "active" && questState.currentId === "quest_main_01_goblins", "offer→active");
-    ok(Quests.trackerText() === "⚔️ Goblins driven off: 0/3", "active tracker shows 0/3");
+    openDialog(chief);
+    while (dialogOpen) advanceDialog();
     const c0 = P.coins;
-    goblins.slice(0, 3).forEach((g) => hitTarget(g, "gob", 9, 0));
-    ok(questState.stage === "complete", "3 goblin kills → complete");
-    ok(Quests.trackerText() === "🏆 Return to Chief Bonbottom!", "complete tracker");
+    goblins.slice(0, 3).forEach((g) => hitTarget(g, "gob", 99, 0));
+    ok(questState.stage === "complete", "3 goblins → quest complete");
+    ok(drops.length === 0, "goblins drop NO coins anymore");
     openDialog(chief);
     while (dialogOpen) advanceDialog();
-    ok(P.coins === c0 + 60, "chief pays exactly 60 coins (" + c0 + "→" + P.coins + ")");
-    ok(questState.stage === "afterReward", "resting stage after reward");
-    ok(Quests.trackerText() === "🌿 Explore! The Chief will call on you again…", "explore tracker");
-    openDialog(chief);
-    ok(dLines[0].startsWith("Enjoy the calm"), "chief small-talk between quests");
-    while (dialogOpen) advanceDialog();
+    ok(P.coins === c0 + 60, "chief pays exactly 60");
     Quests.update(40001);
-    ok(questState.currentId === "quest_main_02_blueberries" && questState.stage === "offer", "40s later: quest 2 offered");
     openDialog(chief);
     while (dialogOpen) advanceDialog();
-    ok(questState.stage === "active", "q2 active");
-    for (let i = 0; i < 3; i++) Quests.emit("collect", { target: "item_blueberry" });
-    ok(Quests.trackerText() === "🫐 Blueberries: 3/4", "collect tracker 3/4");
-    const r4 = Quests.emit("collect", { target: "item_blueberry" });
-    ok(questState.stage === "complete" && r4.banner === "🫐 4/4! Bring them to Chief Bonbottom!", "4th berry completes with exact banner");
+    ok(questState.currentId === "quest_main_02_blueberries" && questState.stage === "active", "berry quest active");
+    for (let i = 0; i < 4; i++) Quests.emit("collect", { target: "item_blueberry" });
+    ok(Quests.trackerText() === "🏆 Bring the berries to Dorgan!", "tracker sends you to DORGAN, not the chief");
+    ok(Quests.dialogueFor("npc_chief_bonbottom") === null, "chief is not the turn-in");
     const c1 = P.coins;
-    openDialog(chief);
+    openDialog(dorgan);
+    ok(dLines[0].startsWith("Ohh"), "Dorgan congratulates you");
     while (dialogOpen) advanceDialog();
-    ok(P.coins === c1 + 40, "chief pays exactly 40 coins");
-    ok(Quests.trackerText() === "✅ All quests done — explore Losthorne!", "final tracker");
-    openDialog(chief);
-    ok(dLines[0].startsWith("The village is safe"), "chief idle line after all quests");
+    ok(P.coins === c1 + 40, "Dorgan pays 40");
+    ok(questState.flags.flag_dorgan_shop_open === true, "Dorgan shop unlocked by the quest");
+    openDialog(dorgan);
+    ok($("shopBox").children.length === 1 && $("shopBox").children[0].textContent.includes("100"), "Dorgan now sells potions at 100");
     while (dialogOpen) advanceDialog();
+    ok(P.coins === 150, "coins after both quests = 150 (NOTE: sword costs 200 — flagged to Kaylee)");
+    openDialog(moto);
+    ok($("shopBox").children.length === 3, "Moto Moto sells sword / bow / arrows");
+    P.coins = 500;
+    $("shopBox").children[0].click();
+    ok(P.weapons.sword === true && P.coins === 300, "bought the sword for 200");
+    ok($("shopBox").children[0].disabled, "sword button now says owned");
+    $("shopBox").children[1].click();
+    $("shopBox").children[2].click();
+    ok(P.weapons.bow === true && P.arrows === 10 && P.coins === 120, "bought bow (100) + arrow pack (80) → 10 arrows");
+    while (dialogOpen) advanceDialog();
+    ok(ownedWeapons().length === 3, "weapon switch now cycles fists → sword → bow");
+    openDialog(dorgan);
+    $("shopBox").children[0].click();
+    ok(P.inv.item_potion === 1 && P.potionRolls.length === 1, "potion power rolled AT PURCHASE");
+    while (dialogOpen) advanceDialog();
+    drinkPotion(P.potionRolls.shift());
+    P.inv.item_potion--;
+    ok(pot.t > 0, "potion active (30s bar)");
+    die("test death");
+    ok(pot.t === 0 && !pot.type, "death removes your active potion");
     const div = document.createElement("div");
-    div.style.cssText = "position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.96);color:#e8d9a8;font:13px/1.7 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;";
+    div.style.cssText = "position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12.5px/1.65 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;";
     const fails = R.filter((r) => r.startsWith("❌")).length;
-    div.textContent = "QUEST CHAIN SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
+    div.textContent = "PLAYTEST-FIXES SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
     document.getElementById("app").appendChild(div);
   }
 })();

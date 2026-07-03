@@ -6,6 +6,7 @@ import { POTION_POWERS, POTION_DURATION_MS } from './data/potions.js';
 import npcChief from './data/npcs/chief-bonbottom.js';
 import npcErik from './data/npcs/erik.js';
 import npcDorgan from './data/npcs/dorgan.js';
+import npcMoto from './data/npcs/moto-moto.js';
 import { Quests, questState } from './engine/quests.js';
 import questGoblins from './data/quests/main-01-goblins.js';
 import questBlueberries from './data/quests/main-02-blueberries.js';
@@ -77,7 +78,12 @@ addEventListener('resize',resize); addEventListener('orientationchange',()=>setT
 // map a physical touch/mouse point to logical (landscape) coordinates
 function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
-const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, hurtT:0, weapon:'sword', inv:{item_bread:0,item_potion:0} };
+const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
+  weapon:'fists', weapons:{fists:true, sword:false, bow:false}, arrows:0, potionRolls:[],
+  inv:{item_bread:0,item_potion:0} };
+// combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
+const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, bow:{icon:'🏹'} };
+function ownedWeapons(){ return ['fists','sword','bow'].filter(w=>P.weapons[w]); }
 const floats=[];   // floating damage/pickup numbers
 const drops=[];    // coins dropped by creatures — walk over to collect
 function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
@@ -87,7 +93,7 @@ function dropCoins(x,y){
 }
 const pot = { type:null, t:0 };  // Dorgan's random-power potion (powers in data/potions.js)
 const arrows = [];
-const dummies = [ {x:660,y:1265,hp:3,maxhp:3,hurtT:0,respawnT:0,showBar:false}, {x:945,y:1265,hp:3,maxhp:3,hurtT:0,respawnT:0,showBar:false} ];
+const dummies = [ {x:660,y:1265,hp:5,maxhp:5,hurtT:0,respawnT:0,showBar:false}, {x:945,y:1265,hp:5,maxhp:5,hurtT:0,respawnT:0,showBar:false} ];
 let hungerT = 0;
 const HUNGER_EVERY = 75000; // ms until you lose half a heart (Kaylee: "give me longer!")
 
@@ -102,24 +108,51 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[420,880],[1180,840],[760,760],[300,1020],[1320,1000]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'blue',taken:false,respawn:0}));
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
-// NPCs are built from data files. Generic shop wiring: item id + price template.
-function makeShop(shopData){
-  if(!shopData) return null;
-  const price=PRICES[shopData.item];
-  return { label:shopData.label.replace('{price}',price), fn(){
-    if(P.coins>=price){ P.coins-=price; P.inv[shopData.item]++; banner(shopData.banner); }
-    else banner('Not enough coins!');
-  } };
-}
-const NPCS = [npcChief, npcErik, npcDorgan].map(d=>({
-  id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat,
-  lines:d.lines||d.idleLines, shop:makeShop(d.shop),
+// NPCs are built from data files; dialogue & shops resolved at talk-time from raw data.
+const NPCS = [npcChief, npcErik, npcDorgan, npcMoto].map(d=>({
+  id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat, raw:d,
 }));
+function npcLines(n){ const d=n.raw;
+  if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
+  return d.lines || d.idleLines;
+}
+// generic buy flow — behavior comes from the item's effect kind (data-driven)
+function buyItem(entry){
+  const price=PRICES[entry.item], def=ITEM_DEFS[entry.item], e=def.effect;
+  if(P.coins<price){ banner('Not enough coins!'); return; }
+  if(e.kind==='unlock_weapon'){
+    if(P.weapons[e.weapon]){ banner('You already own that!'); return; }
+    P.coins-=price; P.weapons[e.weapon]=true; banner(entry.banner);
+  } else if(e.kind==='ammo'){
+    P.coins-=price; P.arrows+=e.amount; banner(entry.banner);
+  } else if(e.kind==='mystery_potion'){
+    P.coins-=price; const k=rollPotion(); P.potionRolls.push(k); P.inv.item_potion++;
+    banner('🧪 Dorgan hands you a potion… '+POTION_POWERS[k].ic+' '+POTION_POWERS[k].nm+'!');
+  } else {
+    P.coins-=price; P.inv[entry.item]++; banner(entry.banner);
+  }
+  renderShop();
+}
+function renderShop(){
+  const box=$('shopBox'); box.innerHTML='';
+  const d=dNpc && dNpc.raw;
+  if(!d || !d.shop) return;
+  if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag]) return;
+  for(const entry of d.shop){
+    const def=ITEM_DEFS[entry.item], price=PRICES[entry.item];
+    const b=document.createElement('button'); b.className='btn shopBtn';
+    const owned = def.effect.kind==='unlock_weapon' && P.weapons[def.effect.weapon];
+    b.textContent = owned? '✔ '+def.nm+' — owned' : entry.label.replace('{price}',price);
+    if(owned){ b.disabled=true; b.style.opacity=.55; }
+    b.onclick=(ev)=>{ ev.stopPropagation(); buyItem(entry); };
+    box.appendChild(b);
+  }
+}
 
 const goblins=[];
 function spawnGoblins(){
   goblins.length=0;
-  [[600,420],[840,300],[1120,460],[920,560]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:2,maxhp:2,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
+  [[600,420],[840,300],[1120,460],[920,560]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:8,maxhp:8,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
 }
 spawnGoblins();
 
@@ -165,7 +198,7 @@ function buttonAt(x,y){
 function pointerDown(p,id){
   if(invOpen) return;
   const b=buttonAt(p.x,p.y);
-  if(b==='atk' && !swp.active){ swp.active=true; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
+  if((b==='atk'||b==='smash') && !swp.active){ swp.active=true; swp.smashOnly=(b==='smash'); swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
   else if(b && !btnTouch.active){ btnTouch.active=true; btnTouch.id=id; btnTouch.kind=b; btnTouch.sx=p.x; btnTouch.sy=p.y; }
   else if(!b && !joy.active){ joy.active=true; joy.id=id; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; joy.t0=performance.now(); }
 }
@@ -190,12 +223,13 @@ function groundTap(){
   const n=npcNearby(); if(n) openDialog(n);
 }
 function pressButton(kind){
-  if(kind==='smash'){ smash(); }
-  else if(kind==='bag'){ openInv(); }
+  if(kind==='bag'){ openInv(); }
   else if(kind==='talk'){ const n=npcNearby(); if(n && !dialogOpen) openDialog(n); }
   else if(kind==='wpn'){
-    P.weapon = P.weapon==='sword'?'bow':'sword';
-    banner(P.weapon==='sword'? '🗡️ Sword drawn — drag from ⚔️ to aim a slice' : '🏹 Bow ready — drag from the button & release!');
+    const ows=ownedWeapons();
+    if(ows.length<2){ banner('👊 Only your fists for now — visit Moto Moto the blacksmith!'); return; }
+    P.weapon = ows[(ows.indexOf(P.weapon)+1)%ows.length];
+    banner(P.weapon==='fists'? '👊 Fists up!' : P.weapon==='sword'? '🗡️ Sword drawn' : '🏹 Bow ready — pull back and release! Arrows: '+P.arrows);
   }
 }
 // release of a gesture that STARTED on the attack button
@@ -203,14 +237,21 @@ function attackRelease(x,y){
   if(invOpen) return;
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
   const dur=performance.now()-swp.t0;
+  if(swp.smashOnly){                       // the 💥 button: hold to charge
+    if(dur>=3000) fullSmash();
+    else if(dur>=350) miniSmash();
+    else banner('💥 HOLD to charge a smash — 3 full seconds for the big one!');
+    return;
+  }
   if(P.weapon==='bow'){
     if(dist>25){ const ang=Math.atan2(-dy,-dx); fireArrow(ang,Math.min(dist,130)); } // slingshot
     else fireArrow(P.dir,75);
     return;
   }
-  if(dist>18) slash(Math.atan2(dy,dx));   // aimed slice
-  else if(dur>350) smash();               // hold = smash
-  else slash(P.dir);                      // tap = quick slash
+  if(dist>18) slash(Math.atan2(dy,dx));    // aimed slice
+  else if(dur>=3000) fullSmash();          // charged 3s+ = FULL smash
+  else if(dur>=350) miniSmash();           // partial charge = mini smash
+  else slash(P.dir);                       // tap = quick attack
 }
 cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches) pointerDown(pt(t),t.identifier); e.preventDefault(); },{passive:false});
 cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) pointerMove(pt(t),t.identifier); e.preventDefault(); },{passive:false});
@@ -236,13 +277,13 @@ function eachTarget(cb){
 function hitTarget(t,kind,dmg,ang){
   t.hp-=dmg; t.hurtT=10; t.showBar=true;
   // damage number: bigger hits look bigger (smash/strong arrows pop)
-  addFloat(t.x, t.y-30, '-'+dmg, dmg>=3?'#ff7b47':dmg>=2?'#ffb347':'#f0e6d0', dmg>=3?26:dmg>=2?22:15);
+  addFloat(t.x, t.y-30, '-'+dmg, dmg>=8?'#ff7b47':dmg>=3?'#ffb347':'#f0e6d0', dmg>=8?26:dmg>=3?21:15);
   if(kind==='gob'){
-    const kb=dmg>=2? 42:26; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
+    const kb=dmg>=8? 46 : dmg>=3? 34 : 22; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
     if(t.hp<=0){ t.alive=false;
-      dropCoins(t.x,t.y);   // creatures DROP coins — go pick them up
+      // no coin drops from goblins — coins come from people & boss hoards (DESIGN.md §6)
       const r=Quests.emit('kill',{target:'enemy_goblin'});
-      banner('Goblin driven off!'+(r.counted?'  ('+r.progress+'/'+r.count+')':'')+' It dropped coins!');
+      banner('Goblin driven off!'+(r.counted?'  ('+r.progress+'/'+r.count+')':''));
       if(r.banner && r.progress===r.count) banner(r.banner); }
   } else {
     if(t.hp<=0){ t.respawnT=8000; banner('🎯 Training dummy destroyed! It will be rebuilt.'); }
@@ -251,29 +292,47 @@ function hitTarget(t,kind,dmg,ang){
 const dmgBonus = ()=> pot.t>0 ? (POTION_POWERS[pot.type]?.dmgBonus||0) : 0;
 function slash(ang){
   if(P.slashT>0 || blocked()) return;
+  const w=WEAPONS[P.weapon]||WEAPONS.fists;
   P.dir=ang; P.slashT=14;
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y), a=Math.atan2(t.y-P.y,t.x-P.x);
     let diff=Math.abs(a-ang); if(diff>Math.PI) diff=2*Math.PI-diff;
-    if(d<74 && diff<1.15) hitTarget(t,kind,1+dmgBonus(),a);
+    if(d<w.range && diff<1.15) hitTarget(t,kind,w.dmg+dmgBonus(),a);
   });
 }
-function smash(){ // heavy attack: hits ALL around you
+// SMASH is charged now: hold 0.35–3s = mini smash, hold 3s+ = FULL smash.
+// While charging you are rooted — that's the risk. (DESIGN.md §7)
+function miniSmash(){ doSmash(4,80,16); }
+function fullSmash(){ doSmash(8,130,22); }
+function doSmash(dmg,radius,fx){
   if(P.slashT>0 || blocked()) return;
-  P.slashT=22; P.smashT=16;
+  P.slashT=22; P.smashT=fx; P.smashT0=fx; P.smashR=radius;
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y);
-    if(d<95) hitTarget(t,kind,2+dmgBonus(),Math.atan2(t.y-P.y,t.x-P.x));
+    if(d<radius) hitTarget(t,kind,dmg+dmgBonus(),Math.atan2(t.y-P.y,t.x-P.x));
   });
+}
+// derived: is the current right-side hold a smash charge?
+function chargeInfo(){
+  if(!swp.active) return null;
+  if(P.weapon==='bow' && !swp.smashOnly) return null;
+  const dist=Math.hypot(swp.cx-swp.sx,swp.cy-swp.sy);
+  if(dist>18 && !swp.smashOnly) return null;   // it's a slice-aim drag
+  const dur=performance.now()-swp.t0;
+  if(dur<350) return null;
+  return { p:Math.min(1,(dur-350)/2650), full:dur>=3000 };
 }
 function fireArrow(ang,power){
   if(blocked()) return;
+  if(P.arrows<=0){ banner('🎯 Out of arrows! Moto Moto sells packs.'); return; }
+  P.arrows--;
   P.dir=ang;
   const sp=5+(power/130)*8;
-  arrows.push({x:P.x,y:P.y-6,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:70,dmg:(power>85?2:1)+dmgBonus(),ang});
+  arrows.push({x:P.x,y:P.y-6,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:70,dmg:(power>85?4:3)+dmgBonus(),ang});
 }
-function drinkPotion(){
-  const keys=Object.keys(POTION_POWERS), k=keys[Math.floor(Math.random()*keys.length)];
+function rollPotion(){ const keys=Object.keys(POTION_POWERS); return keys[Math.floor(Math.random()*keys.length)]; }
+function drinkPotion(k){
+  if(!k) k=rollPotion();
   pot.type=k; pot.t=POTION_DURATION_MS;
   banner(POTION_POWERS[k].ic+' The potion takes hold: '+POTION_POWERS[k].nm+'! (30s)');
   addFloat(P.x,P.y-40,POTION_POWERS[k].ic+' '+POTION_POWERS[k].nm+'!','#d9b8ff',20);
@@ -282,7 +341,7 @@ function drinkPotion(){
 // ---------- INVENTORY ----------
 const EFFECTS = {
   heal(e){ P.hp=Math.min(P.maxhp,P.hp+e.halfHearts); if(e.resetHunger) hungerT=0; banner(e.banner); addFloat(P.x,P.y-36,e.float,'#7ed67e',18); },
-  mystery_potion(){ drinkPotion(); },
+  mystery_potion(){ drinkPotion(P.potionRolls.shift()); },
 };
 function useItem(id){ const e=ITEM_DEFS[id].effect; EFFECTS[e.kind](e); }
 let invOpen=false, invSel=null;
@@ -295,7 +354,10 @@ function renderInv(){
     const it=ITEM_DEFS[invSel];
     det.querySelector('.bigIc').textContent=it.ic;
     det.querySelector('.inm').textContent=it.nm+'  ×'+P.inv[invSel];
-    det.querySelector('.ist').innerHTML=it.st;
+    let stHtml=it.st;
+    if(invSel==='item_potion' && P.potionRolls[0]){ const pp=POTION_POWERS[P.potionRolls[0]];
+      stHtml += '<br><b style="color:#d9b8ff">This one is: '+pp.ic+' '+pp.nm+'</b>'; }
+    det.querySelector('.ist').innerHTML=stHtml;
     return;
   }
   g.classList.remove('hidden'); det.classList.add('hidden');
@@ -319,6 +381,7 @@ function hurtPlayer(n,why){
   if(P.hp<=0) die(why||'A goblin got the better of you.');
 }
 function die(msg,title){
+  pot.type=null; pot.t=0;   // you don't keep a potion through death
   $('deathTitle').textContent = title||'You have fallen';
   $('deathMsg').textContent = msg+' You wake at the edge of the territory.';
   show('deathScr');
@@ -331,15 +394,12 @@ $('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=P.maxhp; hungerT=0; P.hurt
 // ============================================================
 let dialogOpen=false, dNpc=null, dIdx=0, dLines=[];
 function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
-  dLines = Quests.dialogueFor(n.id) || n.lines;
+  dLines = Quests.dialogueFor(n.id) || npcLines(n);
   renderDialog(); $('dialog').classList.remove('hidden'); }
 function renderDialog(){
   $('dialog').querySelector('.who').textContent=dNpc.nm;
   $('dialog').querySelector('.txt').textContent=dLines[dIdx];
-  const sb=$('shopBtn');
-  if(dNpc.shop){ sb.classList.remove('hidden'); sb.textContent=dNpc.shop.label;
-    sb.onclick=(e)=>{ e.stopPropagation(); dNpc.shop.fn(); };
-  } else sb.classList.add('hidden');
+  renderShop();
 }
 function advanceDialog(){
   dIdx++;
@@ -368,7 +428,8 @@ function update(dt){
   if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
   if(keys[' ']){ slash(P.dir); }
   const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1);
-  if((mx||my) && !blocked()){
+  const charging = chargeInfo();
+  if((mx||my) && !blocked() && !charging){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
@@ -529,10 +590,18 @@ function draw(){
     ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke();
     ctx.strokeStyle='rgba(255,215,120,'+(P.slashT/14*.6)+')'; ctx.lineWidth=2.5;
     ctx.beginPath(); ctx.arc(P.x,P.y,52,P.dir-.65,P.dir+.65); ctx.stroke(); }
-  // smash shockwave
-  if(P.smashT>0){ const pr=(16-P.smashT)/16;
+  // smash shockwave (radius from the smash that fired)
+  if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0;
     ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=7-pr*5;
-    ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*75,0,7); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*(P.smashR-20),0,7); ctx.stroke(); }
+  // smash charge ring — grows while you hold; gold = FULL smash ready
+  { const ch=chargeInfo();
+    if(ch){
+      ctx.strokeStyle = ch.full? 'rgba(255,215,90,.95)' : 'rgba(255,190,110,'+(0.4+ch.p*0.5)+')';
+      ctx.lineWidth = 4+ch.p*3;
+      ctx.beginPath(); ctx.arc(P.x,P.y,22+ch.p*22, -Math.PI/2, -Math.PI/2 + Math.PI*2*ch.p); ctx.stroke();
+      if(ch.full){ ctx.fillStyle='#ffd75a'; ctx.font='bold 13px Georgia'; ctx.textAlign='center'; ctx.fillText('SMASH READY!', P.x, P.y-46); }
+    } }
   // bow aim (pull back and release)
   if(P.weapon==='bow' && swp.active && !dialogOpen){
     const ddx=swp.cx-swp.sx, ddy=swp.cy-swp.sy, dd=Math.hypot(ddx,ddy);
@@ -587,12 +656,15 @@ function draw(){
   ctx.fillStyle='rgba(90,69,38,.55)'; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(240,220,170,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.stroke();
   ctx.font=(ab.r*0.9)+'px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(P.weapon==='sword'?'⚔️':'🏹', ab.x, ab.y+2);
+  ctx.fillText(WEAPONS[P.weapon].icon, ab.x, ab.y+2);
   // weapon switch button
   const wb=wpnBtn();
   ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(wb.x,wb.y,wb.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(wb.x,wb.y,wb.r,0,7); ctx.stroke();
-  ctx.font=(wb.r*0.85)+'px Georgia'; ctx.fillText(P.weapon==='sword'?'🏹':'🗡️', wb.x, wb.y+2);
+  ctx.font=(wb.r*0.85)+'px Georgia'; (()=>{ const ows=ownedWeapons(); const nxt = ows.length>1 ? ows[(ows.indexOf(P.weapon)+1)%ows.length] : null;
+    if(!nxt) ctx.globalAlpha=.4;
+    ctx.fillText(nxt? WEAPONS[nxt].icon : '🔒', wb.x, wb.y+2);
+    ctx.globalAlpha=1; })();
   ctx.textBaseline='alphabetic';
   ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('switch', wb.x, wb.y+wb.r+13);
   // smash "skill" button (dims only after a SMASH, not a slice)
@@ -622,14 +694,16 @@ function draw(){
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
   if(!joy.active) ctx.fillText('press & drag anywhere to move', 18, vh-20);
   ctx.textAlign='center';
-  ctx.fillText(P.weapon==='sword'? 'drag from ⚔️: aimed slice • hold: SMASH':'drag from 🏹 & release to shoot!', ab.x-24, ab.y+ab.r+18);
-  // active potion status — lives under the coin counter (right side), away from notifications
+  ctx.fillText(P.weapon==='fists'? 'tap: punch • hold: charge SMASH' : P.weapon==='sword'? 'drag from the button: aimed slice • hold: charge SMASH' : 'pull back & release • arrows: '+P.arrows, ab.x-24, ab.y+ab.r+18);
+  // active potion — a DEPLETING BAR under the coin counter so you can see time draining
   if(pot.t>0 && pot.type){
-    const pp=POTION_POWERS[pot.type], secs=Math.ceil(pot.t/1000);
-    ctx.font='bold 14px Georgia'; ctx.textAlign='right';
-    const txt=pp.ic+' '+pp.nm+' — '+secs+'s', tw=ctx.measureText(txt).width;
-    ctx.fillStyle='rgba(46,26,66,.8)'; rr(ctx, vw-tw-36, top+38, tw+26, 26, 8);
-    ctx.fillStyle='#d9b8ff'; ctx.fillText(txt, vw-22, top+56);
+    const pp=POTION_POWERS[pot.type], frac=Math.max(0,Math.min(1,pot.t/POTION_DURATION_MS));
+    const bw=180, bx=vw-bw-24, by=top+40;
+    ctx.fillStyle='rgba(30,20,44,.85)'; rr(ctx, bx-6, by-5, bw+12, 28, 8);
+    ctx.fillStyle='rgba(120,80,190,.3)'; rr(ctx, bx, by, bw, 18, 6);
+    if(frac>0){ ctx.fillStyle='#8e5bd6'; rr(ctx, bx, by, Math.max(8,bw*frac), 18, 6); }
+    ctx.fillStyle='#f0e6ff'; ctx.font='bold 12.5px Georgia'; ctx.textAlign='left';
+    ctx.fillText(pp.ic+' '+pp.nm, bx+7, by+14);
     ctx.textAlign='center';
   }
 }
@@ -673,35 +747,62 @@ if(location.hash==='#test-quests'){
   chosen=0; startGame();
   const R=[], ok=(c,m)=>R.push((c?'✅ PASS':'❌ FAIL')+' — '+m);
   const chief=NPCS.find(n=>n.id==='npc_chief_bonbottom');
-  ok(Quests.trackerText()==='💬 Talk to Chief Bonbottom (tap near him)','tracker starts at offer');
-  openDialog(chief); ok(dLines.length===4,'chief offers quest in 4 lines');
+  const dorgan=NPCS.find(n=>n.id==='npc_dorgan');
+  const moto=NPCS.find(n=>n.id==='npc_moto_moto');
+  ok(P.weapon==='fists' && !P.weapons.sword && !P.weapons.bow, 'you start with FISTS only');
+  ok(goblins[0].hp===8, 'goblin takes 8 punches (or 3 sword hits at dmg 3)');
+  ok(dummies[0].hp===5, 'training dummy takes 5 hits');
+  ok(PRICES.item_bread===10 && PRICES.item_potion===100 && PRICES.item_sword===200 && PRICES.item_bow===100 && PRICES.item_arrows===80, 'prices: bread 10 · potion 100 · sword 200 · bow 100 · arrows 80');
+  ok(P.arrows===0, 'no arrows until you buy a pack');
+  // Dorgan is CLOSED before the berry quest
+  openDialog(dorgan);
+  ok(dLines===dorgan.raw.linesLocked, 'Dorgan: "out of supplies, come back later"');
+  ok($('shopBox').children.length===0, 'Dorgan sells nothing yet');
   while(dialogOpen) advanceDialog();
-  ok(questState.stage==='active' && questState.currentId==='quest_main_01_goblins','offer→active');
-  ok(Quests.trackerText()==='⚔️ Goblins driven off: 0/3','active tracker shows 0/3');
+  // quest 1: goblins
+  openDialog(chief); while(dialogOpen) advanceDialog();
   const c0=P.coins;
-  goblins.slice(0,3).forEach(g=>hitTarget(g,'gob',9,0));
-  ok(questState.stage==='complete','3 goblin kills → complete');
-  ok(Quests.trackerText()==='🏆 Return to Chief Bonbottom!','complete tracker');
+  goblins.slice(0,3).forEach(g=>hitTarget(g,'gob',99,0));
+  ok(questState.stage==='complete', '3 goblins → quest complete');
+  ok(drops.length===0, 'goblins drop NO coins anymore');
   openDialog(chief); while(dialogOpen) advanceDialog();
-  ok(P.coins===c0+60,'chief pays exactly 60 coins ('+c0+'→'+P.coins+')');
-  ok(questState.stage==='afterReward','resting stage after reward');
-  ok(Quests.trackerText()==='🌿 Explore! The Chief will call on you again…','explore tracker');
-  openDialog(chief); ok(dLines[0].startsWith('Enjoy the calm'),'chief small-talk between quests'); while(dialogOpen) advanceDialog();
+  ok(P.coins===c0+60, 'chief pays exactly 60');
   Quests.update(40001);
-  ok(questState.currentId==='quest_main_02_blueberries' && questState.stage==='offer','40s later: quest 2 offered');
   openDialog(chief); while(dialogOpen) advanceDialog();
-  ok(questState.stage==='active','q2 active');
-  for(let i=0;i<3;i++) Quests.emit('collect',{target:'item_blueberry'});
-  ok(Quests.trackerText()==='🫐 Blueberries: 3/4','collect tracker 3/4');
-  const r4=Quests.emit('collect',{target:'item_blueberry'});
-  ok(questState.stage==='complete' && r4.banner==='🫐 4/4! Bring them to Chief Bonbottom!','4th berry completes with exact banner');
-  const c1=P.coins; openDialog(chief); while(dialogOpen) advanceDialog();
-  ok(P.coins===c1+40,'chief pays exactly 40 coins');
-  ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!','final tracker');
-  openDialog(chief); ok(dLines[0].startsWith('The village is safe'),'chief idle line after all quests'); while(dialogOpen) advanceDialog();
+  ok(questState.currentId==='quest_main_02_blueberries' && questState.stage==='active', 'berry quest active');
+  for(let i=0;i<4;i++) Quests.emit('collect',{target:'item_blueberry'});
+  ok(Quests.trackerText()==='🏆 Bring the berries to Dorgan!', 'tracker sends you to DORGAN, not the chief');
+  ok(Quests.dialogueFor('npc_chief_bonbottom')===null, 'chief is not the turn-in');
+  const c1=P.coins;
+  openDialog(dorgan); ok(dLines[0].startsWith('Ohh'), 'Dorgan congratulates you'); while(dialogOpen) advanceDialog();
+  ok(P.coins===c1+40, 'Dorgan pays 40');
+  ok(questState.flags.flag_dorgan_shop_open===true, 'Dorgan shop unlocked by the quest');
+  openDialog(dorgan);
+  ok($('shopBox').children.length===1 && $('shopBox').children[0].textContent.includes('100'), 'Dorgan now sells potions at 100');
+  while(dialogOpen) advanceDialog();
+  ok(P.coins===150, 'coins after both quests = 150 (NOTE: sword costs 200 — flagged to Kaylee)');
+  // Moto Moto sells three things; buying works end-to-end
+  openDialog(moto);
+  ok($('shopBox').children.length===3, 'Moto Moto sells sword / bow / arrows');
+  P.coins=500;
+  $('shopBox').children[0].click();
+  ok(P.weapons.sword===true && P.coins===300, 'bought the sword for 200');
+  ok($('shopBox').children[0].disabled, 'sword button now says owned');
+  $('shopBox').children[1].click(); $('shopBox').children[2].click();
+  ok(P.weapons.bow===true && P.arrows===10 && P.coins===120, 'bought bow (100) + arrow pack (80) → 10 arrows');
+  while(dialogOpen) advanceDialog();
+  ok(ownedWeapons().length===3, 'weapon switch now cycles fists → sword → bow');
+  // potion rolled at purchase; death clears it
+  openDialog(dorgan); $('shopBox').children[0].click();
+  ok(P.inv.item_potion===1 && P.potionRolls.length===1, 'potion power rolled AT PURCHASE');
+  while(dialogOpen) advanceDialog();
+  drinkPotion(P.potionRolls.shift()); P.inv.item_potion--;
+  ok(pot.t>0, 'potion active (30s bar)');
+  die('test death');
+  ok(pot.t===0 && !pot.type, 'death removes your active potion');
   const div=document.createElement('div');
-  div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.96);color:#e8d9a8;font:13px/1.7 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
+  div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12.5px/1.65 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;
-  div.textContent='QUEST CHAIN SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
+  div.textContent='PLAYTEST-FIXES SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
   document.getElementById('app').appendChild(div);
 }

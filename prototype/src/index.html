@@ -53,7 +53,7 @@
   #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
   #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
   #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
-  #dialog .shopBtn { margin-top:8px; width:100%; padding:10px; font-size:15px; }
+  #dialog .shopBtn { margin-top:7px; width:100%; padding:9px; font-size:14px; display:block; }
   /* ---------- OVERLAY MESSAGES ---------- */
   /* notifications live TOP-CENTER only — dialogue lives bottom-center, quest tracker top-left */
   #banner { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:8px 16px; border-radius:10px; font-size:14px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:330px; text-align:center; }
@@ -111,7 +111,7 @@
 <div id="gameWrap" class="hidden"><canvas id="game" data-ref="game-canvas"></canvas></div>
 <div id="dialog" class="hidden" data-ref="dialogue-box">
   <div class="who"></div><div class="txt"></div>
-  <button class="btn shopBtn hidden" id="shopBtn" data-ref="shop-buy-button"></button>
+  <div id="shopBox" data-ref="shop-box"></div>
   <div class="next">tap to continue ▸</div>
 </div>
 <div id="banner" data-ref="notification-banner"></div>

@@ -1,10 +1,19 @@
-// DATA: item definitions (DESIGN.md §3 inventory, §8 food). Effects are NAMED here,
+// DATA: item definitions (DESIGN.md §3 inventory, §6 economy, §8 food). Effects are NAMED here,
 // implemented in engine — adding an item never touches engine files unless it needs a new effect kind.
 export const ITEM_DEFS = {
   item_bread:  { id:'item_bread', ic:'🍞', nm:'Warm Bread',
     st:'Restores 1 ❤️ and quiets your hunger.<br><i>"Fresh-ish!" — Erik</i>',
     effect:{ kind:'heal', halfHearts:2, resetHunger:true, banner:'You eat the bread. +1 ❤️', float:'+1 ❤️' } },
   item_potion: { id:'item_potion', ic:'🧪', nm:'Mystery Potion',
-    st:'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
+    st:'A power for 30 seconds — rolled the moment you buy it:<br>💪 Ogre Strength (hit much harder)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
     effect:{ kind:'mystery_potion' } },
+  item_sword:  { id:'item_sword', ic:'🗡️', nm:'Forged Sword',
+    st:'Moto Moto steel. Goblins fall in 3 good hits instead of 8 punches.',
+    effect:{ kind:'unlock_weapon', weapon:'sword' } },
+  item_bow:    { id:'item_bow', ic:'🏹', nm:'Hunting Bow',
+    st:'Strike from a distance — but every shot costs an arrow.',
+    effect:{ kind:'unlock_weapon', weapon:'bow' } },
+  item_arrows: { id:'item_arrows', ic:'🎯', nm:'Arrow Pack',
+    st:'A bundle of 10 arrows for the hunting bow.',
+    effect:{ kind:'ammo', amount:10 } },
 };

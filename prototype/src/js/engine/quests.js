@@ -56,10 +56,16 @@ export const Quests = {
     return {counted:true, progress:Math.min(questState.progress,o.count), count:o.count, banner:bannerText};
   },
 
+  // Which NPC owns the current stage: giver runs offer/active, turnIn runs complete/afterReward.
+  _stageNpc(q){
+    const turnIn = q.turnIn || q.giver;
+    return (questState.stage==='complete' || questState.stage==='afterReward') ? turnIn : q.giver;
+  },
+
   // What should this NPC say right now? null = not quest business (NPC uses own lines).
   dialogueFor(npcId){
     const q = defs[questState.currentId];
-    if(!q || q.giver!==npcId) return null;
+    if(!q || this._stageNpc(q)!==npcId) return null;
     const lines = q.dialogue[questState.stage];
     return (lines && lines.length) ? lines : null;
   },
@@ -67,7 +73,7 @@ export const Quests = {
   // Called when a dialogue with this NPC finishes — drives stage transitions.
   onDialogueEnd(npcId){
     const q = defs[questState.currentId];
-    if(!q || q.giver!==npcId) return;
+    if(!q || this._stageNpc(q)!==npcId) return;
     if(questState.stage==='offer'){
       questState.stage='active'; questState.progress=0;
       hooks.banner(q.banners.start);
@@ -75,6 +81,7 @@ export const Quests = {
       if(q.reward?.coins) hooks.addCoins(q.reward.coins);
       hooks.banner(q.banners.reward);
       questState.completed.push(q.id);
+      if(q.setFlagOnReward) questState.flags[q.setFlagOnReward]=true;
       questState.stage='afterReward';
       if(q.next) questState.pendingNext={questId:q.next.quest, msLeft:q.next.delayMs, banner:q.next.banner};
     }

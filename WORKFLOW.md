@@ -47,10 +47,10 @@
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.9-reorg (migration steps 1–5 of 10 complete)
-- **Phase:** reorg in progress — checkpoint 2 delivered to Kaylee, steps 6–10 awaiting go-ahead
-- **Structure:** source = prototype/src/** (ES modules: engine/ + data/); `npm run build` inlines to prototype/index.html for the preview panel (⚑1 fallback, approved). Preview-subpath fix requested from platform admins.
-- **Quest system:** declarative quest files (data/quests/**) + engine/quests.js runtime; single questState object; combat/berry code reports events, knows no quests. Verified by 17-assertion smoke test (#test-quests) — all pass.
-- **Known issues:** dead code (tapAction, joyHome) + dev hash-shortcuts still in main.js (scheduled: step 9 → dev.js quarantine)
-- **Placeholders:** all art (shapes/emoji), mock logins, mock room codes
-- **Untested:** live touch-through of full chain on a real phone post-reorg (smoke test covers logic; a human play-through would be good)
+- **Version:** v0.10 — playtest fixes round 1 (on top of half-done reorg: steps 1–5 of 10 complete)
+- **Phase:** playtest-driven feature work; reorg steps 6–10 still queued
+- **This checkpoint:** charged smash (mini/full, rooted while charging), fists-first progression, Moto Moto shop (sword/bow/arrow packs), limited arrows, potion rolled at purchase + depleting bar + lost on death, bread 10 / potion 100, no goblin coin drops, dummies 5 hits, berry quest turns in to Dorgan and unlocks his shop. Verified by 26-assertion smoke test.
+- **Flagged to Kaylee:** economy gap (quests pay 150, sword costs 200); arrow pack size 10 = guess; villagers-give-mini-quests undecided
+- **Known issues:** dead code + dev shortcuts still pending reorg step 9
+- **Placeholders:** all art, mock logins, mock room codes
+- **Untested:** human phone play-through of the new charge timing (3s) — feel check needed

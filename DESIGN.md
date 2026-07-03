@@ -65,9 +65,9 @@ Each avatar has their own unique personal side quest that the others don't — r
 | Name | Role | Details |
 |---|---|---|
 | **Chief Bonbottom** | Village chief, quest-giver | A peaceful chief (BONBOTTOM, all one word). Gives you tasks and congratulates you when they're done. ✅ |
-| **Dorgan** | Potion-maker (druid/wizard type) | His potions grant a **RANDOM temporary power** — you don't choose it, it's given. You must bring him supplies; **better materials = potion lasts longer**. Makes an **underwater-breathing potion** (needed for the lake). ✅ (mystery potion, 30 coins, random power) |
+| **Dorgan** | Potion-maker (druid/wizard type) | His potions grant a **RANDOM temporary power** — rolled the moment you BUY one (100 coins), so each bottle in your satchel already knows what it is. His shop is CLOSED ("out of supplies") until you finish the blueberry quest for him. Bring supplies; **better materials = potion lasts longer** 🔜. **Underwater-breathing potion** 🔜. ✅ |
 | **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. ✅ (sells bread) |
-| **Moto Moto** | Blacksmith | Weapons & armor. ~100 coins for a small hammer, ~300 for the best sword. Personal-scale gear only — no siege weapons. 🔜 |
+| **Moto Moto** | Blacksmith | IN THE GAME ✅ — sells the forged sword (200), hunting bow (100), and arrow packs (80). Personal-scale gear only — no siege weapons. Armor 🔜 |
 | **Jesse** | Traveling storyteller/merchant | Travels across the whole map, so she brings NEWS — new islands, new information, rumors. Like the mailman in Zelda, she approaches YOU, and it's a breakaway moment. She *sings* her stories — music plays while the words appear on screen. Dresses more colorfully than everyone else: a **colorful dress with beads** and **tons of jewelry from different places on the map**. 🔜 |
 | Villagers | Ambience | Small characters you can greet — people just being pleasant, not quest-givers. They might occasionally give you something. 🔜 |
 | **Little Tommy** | Quest hook | A village kid who gets kidnapped (see the Barbarian, §9). 🔜 |
@@ -75,8 +75,9 @@ Each avatar has their own unique personal side quest that the others don't — r
 ## 6. Economy & Money
 
 - Start with **50 coins**. ✅
-- **Coins are never automatic.** The ONLY ways to get coins: from people (e.g., the chief paying you for a quest) or from creatures (enemies **drop coin piles on the ground** — walk over to collect). ✅
-- **Price anchors:** loaf of bread ≈ **8**, horse ≈ **500**, small hammer ≈ **100**, best sword ≈ **300**. Premium/precious materials cost more. With a 50-coin start, a horse is a real goal to save toward.
+- **You start with your FISTS** — no weapons. A goblin takes ~8 punches, or 3 hits with a bought sword. Earn coins → buy gear from Moto Moto. ✅
+- **Coins are never automatic.** Coins come ONLY from people (quest rewards) and special boss hoards. Regular creatures like goblins drop NOTHING — treasure is what makes beating the Troll special. ✅
+- **Price anchors:** bread **10** · mystery potion **100** · forged (basic) sword **200** · hunting bow **100** · arrow pack **80** (10 arrows — pack size is a placeholder guess) · horse ≈ **500** · best sword ≈ **300** · small hammer ≈ **100**. Premium materials cost more. ✅ (bow is cheaper up front but arrows are a recurring cost, so it totals more than the sword — intentional)
 - Money is spent on: weapons/armor, supplies for Dorgan's potions, food, animal feed, **bridge tolls** (fancier villages charge to cross into their land), bigger maps, small taxes.
 - **Village specialty armor:** every village's armory is different and suited to different things — like every country having its own soccer uniform. The lake village sells **underwater armor** (wanted before the Kraken). 🔜
 - Rewards: goblins drop coins ✅; the Troll guards a treasure hoard (big payout) 🔜.
@@ -85,13 +86,13 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 - **Zelda-style fighting.**
 - **Slice** — swipe gesture (any hand weapon). ✅
-- **Smash** — heavier strike: press and HOLD, then release → shockwave all around you, heavy damage, big knockback. ✅
-- **Archery** — pull back for power, slingshot-style: longer pull = more powerful shot (dashed aim line, power-scaled speed & damage). ✅
+- **Smash** — a CHARGED strike: hold ~⅓s–3s then release = **mini smash**; hold the full **3 seconds** = **FULL smash** (double damage, big radius). While charging you are ROOTED in place — that's the risk. A ring fills around you and flashes gold when the full smash is ready. ✅
+- **Archery** — pull back for power, slingshot-style: longer pull = more powerful shot (dashed aim line, power-scaled speed & damage). **Arrows are limited** — each shot spends one; buy packs from Moto Moto. ✅
 - **Enemy health bars appear only once you start attacking** that enemy. ✅
 - **Move strengths are OBVIOUS:** every hit shows a floating damage number — slice = small white "-1", smash = big orange "-2", power arrows in between; bigger hit, bigger number. ✅
 - **Potion effects are VISIBLE:** an active potion wraps the player in a colored pulsing aura (orange = strength, cyan = speed, silver = stoneskin) plus a named countdown under the coin counter. ✅
-- Potion powers (random, 30s): 💪 Ogre Strength (+1 damage on every hit), ⚡ Wind Speed (much faster), 🛡️ Stoneskin (blows bounce off). ✅ *(first-pass powers — subject to change)*
-- Training dummies in the village square for safe practice; they rebuild after being destroyed. ✅
+- Potion powers (random, 30s): 💪 Ogre Strength (+2 damage on every hit), ⚡ Wind Speed (much faster), 🛡️ Stoneskin (blows bounce off). Status shows as a **depleting purple bar**. **Dying removes your active potion.** ✅ *(first-pass powers — subject to change)*
+- Training dummies in the village square for safe practice (5 hits each); they rebuild after being destroyed. ✅
 
 ## 8. Health, Food & Death
 
@@ -128,7 +129,9 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 ## 10. Quest Structure & Story Rhythm
 
-- **The rhythm:** quest → the chief congratulates you + reward → **free exploration** → the chief calls with the next task. ✅
+- **The rhythm:** quest → congratulations + reward → **free exploration** → the next task. ✅
+- **Quests can be turned in to someone other than the giver:** the blueberry quest is GIVEN by the chief but DELIVERED to Dorgan — he congratulates you, pays 40 coins, and only then opens his potion shop. ✅
+- Big quests come from chiefs; villagers giving mini-quests is an idea under discussion (see §13).
 - **Between-boss tasks teach the skill the next boss requires:**
   - A village teaches **fire-making** → hold the Troll off until morning.
   - Traders from your village get shipwrecked → rescue them → **learn to swim** → needed for the Kraken.
@@ -156,6 +159,9 @@ Each avatar has their own unique personal side quest that the others don't — r
 ## 13. Open Questions
 
 - Exact number of mini-bosses.
+- **Economy gap to resolve:** both quests pay 150 total but the sword costs 200 — players can't afford any weapon yet. Raise rewards, or add a coin-earning quest?
+- Arrow pack size (currently 10 — placeholder guess).
+- Do villagers give mini-quests, or only chiefs give quests?
 - Max players per room: exactly 2, or more?
 - Day/night cycle mechanics (the Troll fight implies one — how does it work elsewhere?).
 - The desert territory: which boss/creatures live there?
