@@ -50,9 +50,9 @@
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.14 — fishing round (reorg steps 6–10 still queued)
+- **Version:** v0.15 — Modo shield school + UI fixes (reorg steps 6–10 still queued)
 - **Phase:** playtest-driven feature work, auto-deploy rhythm
-- **This checkpoint:** quest 1 = 5 goblins · red berries are satchel items (deadly only if eaten) · cursed stone touch-death in the deep forest · FISHING v1: pond + Bog the Boater (🛶 shack), gear gating (rod + hook from Erik), cast → bite → hold-to-reel tension minigame w/ green band, Bog keeps half (odd his), fish sell to Erik (8/20), boat-driving skill after first trip, satchel locked while line is out · #fish dev hash. 39-assertion smoke test green.
+- **This checkpoint:** shield training reassigned Erik→MODO (forge sparring, explicit press-and-HOLD teaching) · 🛡️ SHIELD UP silver bubble distinct from the gold smash-charge ring (no shield timer — holds as long as you hold) · permanent gear shows no ×counts and doesn't inflate the bag badge · shop lists scroll (Erik's 8-item stock was overflowing off-screen — that's why fishing supplies seemed unbuyable). 42-assertion smoke test green.
 - **Guesses flagged:** rod 25 / hooks 10 & 40 / fish 8 & 20 prices · fine hook = 50% big · reel green band tuning · pond location
 - **Recorded for later:** own boat purchase · shipwreck rescue quest (Kraken foreshadow) · crossbow goblin · pacing pass · hotbar REJECTED
 - **Known issues:** dead code + dev hashes pending reorg step 9

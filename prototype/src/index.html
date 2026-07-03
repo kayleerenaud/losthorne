@@ -53,7 +53,9 @@
   #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
   #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
   #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
-  #dialog .shopBtn { margin-top:7px; width:100%; padding:9px; font-size:14px; display:block; }
+  #dialog .shopBtn { margin-top:6px; width:100%; padding:7px; font-size:12.5px; display:block; }
+  #shopBox { max-height:31vh; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-right:2px; }
+  @media (orientation: landscape) { #shopBox { max-height:36vh; } }
   /* ---------- OVERLAY MESSAGES ---------- */
   /* notifications live TOP-CENTER only — dialogue lives bottom-center, quest tracker top-left */
   #banner { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:8px 16px; border-radius:10px; font-size:14px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:330px; text-align:center; }

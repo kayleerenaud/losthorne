@@ -5,7 +5,7 @@ export default {
   interior:{ w:520, h:340, props:[['🍞',120,120],['🧺',400,120],['🫙',260,95]] },
   pos:{x:260,y:120},   // position INSIDE his shop
   look:{ outfit:'#2f5d7d', hat:false },
-  lines:["Welcome to Erik\u2019s! Bread, fresh-ish — 10 coins. Nothing in Losthorne is free, friend."],
+  lines:["Welcome to Erik\u2019s! Bread, fresh-ish. Rods and hooks for the pond. And I BUY — turkeys, fish, you catch it, I count it.","Scroll the list, friend — Erik stocks more than the eye can hold."],
   buys:[
     { item:'item_wild_turkey', label:'💰 Sell wild turkey — +{price} coins', banner:'💰 Erik counts feathers happily. +15 coins' },
     { item:'item_fish_small', label:'💰 Sell pond fish — +{price} coins', banner:'💰 “Fresh-ish fish!” +8 coins' },

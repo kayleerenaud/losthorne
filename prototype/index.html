@@ -54,7 +54,9 @@
   #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
   #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
   #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
-  #dialog .shopBtn { margin-top:7px; width:100%; padding:9px; font-size:14px; display:block; }
+  #dialog .shopBtn { margin-top:6px; width:100%; padding:7px; font-size:12.5px; display:block; }
+  #shopBox { max-height:31vh; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-right:2px; }
+  @media (orientation: landscape) { #shopBox { max-height:36vh; } }
   /* ---------- OVERLAY MESSAGES ---------- */
   /* notifications live TOP-CENTER only — dialogue lives bottom-center, quest tracker top-left */
   #banner { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:8px 16px; border-radius:10px; font-size:14px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:330px; text-align:center; }
@@ -307,7 +309,7 @@
     pos: { x: 260, y: 120 },
     // position INSIDE his shop
     look: { outfit: "#2f5d7d", hat: false },
-    lines: ["Welcome to Erik’s! Bread, fresh-ish — 10 coins. Nothing in Losthorne is free, friend."],
+    lines: ["Welcome to Erik’s! Bread, fresh-ish. Rods and hooks for the pond. And I BUY — turkeys, fish, you catch it, I count it.", "Scroll the list, friend — Erik stocks more than the eye can hold."],
     buys: [
       { item: "item_wild_turkey", label: "💰 Sell wild turkey — +{price} coins", banner: "💰 Erik counts feathers happily. +15 coins" },
       { item: "item_fish_small", label: "💰 Sell pond fish — +{price} coins", banner: "💰 “Fresh-ish fish!” +8 coins" },
@@ -644,38 +646,38 @@
     },
     reward: { item: "item_shield" },
     setFlagOnReward: "flag_champion_defeated",
-    next: { quest: "quest_main_05_shield_training", delayMs: 8e3, banner: "🪙 Erik waves you over: “Bring that shield here — I’ll show you how it’s USED!”" }
+    next: { quest: "quest_main_05_shield_training", delayMs: 8e3, banner: "🔨 Modo calls from the forge: “Bring that shield here — Modo will show you how it’s USED!”" }
   };
 
   // prototype/src/js/data/quests/main-05-shield-training.js
   var main_05_shield_training_default = {
     id: "quest_main_05_shield_training",
-    giver: "npc_erik",
-    turnIn: "npc_erik",
-    objective: { type: "block", target: "training_erik", count: 3 },
+    giver: "npc_modo",
+    turnIn: "npc_modo",
+    objective: { type: "block", target: "training_modo", count: 3 },
     dialogue: {
       offer: [
-        "THERE'S our champion! That shield of yours — do you actually know how to use it, or do you just carry it around looking heroic?",
-        "Thought so. Listen close, this is the whole trick: PRESS AND HOLD your attack button — the big one, bottom right — and DON'T let go.",
-        "While you're holding, you're planted and your shield is UP. Anything that hits you bounces off. Let go, and the shield drops (and your held swing comes out).",
-        "So: I swing, you HOLD. You'll see the ring around you while it's up. Block 3 of my swings and I'll call you trained. Wooden sword, no hard feelings!"
+        "So. You beat a champion and walked off with his shield. Do you know how to USE it, or is it a very large dinner plate?",
+        "Modo teaches. Listen once, listen well: PRESS AND HOLD your attack button — the big one, bottom right — and DO NOT let go.",
+        "While you hold, you are planted and the shield is UP — you will see a ring around you. Blows bounce off. Release, and the shield drops.",
+        "Meet me outside the forge. Wooden sword. When I swing, you HOLD. Block 3 and Modo calls you shield-trained."
       ],
-      active: ["Remember: PRESS AND HOLD the attack button BEFORE my swing lands — hold means shield UP, release means shield DOWN. Watch for my wind-up, then hold!"],
+      active: ["PRESS AND HOLD the attack button BEFORE my swing lands. Hold = shield up. Release = shield down. Watch my wind-up!"],
       complete: [
-        "THREE! Ha! You block better than my old sparring dummy — and it took two arrows to the head.",
-        "That shield will save your life out there. Consider yourself TRAINED, champion of Losthorne."
+        "THREE! HA! Steel remembers who respects it — and that shield respects you now.",
+        "You are shield-trained, warrior. Now buy some arrows so my bow stops gathering dust."
       ],
       afterReward: []
     },
     tracker: {
-      offer: "🪙 Erik wants to spar!",
+      offer: "🔨 Modo wants to spar!",
       active: "🛡️ Blocks: {n}/3",
-      complete: "🏆 Talk to Erik",
+      complete: "🏆 Talk to Modo",
       afterReward: "✅ All quests done — explore Losthorne!"
     },
     banners: {
-      start: "📜 Training: when Erik swings, PRESS & HOLD the attack button — holding = shield UP! Block 3 swings.",
-      objectiveDone: "🛡️ 3/3 blocks! Erik is impressed — talk to him!",
+      start: "📜 Training: when Modo swings, PRESS & HOLD the attack button — holding = shield UP! Block 3 swings.",
+      objectiveDone: "🛡️ 3/3 blocks! Modo is impressed — talk to him!",
       reward: "🎉 Shield training complete!",
       progress: "🛡️ Block! {n}/3"
     },
@@ -1461,7 +1463,8 @@
       det.classList.remove("hidden");
       const it = ITEM_DEFS[invSel];
       det.querySelector(".bigIc").textContent = it.ic;
-      det.querySelector(".inm").textContent = it.nm + "  ×" + P.inv[invSel];
+      const perm = it.effect.kind === "gear" || it.effect.kind === "passive";
+      det.querySelector(".inm").textContent = it.nm + (perm ? "" : "  ×" + P.inv[invSel]);
       let stHtml = it.st;
       if (invSel === "item_potion" && P.potionRolls[0]) {
         const pp = POTION_POWERS[P.potionRolls[0]];
@@ -1479,7 +1482,8 @@
         any = true;
         const d = document.createElement("div");
         d.className = "invItem";
-        d.innerHTML = '<div class="ic">' + ITEM_DEFS[k].ic + '</div><div class="ct">' + ITEM_DEFS[k].nm + " ×" + P.inv[k] + "</div>";
+        const kind = ITEM_DEFS[k].effect.kind, permanent = kind === "gear" || kind === "passive";
+        d.innerHTML = '<div class="ic">' + ITEM_DEFS[k].ic + '</div><div class="ct">' + ITEM_DEFS[k].nm + (permanent ? "" : " ×" + P.inv[k]) + "</div>";
         d.onclick = () => {
           invSel = k;
           renderInv();
@@ -2007,7 +2011,7 @@
       }
       if (spar && questState.currentId === "quest_main_05_shield_training" && questState.stage === "active") {
         const c = spar;
-        drawPerson(c.x, c.y, 0, { hair: "#555", outfit: "#2f5d7d", skin: "#e0b088" }, false, false);
+        drawPerson(c.x, c.y, 0, { hair: "#555", outfit: "#4f4a45", skin: "#e0b088" }, false, false);
         ctx.strokeStyle = "#a87c3f";
         ctx.lineWidth = 4;
         const sw = c.state === "windup" ? 0.9 : c.state === "swing" ? -0.4 : 0.4;
@@ -2163,10 +2167,25 @@
       {
         const ch = chargeInfo();
         if (ch) {
+          if (P.hasShield) {
+            ctx.fillStyle = "rgba(170,190,215,.16)";
+            ctx.beginPath();
+            ctx.arc(P.x, P.y, 34, 0, 7);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(200,215,235,.9)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(P.x, P.y, 34, 0, 7);
+            ctx.stroke();
+            ctx.fillStyle = "#cfe0f2";
+            ctx.font = "bold 12px Georgia";
+            ctx.textAlign = "center";
+            ctx.fillText("🛡️ SHIELD UP", P.x, P.y - 58);
+          }
           ctx.strokeStyle = ch.full ? "rgba(255,215,90,.95)" : "rgba(255,190,110," + (0.4 + ch.p * 0.5) + ")";
           ctx.lineWidth = 4 + ch.p * 3;
           ctx.beginPath();
-          ctx.arc(P.x, P.y, 22 + ch.p * 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch.p);
+          ctx.arc(P.x, P.y, 22 + ch.p * 18, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch.p);
           ctx.stroke();
           if (ch.full) {
             ctx.fillStyle = "#ffd75a";
@@ -2347,7 +2366,10 @@
     ctx.textBaseline = "middle";
     ctx.fillText("🎒", bb.x, bb.y + 2);
     ctx.textBaseline = "alphabetic";
-    const nItems = Object.values(P.inv).reduce((a, b) => a + b, 0);
+    const nItems = Object.keys(P.inv).reduce((a, k) => {
+      const kd = ITEM_DEFS[k] && ITEM_DEFS[k].effect.kind;
+      return a + (kd === "gear" || kd === "passive" ? 0 : P.inv[k] || 0);
+    }, 0);
     if (nItems > 0) {
       ctx.fillStyle = "#ffd977";
       ctx.beginPath();
@@ -2548,12 +2570,12 @@
   }
   var spar = null;
   function spawnSpar() {
-    spar = { x: 940, y: 1200, dir: 0, state: "circle", t: 0 };
+    spar = { x: 1e3, y: 1240, dir: 0, state: "circle", t: 0 };
   }
   var SPAR_TIPS = [
-    "Erik: HOLD the attack button — don’t tap it, HOLD it! Holding = shield up!",
-    "Erik: You let go too soon! Keep holding until my swing bounces off.",
-    "Erik: Watch my wind-up — when I rear back, press and HOLD. The ring means your shield is up!"
+    "Modo: HOLD the attack button — don’t tap it, HOLD it! Holding = shield up!",
+    "Modo: You let go too soon! Keep holding until my swing bounces off.",
+    "Modo: Watch my wind-up — when I rear back, press and HOLD. The ring means your shield is up!"
   ];
   function sparUpdate(dt) {
     var _a;
@@ -2581,11 +2603,11 @@
         c.state = "swing";
         if (d < 85) {
           if (P.hasShield && chargeInfo()) {
-            const r = Quests.emit("block", { target: "training_erik" });
+            const r = Quests.emit("block", { target: "training_modo" });
             banner((_a = r.banner) != null ? _a : "🛡️ Block!");
             addFloat(P.x, P.y - 36, "🛡️ BLOCK!", "#7ed67e", 20);
           } else {
-            hurtPlayer(1, "Erik’s wooden sword stings your pride.");
+            hurtPlayer(1, "Modo’s wooden sword stings your pride.");
             banner(SPAR_TIPS[Math.floor(Math.random() * SPAR_TIPS.length)]);
           }
         }
@@ -2895,13 +2917,21 @@
     ok(P.inv.item_shield === sh0, "Champion’s Shield cannot be consumed — permanent gear");
     invSel = null;
     Quests.update(9e3);
-    ok(questState.currentId === "quest_main_05_shield_training", "Erik calls you to train");
-    openDialog(erik);
+    ok(questState.currentId === "quest_main_05_shield_training", "Modo calls you to train");
+    openDialog(modo);
+    ok(dLines[1].includes("PRESS AND HOLD"), "Modo gives usable HOLD instructions");
     while (dialogOpen) advanceDialog();
     ok(questState.stage === "active", "sparring begins");
-    for (let i = 0; i < 3; i++) Quests.emit("block", { target: "training_erik" });
+    for (let i = 0; i < 3; i++) Quests.emit("block", { target: "training_modo" });
     ok(questState.stage === "complete", "3 blocks → trained");
+    openDialog(modo);
+    while (dialogOpen) advanceDialog();
     openDialog(erik);
+    {
+      const txts = [...$("shopBox").children].map((b) => b.textContent).join("|");
+      ok(txts.includes("Fishing rod") && txts.includes("Basic hook") && txts.includes("Fine hook"), "Erik stocks rod + both hooks");
+      ok(txts.includes("Turkey meat"), "Erik sells turkey meat too");
+    }
     while (dialogOpen) advanceDialog();
     ok(Quests.trackerText() === "✅ All quests done — explore Losthorne!", "chain complete");
     P.inv.item_red_berry = 1;

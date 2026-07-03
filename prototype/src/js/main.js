@@ -521,7 +521,8 @@ function renderInv(){
     g.classList.add('hidden'); det.classList.remove('hidden');
     const it=ITEM_DEFS[invSel];
     det.querySelector('.bigIc').textContent=it.ic;
-    det.querySelector('.inm').textContent=it.nm+'  ×'+P.inv[invSel];
+    const perm=(it.effect.kind==='gear'||it.effect.kind==='passive');
+    det.querySelector('.inm').textContent=it.nm+(perm?'':'  ×'+P.inv[invSel]);
     let stHtml=it.st;
     if(invSel==='item_potion' && P.potionRolls[0]){ const pp=POTION_POWERS[P.potionRolls[0]];
       stHtml += '<br><b style="color:#d9b8ff">This one is: '+pp.ic+' '+pp.nm+'</b>'; }
@@ -533,7 +534,8 @@ function renderInv(){
   let any=false;
   for(const k in ITEM_DEFS){ if(P.inv[k]>0){ any=true;
     const d=document.createElement('div'); d.className='invItem';
-    d.innerHTML='<div class="ic">'+ITEM_DEFS[k].ic+'</div><div class="ct">'+ITEM_DEFS[k].nm+' ×'+P.inv[k]+'</div>';
+    const kind=ITEM_DEFS[k].effect.kind, permanent=(kind==='gear'||kind==='passive');
+    d.innerHTML='<div class="ic">'+ITEM_DEFS[k].ic+'</div><div class="ct">'+ITEM_DEFS[k].nm+(permanent?'':' ×'+P.inv[k])+'</div>';
     d.onclick=()=>{ invSel=k; renderInv(); };
     g.appendChild(d);
   } }
@@ -816,10 +818,10 @@ function draw(){
   for(const n of NPCS){ if(n.raw.building) continue;
     drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70); }
 
-  // sparring Erik (quest 5) — wooden sword, zero malice
+  // sparring Modo (quest 5) — wooden sword, zero malice
   if(spar && questState.currentId==='quest_main_05_shield_training' && questState.stage==='active'){
     const c=spar;
-    drawPerson(c.x,c.y,0,{hair:'#555',outfit:'#2f5d7d',skin:'#e0b088'},false,false);
+    drawPerson(c.x,c.y,0,{hair:'#555',outfit:'#4f4a45',skin:'#e0b088'},false,false);
     ctx.strokeStyle='#a87c3f'; ctx.lineWidth=4;
     const sw=c.state==='windup'? 0.9 : c.state==='swing'? -0.4 : 0.4;
     ctx.beginPath(); ctx.moveTo(c.x+10,c.y-4); ctx.lineTo(c.x+10+Math.cos(c.dir+sw)*20, c.y-4+Math.sin(c.dir+sw)*20); ctx.stroke();
@@ -883,12 +885,19 @@ function draw(){
   if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0;
     ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=7-pr*5;
     ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*(P.smashR-20),0,7); ctx.stroke(); }
-  // smash charge ring — grows while you hold; gold = FULL smash ready
+  // while holding: the FILLING ring = your smash charging up (gold when ready).
+  // If you own the Champion's Shield, a steady silver BUBBLE also appears — that's
+  // the shield, UP for as long as you hold. No timer: hold = protected.
   { const ch=chargeInfo();
     if(ch){
+      if(P.hasShield){
+        ctx.fillStyle='rgba(170,190,215,.16)'; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.fill();
+        ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke();
+        ctx.fillStyle='#cfe0f2'; ctx.font='bold 12px Georgia'; ctx.textAlign='center'; ctx.fillText('🛡️ SHIELD UP', P.x, P.y-58);
+      }
       ctx.strokeStyle = ch.full? 'rgba(255,215,90,.95)' : 'rgba(255,190,110,'+(0.4+ch.p*0.5)+')';
       ctx.lineWidth = 4+ch.p*3;
-      ctx.beginPath(); ctx.arc(P.x,P.y,22+ch.p*22, -Math.PI/2, -Math.PI/2 + Math.PI*2*ch.p); ctx.stroke();
+      ctx.beginPath(); ctx.arc(P.x,P.y,22+ch.p*18, -Math.PI/2, -Math.PI/2 + Math.PI*2*ch.p); ctx.stroke();
       if(ch.full){ ctx.fillStyle='#ffd75a'; ctx.font='bold 13px Georgia'; ctx.textAlign='center'; ctx.fillText('SMASH READY!', P.x, P.y-46); }
     } }
   // bow aim (pull back and release)
@@ -981,7 +990,7 @@ function draw(){
   ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.stroke();
   ctx.font=(bb.r*0.85)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('🎒', bb.x, bb.y+2); ctx.textBaseline='alphabetic';
-  const nItems=Object.values(P.inv).reduce((a,b)=>a+b,0);
+  const nItems=Object.keys(P.inv).reduce((a,k)=>{ const kd=ITEM_DEFS[k]&&ITEM_DEFS[k].effect.kind; return a+((kd==='gear'||kd==='passive')?0:(P.inv[k]||0)); },0);
   if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+17,bb.y-17,9,0,7); ctx.fill();
     ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.textBaseline='middle'; ctx.fillText(nItems, bb.x+17, bb.y-16); ctx.textBaseline='alphabetic'; }
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
@@ -1084,11 +1093,11 @@ function fishingUpdate(dt){
 
 // ---------- ERIK'S SHIELD TRAINING (quest 5) ----------
 let spar=null;
-function spawnSpar(){ spar={ x:940, y:1200, dir:0, state:'circle', t:0 }; }
+function spawnSpar(){ spar={ x:1000, y:1240, dir:0, state:'circle', t:0 }; }
 const SPAR_TIPS=[
-  "Erik: HOLD the attack button — don’t tap it, HOLD it! Holding = shield up!",
-  "Erik: You let go too soon! Keep holding until my swing bounces off.",
-  "Erik: Watch my wind-up — when I rear back, press and HOLD. The ring means your shield is up!"];
+  "Modo: HOLD the attack button — don’t tap it, HOLD it! Holding = shield up!",
+  "Modo: You let go too soon! Keep holding until my swing bounces off.",
+  "Modo: Watch my wind-up — when I rear back, press and HOLD. The ring means your shield is up!"];
 function sparUpdate(dt){
   if(questState.currentId!=='quest_main_05_shield_training' || questState.stage!=='active' || scene!=='village'){ return; }
   if(!spar) spawnSpar();
@@ -1102,10 +1111,10 @@ function sparUpdate(dt){
     if(c.t>600){ c.t=0; c.state='swing';
       if(d<85){
         if(P.hasShield && chargeInfo()){
-          const r=Quests.emit('block',{target:'training_erik'});
+          const r=Quests.emit('block',{target:'training_modo'});
           banner(r.banner ?? '🛡️ Block!'); addFloat(P.x,P.y-36,'🛡️ BLOCK!','#7ed67e',20);
         } else {
-          hurtPlayer(1,'Erik’s wooden sword stings your pride.');
+          hurtPlayer(1,'Modo’s wooden sword stings your pride.');
           banner(SPAR_TIPS[Math.floor(Math.random()*SPAR_TIPS.length)]);
         }
       }
@@ -1288,14 +1297,20 @@ if(location.hash==='#test-quests'){
   invSel='item_shield'; const sh0=P.inv.item_shield; $('invUse').onclick();
   ok(P.inv.item_shield===sh0, 'Champion’s Shield cannot be consumed — permanent gear');
   invSel=null;
-  // Q5 — Erik's shield training
+  // Q5 — MODO's shield training
   Quests.update(9000);
-  ok(questState.currentId==='quest_main_05_shield_training', 'Erik calls you to train');
-  openDialog(erik); while(dialogOpen) advanceDialog();
+  ok(questState.currentId==='quest_main_05_shield_training', 'Modo calls you to train');
+  openDialog(modo); ok(dLines[1].includes('PRESS AND HOLD'), 'Modo gives usable HOLD instructions'); while(dialogOpen) advanceDialog();
   ok(questState.stage==='active', 'sparring begins');
-  for(let i=0;i<3;i++) Quests.emit('block',{target:'training_erik'});
+  for(let i=0;i<3;i++) Quests.emit('block',{target:'training_modo'});
   ok(questState.stage==='complete', '3 blocks → trained');
-  openDialog(erik); while(dialogOpen) advanceDialog();
+  openDialog(modo); while(dialogOpen) advanceDialog();
+  // Erik really does stock fishing gear (scrollable shop)
+  openDialog(erik);
+  { const txts=[...$('shopBox').children].map(b=>b.textContent).join('|');
+    ok(txts.includes('Fishing rod') && txts.includes('Basic hook') && txts.includes('Fine hook'), 'Erik stocks rod + both hooks');
+    ok(txts.includes('Turkey meat'), 'Erik sells turkey meat too'); }
+  while(dialogOpen) advanceDialog();
   ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'chain complete');
   // red berries: satchel item, deadly only if EATEN
   P.inv.item_red_berry=1;
