@@ -346,6 +346,7 @@ function contextAction(){
       if(MTN.cave.inMats<3 && matSpotNear()) return {icon:'🔍', label:'search the dark', kind:'searchmat'};
       if(MTN.cave.inMats>=3 && firePitNear()) return {icon:'🔥', label:'make a fire', kind:'firestart'};
     }
+    if(MTN.cave.fireLit && MTN.bog.found && !MTN.bog.escort && Math.hypot(P.x-MTN.bog.x,P.y-MTN.bog.y)<70) return {icon:'🪢', label:'FREE BOG!', kind:'freebog'};
     if(MTN.cave.fireLit && !MTN.cave.treasure) return {icon:'💰', label:'the hoard!', kind:'treasure'};
     if(caveDoorNear()) return {icon:'🚪', label: T.dawn&&T.alive? 'OUT — into the light!':'leave', kind:'cavedoor'};
     return {icon:'🕳', label: T.alive? (T.dawn? 'RUN for the exit!' : 'outlast it… dawn comes') : 'dark…', kind:'none'};
@@ -446,6 +447,7 @@ function pressButton(kind){
     else if(a.kind==='firetap'){ fireGameTap(); }
     else if(a.kind==='searchmat'){ const m=matSpotNear(); if(m){ m.found=true; MTN.cave.inMats++; banner('🔍 Driftwood… flint… tinder. ('+MTN.cave.inMats+'/3)'); } }
     else if(a.kind==='firestart'){ fireGameStart(MTN.fire.learned? 'cave' : 'cave_untaught'); if(!MTN.fire.learned){ MTN.fire.game=null; banner('🔥 You fumble in the dark… you don’t know HOW. Someone in the mountain woods might teach you.'); } }
+    else if(a.kind==='freebog'){ freeBog(); }
     else if(a.kind==='treasure'){ gatherTreasure(); }
     else if(a.kind==='talk'){ const n=npcNearby(); if(n) openDialog(n); }
     else if(a.kind==='enter'){ enterShop(a.npc); }
@@ -780,7 +782,10 @@ function update(dt){
     if(unlocked){ scene='mountains'; mtnInit(); P.x=750; P.y=70; banner('⛰️ The trail climbs. Pines thin. Somewhere ahead: the mountains.'); }
     else { P.y=H-48; banner('🌲 The southern trail winds toward the mountains. No reason to go… yet.'); }
   }
-  if(scene==='mountains' && P.y<36){ scene='village'; P.x=800; P.y=H-80; banner('🏘 Home again. The village fires never looked so warm.'); }
+  if(scene==='mountains' && P.y<36){ scene='village'; P.x=800; P.y=H-80;
+    if(MTN.bog.escort){ MTN.bog.escort=false; questState.flags.flag_bog_rescued=true;
+      banner('🏘 BOG IS HOME! The village ERUPTS — the Chief is already running across the square!'); }
+    else banner('🏘 Home again. The village fires never looked so warm.'); }
 
   // turkeys: flee when you get close — chase them down!
   if(scene==='village') for(const tk of turkeys){
@@ -1251,6 +1256,7 @@ const MTN={
   packs:[], birds:[], mbushes:[], rocks:[], mtrees:[],
   fire:{learned:false, game:null},           // fire-making minigame state
   cave:{ inMats:0, fireLit:false, treasure:false },
+  bog:{ found:false, escort:false, x:700, y:300 },
   troll:{ alive:true, x:450, y:250, dir:0, state:'lurk', t:0, outside:false, stunned:false, mounted:false, stone:false, dawn:false, dawnT:75000 },
 };
 function mtnInit(){
@@ -1343,6 +1349,12 @@ function mountainsUpdate(dt){
       }
     }
   }
+  // Bog follows once freed — through the cave, down the mountain, all the way home
+  if(MTN.bog.escort && (scene==='cave'||scene==='mountains')){
+    const d=Math.hypot(P.x-MTN.bog.x,P.y-MTN.bog.y);
+    if(d>46){ const a=Math.atan2(P.y-MTN.bog.y,P.x-MTN.bog.x); MTN.bog.x+=Math.cos(a)*Math.min(2.4,d*0.06); MTN.bog.y+=Math.sin(a)*Math.min(2.4,d*0.06); }
+    if(d>240){ MTN.bog.x=P.x-30; MTN.bog.y=P.y; }   // scene changes: he catches up
+  }
   if(scene==='cave'){
     if(T.alive && !T.dawn){
       T.dawnT-=dt;
@@ -1384,8 +1396,12 @@ function trollSmashFinish(){
   T.stone=true; T.alive=false;
   addFloat(T.x,T.y-60,'💥 CRACK!','#ffd75a',26);
   banner('🗿 One thunderous blow — the troll turns to STONE in the morning light!');
-  setTimeout(()=>{ banner('🛶 A ragged figure stumbles from the cave — BOG! “…Bog owes you EVERYTHING. Come to the pond. Fishing’s on Bog.”'); },2600);
-  setTimeout(()=>{ questState.flags.flag_bog_rescued=true; },2700);
+  setTimeout(()=>{ banner('…From deep inside the dark cave, something GROANS. A voice? Better get some light in there.'); },2600);
+}
+function freeBog(){
+  if(MTN.bog.escort) return;
+  MTN.bog.escort=true; MTN.bog.x=P.x+30; MTN.bog.y=P.y;
+  banner('🪢 You cut the ropes! Bog, hoarse: “…get Bog HOME, warrior. Bog follows you anywhere — ESPECIALLY away from here.”');
 }
 function fireGameStart(where){
   MTN.fire.game={ t:0, hits:0, where };
@@ -1398,7 +1414,7 @@ function fireGameTap(){
     g.hits++; addFloat(P.x,P.y-34,'✨ '+g.hits+'/3','#ffb347',18);
     if(g.hits>=3){
       if(g.where==='strax'){ MTN.fire.learned=true; MTN.fire.game=null; banner('🔥 FIRE! Strax nods once. “Now you carry warmth in your hands, small one.” (Fire-making learned!)'); }
-      else { MTN.cave.fireLit=true; MTN.fire.game=null; banner('🔥 The fire catches — and the WHOLE CAVE glitters. TREASURE, floor to ceiling!'); }
+      else { MTN.cave.fireLit=true; MTN.fire.game=null; MTN.bog.found=true; banner('🔥 The fire catches — the cave GLITTERS with treasure… and someone is TIED UP beside the hoard. BOG!'); }
     }
   } else banner(MTN.fire.learned||g.where==='strax' ? '🔥 Too cold — strike when the spark glows HOT!' : '🔥 Strax: “Patience. HOT means hot.”');
 }
@@ -1558,6 +1574,9 @@ function drawMountains(){
     if(T.stunned && !T.stone){ ctx.fillStyle='#ffd75a'; ctx.font='bold 13px Georgia'; ctx.textAlign='center'; ctx.fillText(T.mounted?'💥 SMASH!':'🧗 CLIMB!', T.x, T.y-76); }
     ctx.restore();
   }
+  // Bog trailing you down the mountain
+  if(MTN.bog.escort){ drawPerson(MTN.bog.x,MTN.bog.y,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false,false);
+    ctx.fillStyle='#9fd6e8'; ctx.font='10.5px Georgia'; ctx.textAlign='center'; ctx.fillText('Bog', MTN.bog.x, MTN.bog.y-30); }
   // player + effects
   if(pot.t>0 && pot.type){ const col = pot.type==='potion_strength'? '255,140,60' : pot.type==='potion_speed'? '90,220,255' : '200,200,215';
     ctx.strokeStyle='rgba('+col+',.6)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,26,0,7); ctx.stroke(); }
@@ -1616,6 +1635,13 @@ function drawCave(){
     const piles=[[120,340],[220,120],[700,380],[780,220],[560,120],[340,420],[640,470]];
     for(const q of piles){ ctx.fillText('💰', q[0], q[1]); }
     ctx.font='26px Georgia'; if(!MTN.cave.treasure) ctx.fillText('🔨', 470, 260);
+    if(MTN.bog.found && !MTN.bog.escort){
+      drawPerson(700,300,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false, Math.hypot(700-P.x,300-P.y)<70);
+      ctx.strokeStyle='#a87c3f'; ctx.lineWidth=3; ctx.strokeRect(686,282,28,36);   // the ropes
+      ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('mmmph!!', 700, 262);
+    } else if(MTN.bog.escort && scene==='cave'){
+      drawPerson(MTN.bog.x,MTN.bog.y,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false,false);
+    }
     ctx.fillStyle='rgba(255,190,90,.12)'; ctx.beginPath(); ctx.arc(450,300,240,0,7); ctx.fill();
   } else {
     ctx.strokeStyle='rgba(120,130,140,.35)'; ctx.lineWidth=2; ctx.strokeRect(4,4,872,512);   // walls, barely
@@ -1853,16 +1879,19 @@ if(location.hash==='#test-quests'){
   MTN.troll.dawn=true; leaveCave();
   ok(scene==='mountains' && MTN.troll.outside, 'he follows you out into the rising sun');
   MTN.troll.stunned=true; MTN.troll.mounted=true;
-  trollSmashFinish(); questState.flags.flag_bog_rescued=true;
+  trollSmashFinish();
   ok(MTN.troll.stone, 'one blow to the head — the troll is STONE');
-  // fire + treasure + hammer
-  MTN.fire.learned=true; MTN.cave.fireLit=true;
+  ok(!questState.flags.flag_bog_rescued, 'the troll is stone but Bog is still in the dark…');
+  // fire reveals Bog, tied by the treasure
+  MTN.fire.learned=true; MTN.cave.fireLit=true; MTN.bog.found=true;
   const ct0=P.coins; gatherTreasure();
   ok(P.coins===ct0+400 && P.weapons.hammer===true, 'the hoard: +400 coins and the Troll’s Hammer');
-  // report to the chief
+  freeBog();
+  ok(MTN.bog.escort===true, 'ropes cut — Bog follows you now');
+  scene='mountains'; P.x=750; P.y=20; update(16);
+  ok(scene==='village' && questState.flags.flag_bog_rescued===true, 'walking him home completes the rescue — the escort forces the return trip');
   Quests.update(16);
-  ok(questState.stage==='complete', 'Bog rescued → quest complete');
-  scene='village';
+  ok(questState.stage==='complete', 'Bog home → quest complete');
   openDialog(chief); while(dialogOpen) advanceDialog();
   // Q7 — Modo teaches the hammer
   Quests.update(2100);
