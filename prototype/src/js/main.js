@@ -1085,7 +1085,10 @@ function fishingUpdate(dt){
 // ---------- ERIK'S SHIELD TRAINING (quest 5) ----------
 let spar=null;
 function spawnSpar(){ spar={ x:940, y:1200, dir:0, state:'circle', t:0 }; }
-const SPAR_TIPS=["Erik: Shield UP means HOLD, warrior — plant your feet!","Erik: You blinked! Raise it BEFORE the swing lands.","Erik: Almost! Watch my shoulder — it tells you when."];
+const SPAR_TIPS=[
+  "Erik: HOLD the attack button — don’t tap it, HOLD it! Holding = shield up!",
+  "Erik: You let go too soon! Keep holding until my swing bounces off.",
+  "Erik: Watch my wind-up — when I rear back, press and HOLD. The ring means your shield is up!"];
 function sparUpdate(dt){
   if(questState.currentId!=='quest_main_05_shield_training' || questState.stage!=='active' || scene!=='village'){ return; }
   if(!spar) spawnSpar();
