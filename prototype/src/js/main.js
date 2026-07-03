@@ -992,7 +992,7 @@ if(location.hash==='#test-quests'){
   const dorgan=NPCS.find(n=>n.id==='npc_dorgan');
   const erik=NPCS.find(n=>n.id==='npc_erik');
   const modo=NPCS.find(n=>n.id==='npc_modo');
-  ok(AVATARS[0].nm==='Cippy' && AVATARS[1].nm==='Oak' && AVATARS[2].nm==='Willow' && AVATARS[3].nm==='Dusty', 'avatars renamed: Cippy, Oak, Willow, Dusty');
+  ok(AVATARS[0].nm==='Zippy' && AVATARS[1].nm==='Oak' && AVATARS[2].nm==='Willow' && AVATARS[3].nm==='Dusty', 'avatars renamed: Zippy, Oak, Willow, Dusty');
   ok(P.coins===10, 'start with 10 coins (one loaf of bread)');
   ok(P.weapon==='fists' && !P.weapons.sword, 'start with fists');
   ok(goblins[0].hp===6, 'goblins take 6 punches now');
@@ -1054,7 +1054,7 @@ if(location.hash==='#test-quests'){
   dash(); ok(P.dashT>0, 'double-tap dash bursts you forward');
   P.x=200; P.y=1180; champion=null;
   const caT=contextAction();
-  ok(caT && caT.kind==='music' && caT.icon==='🎵', 'context button idles as 🎵 (Cippy has a flute)');
+  ok(caT && caT.kind==='music' && caT.icon==='🎵', 'context button idles as 🎵 (Zippy has a flute)');
   ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'chain complete');
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';

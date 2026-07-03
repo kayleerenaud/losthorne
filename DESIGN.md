@@ -35,7 +35,7 @@
 - **Layout reference — Genshin Impact mobile** (game8.co controls guide):
   - Movement joystick: invisible until pressed; appears wherever the finger lands on open ground ✅
   - Attack cluster lower-RIGHT: big attack button in the corner, smaller buttons arced around it ✅ (context button, 🏹/🗡️/👊 weapon switch, 🎒 satchel)
-  - **THE CONTEXT BUTTON** ✅: ONE slot that morphs to what you need right now — 💬 talk (near people), 🚪 enter/leave (at shop doors), 🤲 GRAB (near turkeys), 💥 smash (near enemies/dummies, hold to charge), and when nothing's happening: 🎵 play your instrument (Cippy/Dusty) or 💤 rest (Oak/Willow) — the leisure activity from §4.
+  - **THE CONTEXT BUTTON** ✅: ONE slot that morphs to what you need right now — 💬 talk (near people), 🚪 enter/leave (at shop doors), 🤲 GRAB (near turkeys), 💥 smash (near enemies/dummies, hold to charge), and when nothing's happening: 🎵 play your instrument (Zippy/Dusty) or 💤 rest (Oak/Willow) — the leisure activity from §4.
   - **Dash** ✅: double-tap anywhere on open ground = a quick burst forward (gesture, not a button — controls stay uncrowded). Short cooldown.
   - Skill buttons support tap AND hold-for-stronger ✅ (tap 💥, or press-and-hold the attack button = smash). The 💥 button dims only during a smash cooldown, never during a slice ✅
   - Attack gestures start FROM the attack button: tap = quick attack, drag from it = aimed slice / bow pull-back ✅
@@ -52,7 +52,7 @@
 
 Each avatar has their own unique personal side quest that the others don't — replaying with a different character is a different experience.
 
-1. **Cippy**: starts as a normal villager (no armor). Short, curly, dirty-blonde hair. Brown vest as his core piece over regular Middle Ages clothing. Carries a little **wooden flute** he can play.
+1. **Zippy**: starts as a normal villager (no armor). Short, curly, dirty-blonde hair. Brown vest as his core piece over regular Middle Ages clothing. Carries a little **wooden flute** he can play.
 2. **Oak**: black, roughly ruffled hair. Leather **jacket**, tunic and pants, leather **belt with a cool silver buckle**.
 3. **Willow** (female): darker skin. Hair tied in a **big bun** held by a **pin made out of bone**. Wears a dress, a **fur shawl/cape**, and a belt.
 4. **Dusty** (female): blonde with **two Dutch braids**. Pants and a shirt. She ALWAYS carries a **mini guitar/lute across her back**.
@@ -193,6 +193,6 @@ Each avatar has their own unique personal side quest that the others don't — r
 - *v0.4 — forced-landscape rendering everywhere, works in any window shape*
 - *v0.5 — slice/hold-to-SMASH, pull-back archery, weapon switch, random potions, training dummies, goblin respawns*
 - *v0.6 — floating damage numbers, potion auras, satchel inventory (tap item → stats → use), 50-coin start, creatures drop coin piles, fixed UI text zones*
-- *v0.12 — avatar names (Cippy/Oak/Willow/Dusty), morphing context button, double-tap dash, shop interiors with icon signs, satchel blueberries, story rework (110/potion/90), the Visiting Champion + won shield, dev testing menu (#dev)*
+- *v0.12 — avatar names (Zippy/Oak/Willow/Dusty), morphing context button, double-tap dash, shop interiors with icon signs, satchel blueberries, story rework (110/potion/90), the Visiting Champion + won shield, dev testing menu (#dev)*
 - *v0.7 — Genshin-referenced control cluster, 💥 smash skill button, contextual 💬 talk button near NPCs*
 - *v0.8 — one-finger play: invisible anywhere-joystick, attack gestures anchored to the attack button, smash-dim fix*
