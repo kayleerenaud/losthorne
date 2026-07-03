@@ -183,6 +183,39 @@
   };
   var POTION_DURATION_MS = 3e4;
 
+  // prototype/src/js/data/npcs/chief-bonbottom.js
+  var chief_bonbottom_default = {
+    id: "npc_chief_bonbottom",
+    name: "Chief Bonbottom",
+    pos: { x: 800, y: 1140 },
+    look: { outfit: "#7d2f2f", hat: true },
+    // Lines when no quest business is pending (quest dialogue lives with each quest).
+    idleLines: ["The village is safe and the fires are warm, thanks to you. Explore! Adventure will come knocking soon enough."]
+  };
+
+  // prototype/src/js/data/npcs/erik.js
+  var erik_default = {
+    id: "npc_erik",
+    name: "Erik the Trader",
+    pos: { x: 930, y: 1195 },
+    look: { outfit: "#2f5d7d", hat: false },
+    lines: ["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
+    shop: { item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" }
+  };
+
+  // prototype/src/js/data/npcs/dorgan.js
+  var dorgan_default = {
+    id: "npc_dorgan",
+    name: "Dorgan the Potion-Maker",
+    pos: { x: 665, y: 1190 },
+    look: { outfit: "#53406e", hat: false },
+    lines: [
+      "Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
+      "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"
+    ],
+    shop: { item: "item_potion", label: "🧪 Mystery potion — {price} coins (goes to satchel)", banner: "🧪 A mystery potion sloshes in your satchel" }
+  };
+
   // prototype/src/js/main.js
   var $ = (id) => document.getElementById(id);
   var chosen = -1;
@@ -335,54 +368,27 @@
   [[620, 1120], [980, 1120], [560, 1300], [1030, 1300], [790, 1370]].forEach((h) => houses.push({ x: h[0], y: h[1] }));
   [[420, 880], [1180, 840], [760, 760], [300, 1020], [1320, 1e3]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "blue", taken: false, respawn: 0 }));
   [[560, 940], [1050, 760]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "red", taken: false, respawn: 0 }));
-  var NPCS = [
-    {
-      nm: "Chief Bonbottom",
-      x: 800,
-      y: 1140,
-      col: "#7d2f2f",
-      hat: true,
-      lines: [
-        "Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
-        "Goblins have crept into the north forest. They scare the children and steal our bread!",
-        "Drive off 3 goblins, and there'll be 60 coins in it for you.",
-        "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."
-      ]
-    },
-    {
-      nm: "Erik the Trader",
-      x: 930,
-      y: 1195,
-      col: "#2f5d7d",
-      hat: false,
-      lines: ["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
-      shop: { label: "🍞 Buy bread — " + PRICES.item_bread + " coins (goes to satchel)", fn() {
-        if (P.coins >= PRICES.item_bread) {
-          P.coins -= PRICES.item_bread;
-          P.inv.item_bread++;
-          banner("🍞 Bread tucked into your satchel");
-        } else banner("Not enough coins!");
-      } }
-    },
-    {
-      nm: "Dorgan the Potion-Maker",
-      x: 665,
-      y: 1190,
-      col: "#53406e",
-      hat: false,
-      lines: [
-        "Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
-        "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"
-      ],
-      shop: { label: "🧪 Mystery potion — " + PRICES.item_potion + " coins (goes to satchel)", fn() {
-        if (P.coins >= PRICES.item_potion) {
-          P.coins -= PRICES.item_potion;
-          P.inv.item_potion++;
-          banner("🧪 A mystery potion sloshes in your satchel");
-        } else banner("Not enough coins!");
-      } }
-    }
-  ];
+  function makeShop(shopData) {
+    if (!shopData) return null;
+    const price = PRICES[shopData.item];
+    return { label: shopData.label.replace("{price}", price), fn() {
+      if (P.coins >= price) {
+        P.coins -= price;
+        P.inv[shopData.item]++;
+        banner(shopData.banner);
+      } else banner("Not enough coins!");
+    } };
+  }
+  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default].map((d) => ({
+    id: d.id,
+    nm: d.name,
+    x: d.pos.x,
+    y: d.pos.y,
+    col: d.look.outfit,
+    hat: !!d.look.hat,
+    lines: d.lines || d.idleLines,
+    shop: makeShop(d.shop)
+  }));
   var goblins = [];
   function spawnGoblins() {
     goblins.length = 0;

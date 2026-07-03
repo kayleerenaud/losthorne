@@ -3,6 +3,9 @@ import { AVATARS } from './data/avatars.js';
 import { PRICES, STARTING_COINS } from './data/economy.js';
 import { ITEM_DEFS } from './data/items.js';
 import { POTION_POWERS, POTION_DURATION_MS } from './data/potions.js';
+import npcChief from './data/npcs/chief-bonbottom.js';
+import npcErik from './data/npcs/erik.js';
+import npcDorgan from './data/npcs/dorgan.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -96,24 +99,19 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[420,880],[1180,840],[760,760],[300,1020],[1320,1000]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'blue',taken:false,respawn:0}));
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
-const NPCS = [
-  { nm:'Chief Bonbottom', x:800, y:1140, col:'#7d2f2f', hat:true,
-    lines:["Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
-           "Goblins have crept into the north forest. They scare the children and steal our bread!",
-           "Drive off 3 goblins, and there'll be 60 coins in it for you.",
-           "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."] },
-  { nm:'Erik the Trader', x:930, y:1195, col:'#2f5d7d', hat:false,
-    lines:["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
-    shop:{ label:'🍞 Buy bread — '+PRICES.item_bread+' coins (goes to satchel)', fn(){
-      if(P.coins>=PRICES.item_bread){ P.coins-=PRICES.item_bread; P.inv.item_bread++; banner('🍞 Bread tucked into your satchel'); }
-      else banner('Not enough coins!'); } } },
-  { nm:'Dorgan the Potion-Maker', x:665, y:1190, col:'#53406e', hat:false,
-    lines:["Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
-           "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"],
-    shop:{ label:'🧪 Mystery potion — '+PRICES.item_potion+' coins (goes to satchel)', fn(){
-      if(P.coins>=PRICES.item_potion){ P.coins-=PRICES.item_potion; P.inv.item_potion++; banner('🧪 A mystery potion sloshes in your satchel'); }
-      else banner('Not enough coins!'); } } },
-];
+// NPCs are built from data files. Generic shop wiring: item id + price template.
+function makeShop(shopData){
+  if(!shopData) return null;
+  const price=PRICES[shopData.item];
+  return { label:shopData.label.replace('{price}',price), fn(){
+    if(P.coins>=price){ P.coins-=price; P.inv[shopData.item]++; banner(shopData.banner); }
+    else banner('Not enough coins!');
+  } };
+}
+const NPCS = [npcChief, npcErik, npcDorgan].map(d=>({
+  id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat,
+  lines:d.lines||d.idleLines, shop:makeShop(d.shop),
+}));
 
 const goblins=[];
 function spawnGoblins(){
