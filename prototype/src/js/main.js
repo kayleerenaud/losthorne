@@ -10,6 +10,7 @@ import npcModo from './data/npcs/modo.js';
 import { Quests, questState } from './engine/quests.js';
 import questGoblins from './data/quests/main-01-goblins.js';
 import questBlueberries from './data/quests/main-02-blueberries.js';
+import questTurkeys from './data/quests/main-03-turkeys.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -80,7 +81,7 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0} };
+  inv:{item_bread:0,item_potion:0,item_turkey:0} };
 // combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','bow'].filter(w=>P.weapons[w]); }
@@ -129,7 +130,7 @@ function buyItem(entry){
     P.coins-=price; const k=rollPotion(); P.potionRolls.push(k); P.inv.item_potion++;
     banner('🧪 Dorgan hands you a potion… '+POTION_POWERS[k].ic+' '+POTION_POWERS[k].nm+'!');
   } else {
-    P.coins-=price; P.inv[entry.item]++; banner(entry.banner);
+    P.coins-=price; P.inv[entry.item]=(P.inv[entry.item]||0)+1; banner(entry.banner);
   }
   renderShop();
 }
@@ -139,6 +140,7 @@ function renderShop(){
   if(!d || !d.shop) return;
   if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag]) return;
   for(const entry of d.shop){
+    if(entry.requiresFlag && !questState.flags[entry.requiresFlag]) continue;
     const def=ITEM_DEFS[entry.item], price=PRICES[entry.item];
     const b=document.createElement('button'); b.className='btn shopBtn';
     const owned = def.effect.kind==='unlock_weapon' && P.weapons[def.effect.weapon];
@@ -156,8 +158,33 @@ function spawnGoblins(){
 }
 spawnGoblins();
 
+// wild turkeys — you don't fight them, you GRAB them (quest 3 teaches the grab function)
+const turkeys=[];
+function spawnTurkeys(){
+  turkeys.length=0;
+  [[500,860],[900,930],[1250,880],[700,1010]].forEach(t=>turkeys.push({x:t[0],y:t[1],dir:Math.random()*7,t:0}));
+}
+spawnTurkeys();
+function turkeyNearby(){
+  let best=null,bd=60;
+  for(const tk of turkeys){ const d=Math.hypot(tk.x-P.x,tk.y-P.y); if(d<bd){bd=d;best=tk;} }
+  return best;
+}
+function catchTurkey(){
+  const tk=turkeyNearby(); if(!tk) return;
+  const r=Quests.emit('catch',{target:'entity_turkey'});
+  if(r.counted){
+    turkeys.splice(turkeys.indexOf(tk),1);
+    banner(r.banner ?? '🦃 Caught one!');
+    addFloat(P.x,P.y-36,'🦃 grabbed!','#f0d8a0',18);
+  } else {
+    banner('🦃 You grab the turkey… it squirms free. (No reason to keep it right now)');
+    tk.x=200+Math.random()*1200; tk.y=760+Math.random()*280;
+  }
+}
+
 // Quest state lives in engine/quests.js (single questState object).
-Quests.init([questGoblins, questBlueberries], 'quest_main_01_goblins', {
+Quests.init([questGoblins, questBlueberries, questTurkeys], 'quest_main_01_goblins', {
   banner: (t)=>banner(t),
   addCoins: (n)=>{ P.coins+=n; },
 });
@@ -192,7 +219,7 @@ function buttonAt(x,y){
   if(near(smashBtn(),12)) return 'smash';
   if(near(wpnBtn(),12)) return 'wpn';
   if(near(bagBtn(),12)) return 'bag';
-  if(npcNearby() && !dialogOpen && near(talkBtn(),12)) return 'talk';
+  if((npcNearby()||turkeyNearby()) && !dialogOpen && near(talkBtn(),12)) return 'talk';
   return null;
 }
 function pointerDown(p,id){
@@ -220,11 +247,12 @@ function pointerUp(p,id){
 }
 function groundTap(){
   if(dialogOpen){ advanceDialog(); return; }
-  const n=npcNearby(); if(n) openDialog(n);
+  const n=npcNearby(); if(n){ openDialog(n); return; }
+  if(turkeyNearby()) catchTurkey();
 }
 function pressButton(kind){
   if(kind==='bag'){ openInv(); }
-  else if(kind==='talk'){ const n=npcNearby(); if(n && !dialogOpen) openDialog(n); }
+  else if(kind==='talk'){ const n=npcNearby(); if(n && !dialogOpen) openDialog(n); else if(!dialogOpen) catchTurkey(); }
   else if(kind==='wpn'){
     const ows=ownedWeapons();
     if(ows.length<2){ banner('👊 Only your fists for now — visit Modo the blacksmith!'); return; }
@@ -447,6 +475,14 @@ function update(dt){
     if(dead) arrows.splice(i,1);
   }
 
+  // turkeys: flee when you get close — chase them down!
+  for(const tk of turkeys){
+    const d=Math.hypot(P.x-tk.x,P.y-tk.y);
+    if(d<120 && !blocked()){ const a=Math.atan2(tk.y-P.y,tk.x-P.x); tk.x+=Math.cos(a)*2.1; tk.y+=Math.sin(a)*2.1; tk.dir=a; }
+    else { tk.t+=dt; if(tk.t>1800){ tk.t=0; tk.dir=Math.random()*7; } tk.x+=Math.cos(tk.dir)*.5; tk.y+=Math.sin(tk.dir)*.5; }
+    tk.x=Math.max(160,Math.min(W-160,tk.x)); tk.y=Math.max(720,Math.min(1080,tk.y));
+  }
+
   // training dummies rebuild
   for(const d of dummies){ if(d.hp<=0){ d.respawnT-=dt; if(d.respawnT<=0){ d.hp=d.maxhp; d.showBar=false; } } if(d.hurtT>0)d.hurtT--; }
 
@@ -549,6 +585,17 @@ function draw(){
     ctx.strokeStyle='#d8c090'; ctx.lineWidth=2.5;
     ctx.beginPath(); ctx.moveTo(a.x-Math.cos(a.ang)*10,a.y-Math.sin(a.ang)*10); ctx.lineTo(a.x,a.y); ctx.stroke();
     ctx.fillStyle='#efe6d0'; ctx.beginPath(); ctx.arc(a.x,a.y,2.2,0,7); ctx.fill();
+  }
+
+  // turkeys
+  for(const tk of turkeys){
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(tk.x,tk.y+9,10,4,0,0,7); ctx.fill();
+    ctx.fillStyle='#5d4028'; ctx.beginPath(); ctx.ellipse(tk.x,tk.y,11,9,0,0,7); ctx.fill();      // body
+    ctx.fillStyle='#7a5a38'; ctx.beginPath(); ctx.arc(tk.x-8,tk.y-2,6,Math.PI*.6,Math.PI*1.6); ctx.fill(); // tail fan
+    const hx=tk.x+Math.cos(tk.dir)*9, hy=tk.y+Math.sin(tk.dir)*9-6;
+    ctx.fillStyle='#6d4a2e'; ctx.beginPath(); ctx.arc(hx,hy,4.2,0,7); ctx.fill();                 // head
+    ctx.fillStyle='#c23c3c'; ctx.fillRect(hx-1,hy+2,2,4);                                          // wattle
+    ctx.fillStyle='#ffd42a'; ctx.beginPath(); ctx.moveTo(hx+3,hy); ctx.lineTo(hx+8,hy+1); ctx.lineTo(hx+3,hy+3); ctx.fill(); // beak
   }
 
   // NPCs
@@ -679,17 +726,17 @@ function draw(){
   ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.stroke();
   ctx.font=(bb.r*0.85)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('🎒', bb.x, bb.y+2); ctx.textBaseline='alphabetic';
-  const nItems=P.inv.item_bread+P.inv.item_potion;
+  const nItems=Object.values(P.inv).reduce((a,b)=>a+b,0);
   if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+17,bb.y-17,9,0,7); ctx.fill();
     ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.textBaseline='middle'; ctx.fillText(nItems, bb.x+17, bb.y-16); ctx.textBaseline='alphabetic'; }
   // contextual TALK button — appears only when near someone (Genshin-style interaction prompt)
-  const nearN=npcNearby();
-  if(nearN && !dialogOpen){
+  const nearN=npcNearby(), nearT=turkeyNearby();
+  if((nearN||nearT) && !dialogOpen){
     const tb=talkBtn(), gl=.5+.25*Math.sin(performance.now()/240);
     ctx.fillStyle='rgba(58,48,26,.85)'; ctx.beginPath(); ctx.arc(tb.x,tb.y,tb.r,0,7); ctx.fill();
     ctx.strokeStyle='rgba(255,217,119,'+gl+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(tb.x,tb.y,tb.r,0,7); ctx.stroke();
-    ctx.font=(tb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💬', tb.x, tb.y+2); ctx.textBaseline='alphabetic';
-    ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.fillText(nearN.nm.split(' ')[0], tb.x, tb.y-tb.r-8);
+    ctx.font=(tb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText(nearN?'💬':'🤲', tb.x, tb.y+2); ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.fillText(nearN? nearN.nm.split(' ')[0] : 'GRAB!', tb.x, tb.y-tb.r-8);
   }
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
   if(!joy.active) ctx.fillText('press & drag anywhere to move', 18, vh-20);
@@ -780,14 +827,40 @@ if(location.hash==='#test-quests'){
   openDialog(dorgan);
   ok($('shopBox').children.length===1 && $('shopBox').children[0].textContent.includes('100'), 'Dorgan now sells potions at 100');
   while(dialogOpen) advanceDialog();
-  ok(P.coins===150, 'coins after both quests = 150 (NOTE: sword costs 200 — flagged to Kaylee)');
-  // Modo sells three things; buying works end-to-end
+  ok(P.coins===150, 'coins after two quests = 150');
+  // quest 3: Erik's turkey business (teaches GRAB)
+  const erik=NPCS.find(n=>n.id==='npc_erik');
+  openDialog(erik); ok($('shopBox').children.length===1, 'Erik sells only bread before the turkey quest'); while(dialogOpen) advanceDialog();
+  Quests.update(30001);
+  ok(questState.currentId==='quest_main_03_turkeys' && questState.stage==='offer', '30s later: Erik offers the turkey quest');
+  openDialog(erik); while(dialogOpen) advanceDialog();
+  ok(questState.stage==='active', 'turkey quest active');
+  ok(turkeys.length===4, '4 turkeys wander the meadow');
+  const t0=turkeys.length;
+  P.x=turkeys[0].x; P.y=turkeys[0].y; catchTurkey();
+  ok(turkeys.length===t0-1, 'GRAB catches a nearby turkey');
+  for(let i=0;i<2;i++) Quests.emit('catch',{target:'entity_turkey'});
+  ok(Quests.trackerText()==='🏆 Bring the turkeys to Erik!', 'tracker sends you back to Erik');
+  const c2=P.coins;
+  openDialog(erik); while(dialogOpen) advanceDialog();
+  ok(P.coins===c2+50, 'Erik pays 50');
+  ok(P.coins===200, 'THE ECONOMY WORKS: all quests = exactly one sword (200)');
+  ok(questState.flags.flag_erik_turkey_stock===true, 'turkey meat unlocked at Erik');
+  openDialog(erik);
+  ok($('shopBox').children.length===2, 'Erik now sells bread AND turkey meat');
+  $('shopBox').children[1].click();
+  ok(P.inv.item_turkey===1 && P.coins===185, 'bought turkey meat for 15');
+  while(dialogOpen) advanceDialog();
+  P.hp=4; P.inv.item_turkey--; useItem('item_turkey');
+  ok(P.hp===7, 'turkey meat restores 1½ hearts (3 halves)');
+  // Modo: buy the sword with EARNED coins
   openDialog(modo);
   ok($('shopBox').children.length===3, 'Modo sells sword / bow / arrows');
-  P.coins=500;
+  P.coins=200;
   $('shopBox').children[0].click();
-  ok(P.weapons.sword===true && P.coins===300, 'bought the sword for 200');
+  ok(P.weapons.sword===true && P.coins===0, 'bought the sword with quest earnings (200→0)');
   ok($('shopBox').children[0].disabled, 'sword button now says owned');
+  P.coins=300;
   $('shopBox').children[1].click(); $('shopBox').children[2].click();
   ok(P.weapons.bow===true && P.arrows===10 && P.coins===120, 'bought bow (100) + arrow pack (80) → 10 arrows');
   while(dialogOpen) advanceDialog();
@@ -803,6 +876,6 @@ if(location.hash==='#test-quests'){
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12.5px/1.65 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;
-  div.textContent='PLAYTEST-FIXES SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
+  div.textContent='FULL QUEST-CHAIN + ECONOMY SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
   document.getElementById('app').appendChild(div);
 }

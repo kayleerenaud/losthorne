@@ -156,8 +156,10 @@
     item_potion: 100,
     item_sword: 200,
     item_bow: 100,
-    item_arrows: 80
+    item_arrows: 80,
     // pack of 10 (pack size = placeholder guess, not spec'd)
+    item_turkey: 15
+    // price = placeholder guess (restores 1.5 hearts vs bread's 1 at 10)
   };
   var STARTING_COINS = 50;
 
@@ -176,6 +178,13 @@
       nm: "Mystery Potion",
       st: 'A power for 30 seconds — rolled the moment you buy it:<br>💪 Ogre Strength (hit much harder)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
       effect: { kind: "mystery_potion" }
+    },
+    item_turkey: {
+      id: "item_turkey",
+      ic: "🍗",
+      nm: "Roast Turkey",
+      st: "Hearty meadow turkey, roasted by Erik. Restores 1½ ❤️ and quiets hunger.",
+      effect: { kind: "heal", halfHearts: 3, resetHunger: true, banner: "You feast on roast turkey. +1½ ❤️", float: "+1½ ❤️" }
     },
     item_sword: {
       id: "item_sword",
@@ -225,7 +234,10 @@
     pos: { x: 930, y: 1195 },
     look: { outfit: "#2f5d7d", hat: false },
     lines: ["Psst — bread, fresh-ish! Only 10 coins. Nothing in Losthorne is free, friend."],
-    shop: [{ item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" }]
+    shop: [
+      { item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" },
+      { item: "item_turkey", label: "🍗 Turkey meat — {price} coins (+1½ ❤️)", banner: "🍗 Roast turkey wrapped and tucked away", requiresFlag: "flag_erik_turkey_stock" }
+    ]
   };
 
   // prototype/src/js/data/npcs/dorgan.js
@@ -412,7 +424,7 @@
       offer: "💬 Talk to Chief Bonbottom (tap near him)",
       active: "🫐 Blueberries: {n}/4",
       complete: "🏆 Bring the berries to Dorgan!",
-      afterReward: "✅ All quests done — explore Losthorne!"
+      afterReward: "🌿 Explore! Erik looks like he is scheming something…"
     },
     banners: {
       start: "📜 Quest: gather 4 blueberries for Dorgan!",
@@ -422,6 +434,42 @@
     },
     reward: { coins: 40 },
     setFlagOnReward: "flag_dorgan_shop_open",
+    next: { quest: "quest_main_03_turkeys", delayMs: 3e4, banner: "📜 Erik is waving you over — he has a job!" }
+  };
+
+  // prototype/src/js/data/quests/main-03-turkeys.js
+  var main_03_turkeys_default = {
+    id: "quest_main_03_turkeys",
+    giver: "npc_erik",
+    turnIn: "npc_erik",
+    objective: { type: "catch", target: "entity_turkey", count: 3 },
+    dialogue: {
+      offer: [
+        "Psst — warrior! Business idea. The wild turkeys in the meadow? Their feathers sell like fresh bread.",
+        "Catch me 3 of them. Sneak up close and GRAB one with your hands — a 🤲 button appears when you're close enough.",
+        "50 coins in it for you. Nothing in Losthorne is free… except my excellent advice."
+      ],
+      active: ["Three turkeys, warrior! Chase them down in the meadow south of the woods and GRAB them when you're close."],
+      complete: [
+        "HA! Look at these beauties — feathers for WEEKS! Here's your 50 coins, well earned.",
+        "And with turkey to spare… I'll sell you the roast meat. 15 coins, restores a heart and a half. Erik provides!"
+      ],
+      afterReward: []
+    },
+    tracker: {
+      offer: "💬 Erik is waving you over…",
+      active: "🦃 Turkeys caught: {n}/3",
+      complete: "🏆 Bring the turkeys to Erik!",
+      afterReward: "✅ All quests done — explore Losthorne!"
+    },
+    banners: {
+      start: "📜 Quest: catch 3 turkeys for Erik! (get close and GRAB)",
+      objectiveDone: "🦃 3/3! Bring them to Erik!",
+      reward: "🎉 Erik pays you 50 coins — turkey meat now for sale!",
+      progress: "🦃 Turkey caught! {n}/3"
+    },
+    reward: { coins: 50 },
+    setFlagOnReward: "flag_erik_turkey_stock",
     next: null
   };
 
@@ -572,7 +620,7 @@
     weapons: { fists: true, sword: false, bow: false },
     arrows: 0,
     potionRolls: [],
-    inv: { item_bread: 0, item_potion: 0 }
+    inv: { item_bread: 0, item_potion: 0, item_turkey: 0 }
   };
   var WEAPONS = { fists: { icon: "👊", dmg: 1, range: 50 }, sword: { icon: "⚔️", dmg: 3, range: 74 }, bow: { icon: "🏹" } };
   function ownedWeapons() {
@@ -636,7 +684,7 @@
       banner("🧪 Dorgan hands you a potion… " + POTION_POWERS[k].ic + " " + POTION_POWERS[k].nm + "!");
     } else {
       P.coins -= price;
-      P.inv[entry.item]++;
+      P.inv[entry.item] = (P.inv[entry.item] || 0) + 1;
       banner(entry.banner);
     }
     renderShop();
@@ -648,6 +696,7 @@
     if (!d || !d.shop) return;
     if (d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag]) return;
     for (const entry of d.shop) {
+      if (entry.requiresFlag && !questState.flags[entry.requiresFlag]) continue;
       const def = ITEM_DEFS[entry.item], price = PRICES[entry.item];
       const b = document.createElement("button");
       b.className = "btn shopBtn";
@@ -670,7 +719,39 @@
     [[600, 420], [840, 300], [1120, 460], [920, 560]].forEach((g) => goblins.push({ x: g[0], y: g[1], hp: 8, maxhp: 8, dir: Math.random() * 7, t: 0, hurtT: 0, atkT: 0, alive: true, showBar: false }));
   }
   spawnGoblins();
-  Quests.init([main_01_goblins_default, main_02_blueberries_default], "quest_main_01_goblins", {
+  var turkeys = [];
+  function spawnTurkeys() {
+    turkeys.length = 0;
+    [[500, 860], [900, 930], [1250, 880], [700, 1010]].forEach((t) => turkeys.push({ x: t[0], y: t[1], dir: Math.random() * 7, t: 0 }));
+  }
+  spawnTurkeys();
+  function turkeyNearby() {
+    let best = null, bd = 60;
+    for (const tk of turkeys) {
+      const d = Math.hypot(tk.x - P.x, tk.y - P.y);
+      if (d < bd) {
+        bd = d;
+        best = tk;
+      }
+    }
+    return best;
+  }
+  function catchTurkey() {
+    var _a;
+    const tk = turkeyNearby();
+    if (!tk) return;
+    const r = Quests.emit("catch", { target: "entity_turkey" });
+    if (r.counted) {
+      turkeys.splice(turkeys.indexOf(tk), 1);
+      banner((_a = r.banner) != null ? _a : "🦃 Caught one!");
+      addFloat(P.x, P.y - 36, "🦃 grabbed!", "#f0d8a0", 18);
+    } else {
+      banner("🦃 You grab the turkey… it squirms free. (No reason to keep it right now)");
+      tk.x = 200 + Math.random() * 1200;
+      tk.y = 760 + Math.random() * 280;
+    }
+  }
+  Quests.init([main_01_goblins_default, main_02_blueberries_default, main_03_turkeys_default], "quest_main_01_goblins", {
     banner: (t) => banner(t),
     addCoins: (n) => {
       P.coins += n;
@@ -715,7 +796,7 @@
     if (near(smashBtn(), 12)) return "smash";
     if (near(wpnBtn(), 12)) return "wpn";
     if (near(bagBtn(), 12)) return "bag";
-    if (npcNearby() && !dialogOpen && near(talkBtn(), 12)) return "talk";
+    if ((npcNearby() || turkeyNearby()) && !dialogOpen && near(talkBtn(), 12)) return "talk";
     return null;
   }
   function pointerDown(p, id) {
@@ -777,7 +858,11 @@
       return;
     }
     const n = npcNearby();
-    if (n) openDialog(n);
+    if (n) {
+      openDialog(n);
+      return;
+    }
+    if (turkeyNearby()) catchTurkey();
   }
   function pressButton(kind) {
     if (kind === "bag") {
@@ -785,6 +870,7 @@
     } else if (kind === "talk") {
       const n = npcNearby();
       if (n && !dialogOpen) openDialog(n);
+      else if (!dialogOpen) catchTurkey();
     } else if (kind === "wpn") {
       const ows = ownedWeapons();
       if (ows.length < 2) {
@@ -1141,6 +1227,25 @@
       });
       if (dead) arrows.splice(i, 1);
     }
+    for (const tk of turkeys) {
+      const d = Math.hypot(P.x - tk.x, P.y - tk.y);
+      if (d < 120 && !blocked()) {
+        const a = Math.atan2(tk.y - P.y, tk.x - P.x);
+        tk.x += Math.cos(a) * 2.1;
+        tk.y += Math.sin(a) * 2.1;
+        tk.dir = a;
+      } else {
+        tk.t += dt;
+        if (tk.t > 1800) {
+          tk.t = 0;
+          tk.dir = Math.random() * 7;
+        }
+        tk.x += Math.cos(tk.dir) * 0.5;
+        tk.y += Math.sin(tk.dir) * 0.5;
+      }
+      tk.x = Math.max(160, Math.min(W - 160, tk.x));
+      tk.y = Math.max(720, Math.min(1080, tk.y));
+    }
     for (const d of dummies) {
       if (d.hp <= 0) {
         d.respawnT -= dt;
@@ -1335,6 +1440,33 @@
       ctx.fillStyle = "#efe6d0";
       ctx.beginPath();
       ctx.arc(a.x, a.y, 2.2, 0, 7);
+      ctx.fill();
+    }
+    for (const tk of turkeys) {
+      ctx.fillStyle = "rgba(0,0,0,.25)";
+      ctx.beginPath();
+      ctx.ellipse(tk.x, tk.y + 9, 10, 4, 0, 0, 7);
+      ctx.fill();
+      ctx.fillStyle = "#5d4028";
+      ctx.beginPath();
+      ctx.ellipse(tk.x, tk.y, 11, 9, 0, 0, 7);
+      ctx.fill();
+      ctx.fillStyle = "#7a5a38";
+      ctx.beginPath();
+      ctx.arc(tk.x - 8, tk.y - 2, 6, Math.PI * 0.6, Math.PI * 1.6);
+      ctx.fill();
+      const hx = tk.x + Math.cos(tk.dir) * 9, hy = tk.y + Math.sin(tk.dir) * 9 - 6;
+      ctx.fillStyle = "#6d4a2e";
+      ctx.beginPath();
+      ctx.arc(hx, hy, 4.2, 0, 7);
+      ctx.fill();
+      ctx.fillStyle = "#c23c3c";
+      ctx.fillRect(hx - 1, hy + 2, 2, 4);
+      ctx.fillStyle = "#ffd42a";
+      ctx.beginPath();
+      ctx.moveTo(hx + 3, hy);
+      ctx.lineTo(hx + 8, hy + 1);
+      ctx.lineTo(hx + 3, hy + 3);
       ctx.fill();
     }
     for (const n of NPCS) drawPerson(n.x, n.y, 0, { hair: "#555", outfit: n.col, skin: "#e0b088" }, n.hat, Math.hypot(n.x - P.x, n.y - P.y) < 70);
@@ -1585,7 +1717,7 @@
     ctx.textBaseline = "middle";
     ctx.fillText("🎒", bb.x, bb.y + 2);
     ctx.textBaseline = "alphabetic";
-    const nItems = P.inv.item_bread + P.inv.item_potion;
+    const nItems = Object.values(P.inv).reduce((a, b) => a + b, 0);
     if (nItems > 0) {
       ctx.fillStyle = "#ffd977";
       ctx.beginPath();
@@ -1597,8 +1729,8 @@
       ctx.fillText(nItems, bb.x + 17, bb.y - 16);
       ctx.textBaseline = "alphabetic";
     }
-    const nearN = npcNearby();
-    if (nearN && !dialogOpen) {
+    const nearN = npcNearby(), nearT = turkeyNearby();
+    if ((nearN || nearT) && !dialogOpen) {
       const tb = talkBtn(), gl = 0.5 + 0.25 * Math.sin(performance.now() / 240);
       ctx.fillStyle = "rgba(58,48,26,.85)";
       ctx.beginPath();
@@ -1611,11 +1743,11 @@
       ctx.stroke();
       ctx.font = tb.r * 0.9 + "px Georgia";
       ctx.textBaseline = "middle";
-      ctx.fillText("💬", tb.x, tb.y + 2);
+      ctx.fillText(nearN ? "💬" : "🤲", tb.x, tb.y + 2);
       ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "#ffd977";
       ctx.font = "11px Georgia";
-      ctx.fillText(nearN.nm.split(" ")[0], tb.x, tb.y - tb.r - 8);
+      ctx.fillText(nearN ? nearN.nm.split(" ")[0] : "GRAB!", tb.x, tb.y - tb.r - 8);
     }
     ctx.fillStyle = "rgba(240,230,200,.3)";
     ctx.font = "11.5px Georgia";
@@ -1784,13 +1916,46 @@
     openDialog(dorgan);
     ok($("shopBox").children.length === 1 && $("shopBox").children[0].textContent.includes("100"), "Dorgan now sells potions at 100");
     while (dialogOpen) advanceDialog();
-    ok(P.coins === 150, "coins after both quests = 150 (NOTE: sword costs 200 — flagged to Kaylee)");
+    ok(P.coins === 150, "coins after two quests = 150");
+    const erik = NPCS.find((n) => n.id === "npc_erik");
+    openDialog(erik);
+    ok($("shopBox").children.length === 1, "Erik sells only bread before the turkey quest");
+    while (dialogOpen) advanceDialog();
+    Quests.update(30001);
+    ok(questState.currentId === "quest_main_03_turkeys" && questState.stage === "offer", "30s later: Erik offers the turkey quest");
+    openDialog(erik);
+    while (dialogOpen) advanceDialog();
+    ok(questState.stage === "active", "turkey quest active");
+    ok(turkeys.length === 4, "4 turkeys wander the meadow");
+    const t0 = turkeys.length;
+    P.x = turkeys[0].x;
+    P.y = turkeys[0].y;
+    catchTurkey();
+    ok(turkeys.length === t0 - 1, "GRAB catches a nearby turkey");
+    for (let i = 0; i < 2; i++) Quests.emit("catch", { target: "entity_turkey" });
+    ok(Quests.trackerText() === "🏆 Bring the turkeys to Erik!", "tracker sends you back to Erik");
+    const c2 = P.coins;
+    openDialog(erik);
+    while (dialogOpen) advanceDialog();
+    ok(P.coins === c2 + 50, "Erik pays 50");
+    ok(P.coins === 200, "THE ECONOMY WORKS: all quests = exactly one sword (200)");
+    ok(questState.flags.flag_erik_turkey_stock === true, "turkey meat unlocked at Erik");
+    openDialog(erik);
+    ok($("shopBox").children.length === 2, "Erik now sells bread AND turkey meat");
+    $("shopBox").children[1].click();
+    ok(P.inv.item_turkey === 1 && P.coins === 185, "bought turkey meat for 15");
+    while (dialogOpen) advanceDialog();
+    P.hp = 4;
+    P.inv.item_turkey--;
+    useItem("item_turkey");
+    ok(P.hp === 7, "turkey meat restores 1½ hearts (3 halves)");
     openDialog(modo);
     ok($("shopBox").children.length === 3, "Modo sells sword / bow / arrows");
-    P.coins = 500;
+    P.coins = 200;
     $("shopBox").children[0].click();
-    ok(P.weapons.sword === true && P.coins === 300, "bought the sword for 200");
+    ok(P.weapons.sword === true && P.coins === 0, "bought the sword with quest earnings (200→0)");
     ok($("shopBox").children[0].disabled, "sword button now says owned");
+    P.coins = 300;
     $("shopBox").children[1].click();
     $("shopBox").children[2].click();
     ok(P.weapons.bow === true && P.arrows === 10 && P.coins === 120, "bought bow (100) + arrow pack (80) → 10 arrows");
@@ -1808,7 +1973,7 @@
     const div = document.createElement("div");
     div.style.cssText = "position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12.5px/1.65 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;";
     const fails = R.filter((r) => r.startsWith("❌")).length;
-    div.textContent = "PLAYTEST-FIXES SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
+    div.textContent = "FULL QUEST-CHAIN + ECONOMY SMOKE TEST — " + (fails ? fails + " FAILURE(S)" : "ALL " + R.length + " PASS") + "\n\n" + R.join("\n");
     document.getElementById("app").appendChild(div);
   }
 })();

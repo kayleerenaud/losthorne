@@ -66,7 +66,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 |---|---|---|
 | **Chief Bonbottom** | Village chief, quest-giver | A peaceful chief (BONBOTTOM, all one word). Gives you tasks and congratulates you when they're done. ✅ |
 | **Dorgan** | Potion-maker (druid/wizard type) | His potions grant a **RANDOM temporary power** — rolled the moment you BUY one (100 coins), so each bottle in your satchel already knows what it is. His shop is CLOSED ("out of supplies") until you finish the blueberry quest for him. Bring supplies; **better materials = potion lasts longer** 🔜. **Underwater-breathing potion** 🔜. ✅ |
-| **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. ✅ (sells bread) |
+| **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. Gives the turkey mini-quest (catch 3 → 50 coins); afterward he also sells **roast turkey meat** (15 coins, +1½ ❤️). ✅ |
 | **Modo** | Blacksmith | IN THE GAME ✅ — sells the forged sword (200), hunting bow (100), and arrow packs (80). Personal-scale gear only — no siege weapons. Armor 🔜 |
 | **Jesse** | Traveling storyteller/merchant | Travels across the whole map, so she brings NEWS — new islands, new information, rumors. Like the mailman in Zelda, she approaches YOU, and it's a breakaway moment. She *sings* her stories — music plays while the words appear on screen. Dresses more colorfully than everyone else: a **colorful dress with beads** and **tons of jewelry from different places on the map**. 🔜 |
 | Villagers | Ambience | Small characters you can greet — people just being pleasant, not quest-givers. They might occasionally give you something. 🔜 |
@@ -77,7 +77,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 - Start with **50 coins**. ✅
 - **You start with your FISTS** — no weapons. A goblin takes ~8 punches, or 3 hits with a bought sword. Earn coins → buy gear from Modo. ✅
 - **Coins are never automatic.** Coins come ONLY from people (quest rewards) and special boss hoards. Regular creatures like goblins drop NOTHING — treasure is what makes beating the Troll special. ✅
-- **Price anchors:** bread **10** · mystery potion **100** · forged (basic) sword **200** · hunting bow **100** · arrow pack **80** (10 arrows — pack size is a placeholder guess) · horse ≈ **500** · best sword ≈ **300** · small hammer ≈ **100**. Premium materials cost more. ✅ (bow is cheaper up front but arrows are a recurring cost, so it totals more than the sword — intentional)
+- **Price anchors:** bread **10** · turkey meat **15** (price is a placeholder guess) · mystery potion **100** · forged (basic) sword **200** · hunting bow **100** · arrow pack **80** (10 arrows — pack size is a placeholder guess) · horse ≈ **500** · best sword ≈ **300** · small hammer ≈ **100**. Premium materials cost more. ✅ (bow is cheaper up front but arrows are a recurring cost, so it totals more than the sword — intentional)
+- **The starter economy balances exactly:** 50 start + 60 (goblins) + 40 (berries) + 50 (turkeys) = **200 = one forged sword**. ✅
 - Money is spent on: weapons/armor, supplies for Dorgan's potions, food, animal feed, **bridge tolls** (fancier villages charge to cross into their land), bigger maps, small taxes.
 - **Village specialty armor:** every village's armory is different and suited to different things — like every country having its own soccer uniform. The lake village sells **underwater armor** (wanted before the Kraken). 🔜
 - Rewards: goblins drop coins ✅; the Troll guards a treasure hoard (big payout) 🔜.
@@ -93,12 +94,13 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **Potion effects are VISIBLE:** an active potion wraps the player in a colored pulsing aura (orange = strength, cyan = speed, silver = stoneskin) plus a named countdown under the coin counter. ✅
 - Potion powers (random, 30s): 💪 Ogre Strength (+2 damage on every hit), ⚡ Wind Speed (much faster), 🛡️ Stoneskin (blows bounce off). Status shows as a **depleting purple bar**. **Dying removes your active potion.** ✅ *(first-pass powers — subject to change)*
 - Training dummies in the village square for safe practice (5 hits each); they rebuild after being destroyed. ✅
+- **The GRAB function** ✅: get close to a catchable creature (turkeys for now) and a 🤲 GRAB button appears — same contextual slot as the 💬 talk button. Grabbing is the seed of the future taming mechanic (§10).
 
 ## 8. Health, Food & Death
 
 - Start with **5 hearts**; damage comes in **half-hearts**. ✅
 - **Hunger:** go too long without eating and you slowly lose half-hearts (currently ~75s per half-heart — tunable). ✅
-- **Food in the wild:** berries, wild turkey, fish. In villages: buy food (Erik's bread ✅).
+- **Food in the wild:** berries ✅, wild turkey ✅ (catch them — they flee!), fish 🔜. In villages: buy food (Erik's bread ✅, Erik's roast turkey +1½ ❤️ ✅).
 - **THE BERRY RULE:** only eat **blueberries** (+½ ❤️ ✅). **Red berries = instant death** and you restart at the edge of that territory. ✅
 - **Special meal:** a multi-ingredient cooked dish (blueberries among the ingredients) restoring **up to 4 hearts** — never beyond your heart cap. 🔜
 - **Heart cap:** 5 hearts until the Evilcorn is defeated (see §9) → then **10 hearts** going into the final boss. 🔜
@@ -131,6 +133,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 - **The rhythm:** quest → congratulations + reward → **free exploration** → the next task. ✅
 - **Quests can be turned in to someone other than the giver:** the blueberry quest is GIVEN by the chief but DELIVERED to Dorgan — he congratulates you, pays 40 coins, and only then opens his potion shop. ✅
+- **Quest 3 — Erik's turkeys** ✅: catch 3 wild turkeys in the meadow (they flee — chase and GRAB). Reward 50 coins + Erik starts selling turkey meat. Teaches the grab function. (Turkey count 3, 30s delay before offer, and meadow location are placeholder guesses.)
 - Big quests come from chiefs; villagers giving mini-quests is an idea under discussion (see §13).
 - **Between-boss tasks teach the skill the next boss requires:**
   - A village teaches **fire-making** → hold the Troll off until morning.
@@ -159,7 +162,6 @@ Each avatar has their own unique personal side quest that the others don't — r
 ## 13. Open Questions
 
 - Exact number of mini-bosses.
-- **Economy gap to resolve:** both quests pay 150 total but the sword costs 200 — players can't afford any weapon yet. Raise rewards, or add a coin-earning quest?
 - Arrow pack size (currently 10 — placeholder guess).
 - Do villagers give mini-quests, or only chiefs give quests?
 - Max players per room: exactly 2, or more?

@@ -18,7 +18,7 @@ export default {
     offer:'💬 Talk to Chief Bonbottom (tap near him)',
     active:'🫐 Blueberries: {n}/4',
     complete:'🏆 Bring the berries to Dorgan!',
-    afterReward:'✅ All quests done — explore Losthorne!',
+    afterReward:'🌿 Explore! Erik looks like he is scheming something…',
   },
   banners:{
     start:'📜 Quest: gather 4 blueberries for Dorgan!',
@@ -28,5 +28,5 @@ export default {
   },
   reward:{ coins:40 },
   setFlagOnReward:'flag_dorgan_shop_open',
-  next:null,
+  next:{ quest:'quest_main_03_turkeys', delayMs:30000, banner:'📜 Erik is waving you over — he has a job!' },
 };

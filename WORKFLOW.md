@@ -47,10 +47,10 @@
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.10 — playtest fixes round 1 (on top of half-done reorg: steps 1–5 of 10 complete)
-- **Phase:** playtest-driven feature work; reorg steps 6–10 still queued
-- **This checkpoint:** charged smash (mini/full, rooted while charging), fists-first progression, Modo shop (sword/bow/arrow packs), limited arrows, potion rolled at purchase + depleting bar + lost on death, bread 10 / potion 100, no goblin coin drops, dummies 5 hits, berry quest turns in to Dorgan and unlocks his shop. Verified by 26-assertion smoke test.
-- **Flagged to Kaylee:** economy gap (quests pay 150, sword costs 200); arrow pack size 10 = guess; villagers-give-mini-quests undecided
-- **Known issues:** dead code + dev shortcuts still pending reorg step 9
+- **Version:** v0.11 — Erik's turkey quest + GRAB function (reorg steps 6–10 still queued)
+- **Phase:** playtest-driven feature work
+- **This checkpoint:** quest 3 (catch 3 turkeys → 50 coins → Erik sells turkey meat +1½❤️ at 15), fleeing turkey AI, contextual 🤲 GRAB button, gated shop entries, economy now balances (all quests = exactly one 200-coin sword). 38-assertion smoke test green.
+- **Guesses flagged to Kaylee:** turkey count 3 · meat price 15 · arrow pack 10 · 30s pre-offer delay · turkeys live in the meadow between village and forest
+- **Known issues:** dead code + dev shortcuts pending reorg step 9
 - **Placeholders:** all art, mock logins, mock room codes
-- **Untested:** human phone play-through of the new charge timing (3s) — feel check needed
+- **Untested:** human phone play-through of grab-chasing feel
