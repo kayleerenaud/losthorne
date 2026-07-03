@@ -981,6 +981,7 @@
     [[500, 860], [900, 930], [1250, 880], [700, 1010]].forEach((t) => turkeys.push({ x: t[0], y: t[1], dir: Math.random() * 7, t: 0 }));
   }
   var CURSED_STONE = { x: 840, y: 170 };
+  var VILLAGE = { x: 800, y: 1230, rx: 365, ry: 245 };
   spawnTurkeys();
   var scene = "village";
   var SHOP_NPCS = [erik_default, dorgan_default, modo_default];
@@ -1823,6 +1824,14 @@
       }
       g.x = Math.max(40, Math.min(W - 40, g.x));
       g.y = Math.max(40, Math.min(H - 40, g.y));
+      {
+        const ex = (g.x - VILLAGE.x) / VILLAGE.rx, ey = (g.y - VILLAGE.y) / VILLAGE.ry;
+        if (ex * ex + ey * ey < 1) {
+          const a = Math.atan2(g.y - VILLAGE.y, g.x - VILLAGE.x);
+          g.x = VILLAGE.x + Math.cos(a) * VILLAGE.rx;
+          g.y = VILLAGE.y + Math.sin(a) * VILLAGE.ry;
+        }
+      }
       if (g.atkT > 0) g.atkT--;
     }
   }
@@ -2854,6 +2863,15 @@
     const modo = NPCS.find((n) => n.id === "npc_modo");
     ok(AVATARS[0].nm === "Zippy", "Zippy leads the avatar roster");
     ok(P.coins === 10 && P.weapon === "fists" && goblins[0].hp === 6 && goblins.length === 6, "start: 10 coins, fists, 6-punch goblins, 6 roaming");
+    goblins[0].x = 800;
+    goblins[0].y = 1230;
+    update(16);
+    {
+      const ex = (goblins[0].x - VILLAGE.x) / VILLAGE.rx, ey = (goblins[0].y - VILLAGE.y) / VILLAGE.ry;
+      ok(ex * ex + ey * ey >= 0.99, "goblins cannot cross into the village");
+    }
+    goblins[0].x = 600;
+    goblins[0].y = 420;
     openDialog(chief);
     while (dialogOpen) advanceDialog();
     goblins.slice(0, 5).forEach((g) => hitTarget(g, "gob", 99, 0));

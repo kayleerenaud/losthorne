@@ -126,7 +126,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 **The village (home base):** resupply, sleep, your own house — you start with a **hut** and can expand/upgrade it over time. 🔜
 
 ### Regular enemies
-- **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest. 6 punches (or 2 sword hits) to defeat.
+- **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest. 6 punches (or 2 sword hits) to defeat. **They can NEVER cross into the village** — the village boundary is protected ground; they stop at its edge.
 - **The Visiting Champion** ✅ (quest 4) — a larger human who FIGHTS BACK, hard. He runs a fixed, LEARNABLE pattern: chase → shield up (unhittable) → swing → swing → a brief OPEN moment (green ring — strike now!) → repeat. He presses constantly and lands real hits (2 half-hearts each). 28 HP. Defeat him — it's an entertainment fight — and his shield becomes yours (permanent gear; it can never be consumed or lost).
 - **Wisps** 🔜 — little magical things.
 - **Bears** 🔜 — big wild animals.

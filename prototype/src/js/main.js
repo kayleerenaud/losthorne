@@ -194,6 +194,7 @@ function spawnTurkeys(){
   [[500,860],[900,930],[1250,880],[700,1010]].forEach(t=>turkeys.push({x:t[0],y:t[1],dir:Math.random()*7,t:0}));
 }
 const CURSED_STONE={x:840,y:170};
+const VILLAGE={x:800,y:1230,rx:365,ry:245};   // goblins can't cross this line
 spawnTurkeys();
 
 // ---------- SCENES: the village + shop interiors ----------
@@ -723,6 +724,10 @@ function update(dt){
       if(d<30 && g.atkT<=0){ hurtPlayer(1); g.atkT=70; banner('A goblin bites you! -½ ❤️'); } }
     else { g.t+=dt; if(g.t>2200){ g.t=0; g.dir=Math.random()*7; } g.x+=Math.cos(g.dir)*.4; g.y+=Math.sin(g.dir)*.4; }
     g.x=Math.max(40,Math.min(W-40,g.x)); g.y=Math.max(40,Math.min(H-40,g.y));
+    // goblins never cross into the village — it's protected ground
+    { const ex=(g.x-VILLAGE.x)/VILLAGE.rx, ey=(g.y-VILLAGE.y)/VILLAGE.ry;
+      if(ex*ex+ey*ey < 1){ const a=Math.atan2(g.y-VILLAGE.y, g.x-VILLAGE.x);
+        g.x=VILLAGE.x+Math.cos(a)*VILLAGE.rx; g.y=VILLAGE.y+Math.sin(a)*VILLAGE.ry; } }
     if(g.atkT>0)g.atkT--;
   }
 }
@@ -1244,6 +1249,10 @@ if(location.hash==='#test-quests'){
   const modo=NPCS.find(n=>n.id==='npc_modo');
   ok(AVATARS[0].nm==='Zippy', 'Zippy leads the avatar roster');
   ok(P.coins===10 && P.weapon==='fists' && goblins[0].hp===6 && goblins.length===6, 'start: 10 coins, fists, 6-punch goblins, 6 roaming');
+  goblins[0].x=800; goblins[0].y=1230; update(16);
+  { const ex=(goblins[0].x-VILLAGE.x)/VILLAGE.rx, ey=(goblins[0].y-VILLAGE.y)/VILLAGE.ry;
+    ok(ex*ex+ey*ey>=0.99, 'goblins cannot cross into the village'); }
+  goblins[0].x=600; goblins[0].y=420;
   // Q1
   openDialog(chief); while(dialogOpen) advanceDialog();
   goblins.slice(0,5).forEach(g=>hitTarget(g,'gob',99,0));
