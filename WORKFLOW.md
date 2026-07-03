@@ -47,10 +47,10 @@
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.12 — playtest round 3 (reorg steps 6–10 still queued)
+- **Version:** v0.13 — playtest round 4 (reorg steps 6–10 still queued)
 - **Phase:** playtest-driven feature work
-- **This checkpoint:** avatar renames (Zippy/Oak/Willow/Dusty) · morphing context button (💬/🚪/🤲/💥/🎵/💤) · double-tap dash · goblins 6hp · 10-coin start · shop INTERIORS w/ icon signs (🪙🧪🔨) · blueberries as satchel items (deliver quest tracks live inventory) · story rework: chain flows Chief→Dorgan→Erik→Modo, rewards 110/free-potion/90 = sword+bread · Visiting Champion quest (shield/wind-up/strike AI) · won Champion's Shield blocks while charging (DRAFT) · #dev testing menu (preview-only). 30-assertion smoke test green.
-- **Guesses/drafts flagged to Kaylee:** shield-while-charging mechanic (their debate wasn't settled — built my proposal) · Erik pays 90 (Kaylee fixed only the 110) · champion stats (20hp, 2-half-heart hits, 1.5s shield/0.65s windup) · interior layouts/props · dash tuning (double-tap, ~1s cooldown) · Oak/Willow idle = 💤 rest (no instruments)
-- **Known issues:** dead code + dev hashes pending reorg step 9 quarantine
+- **This checkpoint:** Champion's Shield = permanent gear (vanishing-item bug fixed) · Modo gates bow/arrows behind the champion · wild turkeys are satchel items, Erik buys at 15 forever (repeatable income) · champion rebuilt: 28hp, fixed learnable pattern (chase→shield→swing→swing→OPEN), relentless pressure · dash works mid-joystick (second-finger double-tap) · death = 2½-heart respawn, quest state untouched · Challenge 5: Erik's shield-training sparring. 23-assertion smoke test green.
+- **Recorded for later (not built):** crossbow goblin idea; global pacing pass once content grows
+- **Known issues:** dead code + dev hashes pending reorg step 9
 - **Placeholders:** all art, mock logins, mock room codes
-- **Untested:** phone play-through of interiors, dash feel, champion difficulty
+- **Untested:** phone feel of the buffed champion + sparring session

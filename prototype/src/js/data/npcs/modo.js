@@ -6,10 +6,10 @@ export default {
   pos:{x:260,y:120},
   look:{ outfit:'#4f4a45', hat:false },
   lines:["Modo likes warriors who hit hard. Fists are free — steel is not.",
-         "A forged sword, a hunting bow, arrows by the pack. Coins first, friend."],
+         "The sword is for sale. The bow? Prove yourself against a REAL opponent first — then we talk ranged weapons."],
   shop:[
     { item:'item_sword',  label:'🗡️ Forged sword — {price} coins',      banner:'🗡️ The sword is yours. Switch weapons to draw it!' },
-    { item:'item_bow',    label:'🏹 Hunting bow — {price} coins',        banner:'🏹 The bow is yours — you\'ll need arrows!' },
-    { item:'item_arrows', label:'🎯 Arrow pack (10) — {price} coins',    banner:'🎯 +10 arrows in your quiver' },
+    { item:'item_bow',    label:'🏹 Hunting bow — {price} coins',        banner:'🏹 The bow is yours — you\'ll need arrows!', requiresFlag:'flag_champion_defeated' },
+    { item:'item_arrows', label:'🎯 Arrow pack (10) — {price} coins',    banner:'🎯 +10 arrows in your quiver', requiresFlag:'flag_champion_defeated' },
   ],
 };

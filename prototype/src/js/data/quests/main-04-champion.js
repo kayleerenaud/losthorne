@@ -26,5 +26,6 @@ export default {
     reward:'🛡️ You won the Champion’s Shield! (hold to charge = shield raised)',
   },
   reward:{ item:'item_shield' },
-  next:null,
+  setFlagOnReward:'flag_champion_defeated',
+  next:{ quest:'quest_main_05_shield_training', delayMs:8000, banner:'🪙 Erik waves you over: “Bring that shield here — I’ll show you how it’s USED!”' },
 };

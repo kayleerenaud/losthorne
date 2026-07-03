@@ -36,7 +36,7 @@
   - Movement joystick: invisible until pressed; appears wherever the finger lands on open ground ✅
   - Attack cluster lower-RIGHT: big attack button in the corner, smaller buttons arced around it ✅ (context button, 🏹/🗡️/👊 weapon switch, 🎒 satchel)
   - **THE CONTEXT BUTTON** ✅: ONE slot that morphs to what you need right now — 💬 talk (near people), 🚪 enter/leave (at shop doors), 🤲 GRAB (near turkeys), 💥 smash (near enemies/dummies, hold to charge), and when nothing's happening: 🎵 play your instrument (Zippy/Dusty) or 💤 rest (Oak/Willow) — the leisure activity from §4.
-  - **Dash** ✅: double-tap anywhere on open ground = a quick burst forward (gesture, not a button — controls stay uncrowded). Short cooldown.
+  - **Dash** ✅: double-tap on open ground = a quick burst forward — and it works MID-RUN: while steering with the joystick, double-tap with a second finger to dash in your movement direction. (Gesture, not a button.) Short cooldown.
   - Skill buttons support tap AND hold-for-stronger ✅ (tap 💥, or press-and-hold the attack button = smash). The 💥 button dims only during a smash cooldown, never during a slice ✅
   - Attack gestures start FROM the attack button: tap = quick attack, drag from it = aimed slice / bow pull-back ✅
   - Bow aiming: pull-back slingshot (touch-native take on Genshin's aim mode) ✅
@@ -67,8 +67,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 |---|---|---|
 | **Chief Bonbottom** | Village chief, quest-giver | A peaceful chief (BONBOTTOM, all one word). Stands in the village square (he's the chief — no shop). Gives quests and congratulates you. ✅ |
 | **Dorgan** | Potion-maker (druid/wizard type) | His potions grant a **RANDOM temporary power** — rolled the moment you BUY one (100 coins), so each bottle in your satchel already knows what it is. His shop is CLOSED ("out of supplies") until you finish the blueberry quest for him. Bring supplies; **better materials = potion lasts longer** 🔜. **Underwater-breathing potion** 🔜. ✅ |
-| **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. Gives the turkey challenge (catch 3 → 90 coins, teaches GRAB); afterward he also sells **roast turkey meat** (15 coins, +1½ ❤️). ✅ |
-| **Modo** | Blacksmith | IN THE GAME ✅ — sells the forged sword (200), hunting bow (100), and arrow packs (80). Personal-scale gear only — no siege weapons. Armor 🔜 |
+| **Erik** | Trader | **Erik with a K** — a TRADER (not a traitor). Helps supply you, but you must PAY. He gives nothing for free. Gives the turkey challenge (deliver 3 → 90 coins, teaches GRAB); afterward sells **roast turkey meat** (15 coins, +1½ ❤️) and **BUYS wild turkeys at 15 coins each, forever** — the repeatable income source. Also runs the shield-training sparring session (challenge 5). ✅ |
+| **Modo** | Blacksmith | IN THE GAME ✅ — sells the forged sword (200) from the start; the hunting bow (100) and arrow packs (80) UNLOCK only after the champion falls (you couldn't afford arrows earlier anyway). Personal-scale gear only. Armor 🔜 |
 | **Jesse** | Traveling storyteller/merchant | Travels across the whole map, so she brings NEWS — new islands, new information, rumors. Like the mailman in Zelda, she approaches YOU, and it's a breakaway moment. She *sings* her stories — music plays while the words appear on screen. Dresses more colorfully than everyone else: a **colorful dress with beads** and **tons of jewelry from different places on the map**. 🔜 |
 | Villagers | Ambience | Small characters you can greet — people just being pleasant, not quest-givers. They might occasionally give you something. 🔜 |
 | **Little Tommy** | Quest hook | A village kid who gets kidnapped (see the Barbarian, §9). 🔜 |
@@ -111,7 +111,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **THE BERRY RULE:** only **blueberries** are safe. Picking one puts it **in your satchel** — eat it from there by choice (+½ ❤️) or save it for delivery; no auto-eating. **Red berries = instant death** on touch. ✅
 - **Special meal:** a multi-ingredient cooked dish (blueberries among the ingredients) restoring **up to 4 hearts** — never beyond your heart cap. 🔜
 - **Heart cap:** 5 hearts until the Evilcorn is defeated (see §9) → then **10 hearts** going into the final boss. 🔜
-- **Death = respawn at the edge of that territory.** 🔜 (currently the code respawns you at the village square — only one territory exists so far)
+- **Death = respawn at the edge of that territory.** 🔜 (currently: village square)
+- **Death costs, but never resets** ✅: you respawn with **2½ hearts** (food still matters!) and your quest progress is untouched — the champion is still waiting where you left him. No game restarts.
 - Bread restores 1 ❤️ and quiets hunger. ✅
 
 ## 9. The World: Territories, Enemies & Bosses
@@ -122,7 +123,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 ### Regular enemies
 - **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest. 6 punches (or 2 sword hits) to defeat.
-- **The Visiting Champion** ✅ (quest 4) — a larger human who FIGHTS BACK: raises his shield (unhittable), telegraphs a wind-up (get clear or block!), then strikes hard (2 half-hearts). Learn the window between shield-down and wind-up. Defeat him WITHOUT killing him — it's an entertainment fight — and his shield becomes yours.
+- **The Visiting Champion** ✅ (quest 4) — a larger human who FIGHTS BACK, hard. He runs a fixed, LEARNABLE pattern: chase → shield up (unhittable) → swing → swing → a brief OPEN moment (green ring — strike now!) → repeat. He presses constantly and lands real hits (2 half-hearts each). 28 HP. Defeat him — it's an entertainment fight — and his shield becomes yours (permanent gear; it can never be consumed or lost).
 - **Wisps** 🔜 — little magical things.
 - **Bears** 🔜 — big wild animals.
 - **Giant wolves** 🔜 — abnormally-sized scary wolves hunting in PACKS. Tougher than goblins (take notably more hits). **Pack rule:** kill the whole pack within a time window; if one is left standing shortly after the others fall, it **summons more wolves**.
@@ -144,7 +145,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **The onboarding chain flows person-to-person** ✅: shopkeepers hint "come back later" until their moment → the Chief gives the goblin challenge (110 coins) and, at the payout, points you to Dorgan ("you could use strength… or a shield") → DORGAN himself asks for 4 blueberries and brews you a **free Stoneskin potion** (his shop opens; he points at Erik when you're broke) → ERIK teaches the GRAB with his turkey scheme (turkeys caught early count retroactively) and pays 90 — "just enough for a basic sword" → Modo's forge → **THE FIRST REAL QUEST: the visiting champion** (the §10 tutorial-fight, now drafted): beat him in the square, win his shield.
 - **Your shield (DRAFT mechanic, awaiting approval):** holding to charge a smash RAISES the won shield — blocks blows while you stand your ground. One button, no crowding; the champion literally teaches you his own move. 🚩
 - **Quests can be turned in to someone other than the giver:** the blueberry quest is GIVEN by the chief but DELIVERED to Dorgan — he congratulates you, pays 40 coins, and only then opens his potion shop. ✅
-- **Quest 3 — Erik's turkeys** ✅: catch 3 wild turkeys in the meadow (they flee — chase and GRAB). Reward 50 coins + Erik starts selling turkey meat. Teaches the grab function. (Turkey count 3, 30s delay before offer, and meadow location are placeholder guesses.)
+- **Challenge 3 — Erik's turkeys** ✅: caught turkeys go INTO YOUR SATCHEL as items; deliver 3 to Erik (pre-caught ones count automatically). Reward 90 coins + turkey meat for sale + Erik buys extra turkeys at 15 forever. Teaches GRAB.
+- **Challenge 5 — Erik's shield training** ✅: after you win the champion's shield, Erik spars you with a wooden sword. BLOCK 3 of his swings (hold to raise the shield); he coaches — tips when you get tagged, praise when you block. The next storyline beat after the champion.
 - Big quests come from chiefs; villagers giving mini-quests is an idea under discussion (see §13).
 - **Between-boss tasks teach the skill the next boss requires:**
   - A village teaches **fire-making** → hold the Troll off until morning.
@@ -175,6 +177,8 @@ Each avatar has their own unique personal side quest that the others don't — r
 - Exact number of mini-bosses.
 - Arrow pack size (currently 10 — placeholder guess).
 - Do villagers give mini-quests, or only chiefs give quests?
+- A goblin with a crossbow (ranged enemy you learn to dodge/block) — idea raised mid-playtest, not fleshed out.
+- **Pacing note for later:** once everything is more complex, all of it should take LONGER so the game pace feels right — fine for now, revisit when content grows.
 - Max players per room: exactly 2, or more?
 - Day/night cycle mechanics (the Troll fight implies one — how does it work elsewhere?).
 - The desert territory: which boss/creatures live there?
@@ -194,5 +198,6 @@ Each avatar has their own unique personal side quest that the others don't — r
 - *v0.5 — slice/hold-to-SMASH, pull-back archery, weapon switch, random potions, training dummies, goblin respawns*
 - *v0.6 — floating damage numbers, potion auras, satchel inventory (tap item → stats → use), 50-coin start, creatures drop coin piles, fixed UI text zones*
 - *v0.12 — avatar names (Zippy/Oak/Willow/Dusty), morphing context button, double-tap dash, shop interiors with icon signs, satchel blueberries, story rework (110/potion/90), the Visiting Champion + won shield, dev testing menu (#dev)*
+- *v0.13 — permanent gear fix, Modo bow-gating, sellable wild turkeys, champion pattern buff (28hp, relentless), dash-while-steering, 2½-heart respawn w/ quest persistence, Erik's shield-training challenge*
 - *v0.7 — Genshin-referenced control cluster, 💥 smash skill button, contextual 💬 talk button near NPCs*
 - *v0.8 — one-finger play: invisible anywhere-joystick, attack gestures anchored to the attack button, smash-dim fix*

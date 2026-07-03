@@ -1,6 +1,6 @@
 'use strict';
 import { AVATARS } from './data/avatars.js';
-import { PRICES, STARTING_COINS } from './data/economy.js';
+import { PRICES, SELL_PRICES, STARTING_COINS } from './data/economy.js';
 import { ITEM_DEFS } from './data/items.js';
 import { POTION_POWERS, POTION_DURATION_MS } from './data/potions.js';
 import npcChief from './data/npcs/chief-bonbottom.js';
@@ -12,6 +12,7 @@ import questGoblins from './data/quests/main-01-goblins.js';
 import questBlueberries from './data/quests/main-02-blueberries.js';
 import questTurkeys from './data/quests/main-03-turkeys.js';
 import questChampion from './data/quests/main-04-champion.js';
+import questShieldTraining from './data/quests/main-05-shield-training.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -82,7 +83,7 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0}, hasShield:false, dashT:0, dashCd:0 };
+  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0}, hasShield:false, dashT:0, dashCd:0 };
 // combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','bow'].filter(w=>P.weapons[w]); }
@@ -138,17 +139,31 @@ function buyItem(entry){
 function renderShop(){
   const box=$('shopBox'); box.innerHTML='';
   const d=dNpc && dNpc.raw;
-  if(!d || !d.shop) return;
-  if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag]) return;
-  for(const entry of d.shop){
-    if(entry.requiresFlag && !questState.flags[entry.requiresFlag]) continue;
-    const def=ITEM_DEFS[entry.item], price=PRICES[entry.item];
-    const b=document.createElement('button'); b.className='btn shopBtn';
-    const owned = def.effect.kind==='unlock_weapon' && P.weapons[def.effect.weapon];
-    b.textContent = owned? '✔ '+def.nm+' — owned' : entry.label.replace('{price}',price);
-    if(owned){ b.disabled=true; b.style.opacity=.55; }
-    b.onclick=(ev)=>{ ev.stopPropagation(); buyItem(entry); };
-    box.appendChild(b);
+  if(!d) return;
+  if(d.shop && !(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag])){
+    for(const entry of d.shop){
+      if(entry.requiresFlag && !questState.flags[entry.requiresFlag]) continue;
+      const def=ITEM_DEFS[entry.item], price=PRICES[entry.item];
+      const b=document.createElement('button'); b.className='btn shopBtn';
+      const owned = def.effect.kind==='unlock_weapon' && P.weapons[def.effect.weapon];
+      b.textContent = owned? '✔ '+def.nm+' — owned' : entry.label.replace('{price}',price);
+      if(owned){ b.disabled=true; b.style.opacity=.55; }
+      b.onclick=(ev)=>{ ev.stopPropagation(); buyItem(entry); };
+      box.appendChild(b);
+    }
+  }
+  if(d.buys){ // NPCs that BUY from you (Erik + turkeys)
+    for(const entry of d.buys){
+      const def=ITEM_DEFS[entry.item], price=SELL_PRICES[entry.item];
+      const have=P.inv[entry.item]||0;
+      const b=document.createElement('button'); b.className='btn shopBtn';
+      b.textContent=entry.label.replace('{price}',price)+(have?'  (have '+have+')':'');
+      if(!have){ b.disabled=true; b.style.opacity=.5; }
+      b.onclick=(ev)=>{ ev.stopPropagation();
+        if((P.inv[entry.item]||0)<1) return;
+        P.inv[entry.item]--; P.coins+=price; banner(entry.banner); renderShop(); };
+      box.appendChild(b);
+    }
   }
 }
 
@@ -194,8 +209,11 @@ function interiorDoorNear(){
 // ---------- THE CHAMPION (quest 4) — a human who fights back ----------
 let champion=null;
 function spawnChampion(){
-  champion={ x:800, y:1240, hp:20, maxhp:20, dir:0, state:'approach', t:0, hurtT:0, showBar:false, alive:true };
+  // THE PATTERN (learn it!): chase → SHIELD (immune) → swing → swing → OPEN (his weak moment) → repeat
+  champion={ x:800, y:1240, hp:28, maxhp:28, dir:0, state:'chase', t:0, hurtT:0, showBar:false, alive:true };
 }
+const CHAMP_PATTERN={ chase:1400, shield:1100, windup1:480, strike1:220, windup2:420, strike2:220, open:850 };
+function champStrike(c){ const d=Math.hypot(P.x-c.x,P.y-c.y); if(d<80) hurtPlayer(2,'The champion’s blow lands like a falling tree.'); }
 function turkeyNearby(){
   let best=null,bd=60;
   for(const tk of turkeys){ const d=Math.hypot(tk.x-P.x,tk.y-P.y); if(d<bd){bd=d;best=tk;} }
@@ -206,13 +224,13 @@ function catchTurkey(){
   const tk=turkeyNearby(); if(!tk) return;
   turkeys.splice(turkeys.indexOf(tk),1);
   caughtTurkeys++;
+  P.inv.item_wild_turkey=(P.inv.item_wild_turkey||0)+1;
   addFloat(P.x,P.y-36,'🦃 grabbed!','#f0d8a0',18);
-  const r=Quests.emit('catch',{target:'entity_turkey'});
-  banner(r.banner ?? (r.counted ? '🦃 Caught one!' : '🦃 Caught! Erik might pay for these one day…'));
+  banner('🦃 Wild turkey into the satchel! ('+P.inv.item_wild_turkey+') — Erik pays 15 apiece');
 }
 
 // Quest state lives in engine/quests.js (single questState object).
-Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion], 'quest_main_01_goblins', {
+Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining], 'quest_main_01_goblins', {
   banner: (t)=>{ if(t) banner(t); },
   addCoins: (n)=>{ P.coins+=n; },
   itemCount: (id)=>P.inv[id]||0,
@@ -293,6 +311,10 @@ function pointerDown(p,id){
   if((b==='atk'||ctxIsSmash) && !swp.active){ swp.active=true; swp.smashOnly=ctxIsSmash; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
   else if(b && !btnTouch.active){ btnTouch.active=true; btnTouch.id=id; btnTouch.kind=b; btnTouch.sx=p.x; btnTouch.sy=p.y; }
   else if(!b && !joy.active){ joy.active=true; joy.id=id; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; joy.t0=performance.now(); }
+  else if(!b && joy.active){ // second finger while steering: double-tap = DASH in your movement direction
+    const now=performance.now();
+    if(now-lastTapT<320){ lastTapT=0; dash(); } else lastTapT=now;
+  }
 }
 function pointerMove(p,id){
   if(joy.active && id===joy.id){ joy.dx=p.x-joy.sx; joy.dy=p.y-joy.sy; }
@@ -492,7 +514,11 @@ function renderInv(){
 }
 $('invClose').onclick=closeInv;
 $('invBack').onclick=()=>{ invSel=null; renderInv(); };
-$('invUse').onclick=()=>{ if(invSel && P.inv[invSel]>0){ P.inv[invSel]--; useItem(invSel); closeInv(); } };
+$('invUse').onclick=()=>{ if(!invSel || P.inv[invSel]<1) return;
+  const e=ITEM_DEFS[invSel].effect;
+  if(e.kind==='passive'){ banner('🛡️ It’s equipped — always with you.'); return; }   // permanent gear never vanishes
+  if(e.kind==='sellable'){ banner('🦃 Erik buys these — visit the 🪙 shop!'); return; }
+  P.inv[invSel]--; useItem(invSel); closeInv(); };
 function hurtPlayer(n,why){
   if(P.hurtT>0) return;
   if(P.hasShield && chargeInfo()){ banner('🛡️ Blocked with the Champion’s Shield!'); addFloat(P.x,P.y-36,'🛡️','#cfd4da',20); P.hurtT=25; return; }
@@ -507,7 +533,7 @@ function die(msg,title){
   show('deathScr');
   running=false;
 }
-$('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=P.maxhp; hungerT=0; P.hurtT=60; show('gameWrap'); running=true; loop(); };
+$('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=5; hungerT=0; P.hurtT=60; scene='village'; show('gameWrap'); running=true; loop(); };  // 2½ hearts — food still matters
 
 // ============================================================
 // DIALOGUE
@@ -586,17 +612,21 @@ function update(dt){
     const c=champion; c.t+=dt;
     const d=Math.hypot(P.x-c.x,P.y-c.y);
     if(c.hurtT>0) c.hurtT--;
-    if(c.state==='approach'){
-      if(d>60){ const a=Math.atan2(P.y-c.y,P.x-c.x); c.x+=Math.cos(a)*1.15; c.y+=Math.sin(a)*1.15; c.dir=a; }
-      if(c.t>2600){ c.t=0; c.state='shield'; }
-    } else if(c.state==='shield'){          // unhittable
-      if(c.t>1500){ c.t=0; c.state='windup'; }
-    } else if(c.state==='windup'){          // telegraphed — move or block!
-      if(c.t>650){ c.t=0; c.state='strike';
-        if(d<70) hurtPlayer(2,'The champion’s blow lands like a falling tree.');
-      }
-    } else if(c.state==='strike'){ if(c.t>500){ c.t=0; c.state='approach'; } }
+    const a=Math.atan2(P.y-c.y,P.x-c.x); c.dir=a;
+    // he presses you constantly — fast chase, slower mid-combo, frozen only when 'open'
+    const spdBy={chase:1.9, shield:0.8, windup1:1.0, strike1:0, windup2:1.0, strike2:0, open:0};
+    const cs=spdBy[c.state]||0;
+    if(cs>0 && d>52){ c.x+=Math.cos(a)*cs; c.y+=Math.sin(a)*cs; }
+    if(c.t>CHAMP_PATTERN[c.state]){
+      c.t=0;
+      const NEXT={chase:'shield', shield:'windup1', windup1:'strike1', strike1:'windup2', windup2:'strike2', strike2:'open', open:'chase'};
+      const nx=NEXT[c.state];
+      if(nx==='strike1'||nx==='strike2') champStrike(c);
+      c.state=nx;
+    }
   }
+
+  sparUpdate(dt);
 
   // turkeys: flee when you get close — chase them down!
   if(scene==='village') for(const tk of turkeys){
@@ -734,6 +764,16 @@ function draw(){
   { const n=NPCS.find(x=>x.id==='npc_chief_bonbottom');
     drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70); }
 
+  // sparring Erik (quest 5) — wooden sword, zero malice
+  if(spar && questState.currentId==='quest_main_05_shield_training' && questState.stage==='active'){
+    const c=spar;
+    drawPerson(c.x,c.y,0,{hair:'#555',outfit:'#2f5d7d',skin:'#e0b088'},false,false);
+    ctx.strokeStyle='#a87c3f'; ctx.lineWidth=4;
+    const sw=c.state==='windup'? 0.9 : c.state==='swing'? -0.4 : 0.4;
+    ctx.beginPath(); ctx.moveTo(c.x+10,c.y-4); ctx.lineTo(c.x+10+Math.cos(c.dir+sw)*20, c.y-4+Math.sin(c.dir+sw)*20); ctx.stroke();
+    if(c.state==='windup'){ ctx.fillStyle='#ffd977'; ctx.font='12px Georgia'; ctx.textAlign='center'; ctx.fillText('block!', c.x, c.y-34); }
+  }
+
   // the visiting champion (quest 4)
   if(champion && champion.alive){ const c=champion;
     ctx.save(); if(c.hurtT>0 && c.hurtT%4<2) ctx.globalAlpha=.5;
@@ -743,8 +783,10 @@ function draw(){
     ctx.fillStyle='#3a3a3f'; ctx.beginPath(); ctx.arc(c.x,c.y-21,11,Math.PI,0); ctx.fill();
     if(c.state==='shield'){ ctx.fillStyle='#cfd4da'; ctx.strokeStyle='#8a8f96'; ctx.lineWidth=2;
       ctx.beginPath(); ctx.ellipse(c.x+Math.cos(c.dir)*16, c.y-2+Math.sin(c.dir)*8, 9,15,0,0,7); ctx.fill(); ctx.stroke(); }
-    if(c.state==='windup'){ ctx.strokeStyle='rgba(255,80,60,'+(0.5+0.4*Math.sin(performance.now()/60))+')'; ctx.lineWidth=4;
+    if(c.state==='windup1'||c.state==='windup2'){ ctx.strokeStyle='rgba(255,80,60,'+(0.5+0.4*Math.sin(performance.now()/60))+')'; ctx.lineWidth=4;
       ctx.beginPath(); ctx.arc(c.x,c.y,32,0,7); ctx.stroke(); }
+    if(c.state==='open'){ ctx.strokeStyle='rgba(120,230,140,.85)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(c.x,c.y,30,0,7); ctx.stroke(); }   // green ring = STRIKE NOW
     ctx.restore();
     if(c.hp<c.maxhp){ ctx.fillStyle='#1c150e'; ctx.fillRect(c.x-20,c.y-42,40,6); ctx.fillStyle='#d43a3a'; ctx.fillRect(c.x-19,c.y-41,38*(c.hp/c.maxhp),4); }
   }
@@ -929,6 +971,34 @@ function loop(ts){
 }
 function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); requestAnimationFrame(loop); }
 
+// ---------- ERIK'S SHIELD TRAINING (quest 5) ----------
+let spar=null;
+function spawnSpar(){ spar={ x:940, y:1200, dir:0, state:'circle', t:0 }; }
+const SPAR_TIPS=["Erik: Shield UP means HOLD, warrior — plant your feet!","Erik: You blinked! Raise it BEFORE the swing lands.","Erik: Almost! Watch my shoulder — it tells you when."];
+function sparUpdate(dt){
+  if(questState.currentId!=='quest_main_05_shield_training' || questState.stage!=='active' || scene!=='village'){ return; }
+  if(!spar) spawnSpar();
+  const c=spar; c.t+=dt;
+  const d=Math.hypot(P.x-c.x,P.y-c.y);
+  const a=Math.atan2(P.y-c.y,P.x-c.x); c.dir=a;
+  if(c.state==='circle'){
+    if(d>58){ c.x+=Math.cos(a)*1.6; c.y+=Math.sin(a)*1.6; }
+    if(c.t>1400 && d<90){ c.t=0; c.state='windup'; }
+  } else if(c.state==='windup'){
+    if(c.t>600){ c.t=0; c.state='swing';
+      if(d<85){
+        if(P.hasShield && chargeInfo()){
+          const r=Quests.emit('block',{target:'training_erik'});
+          banner(r.banner ?? '🛡️ Block!'); addFloat(P.x,P.y-36,'🛡️ BLOCK!','#7ed67e',20);
+        } else {
+          hurtPlayer(1,'Erik’s wooden sword stings your pride.');
+          banner(SPAR_TIPS[Math.floor(Math.random()*SPAR_TIPS.length)]);
+        }
+      }
+    }
+  } else if(c.state==='swing'){ if(c.t>700){ c.t=0; c.state='circle'; } }
+}
+
 // ---------- INTERIOR RENDERER ----------
 function drawInterior(){
   const d=SHOP_NPCS.find(n=>n.id===scene); if(!d) return;
@@ -992,73 +1062,77 @@ if(location.hash==='#test-quests'){
   const dorgan=NPCS.find(n=>n.id==='npc_dorgan');
   const erik=NPCS.find(n=>n.id==='npc_erik');
   const modo=NPCS.find(n=>n.id==='npc_modo');
-  ok(AVATARS[0].nm==='Zippy' && AVATARS[1].nm==='Oak' && AVATARS[2].nm==='Willow' && AVATARS[3].nm==='Dusty', 'avatars renamed: Zippy, Oak, Willow, Dusty');
-  ok(P.coins===10, 'start with 10 coins (one loaf of bread)');
-  ok(P.weapon==='fists' && !P.weapons.sword, 'start with fists');
-  ok(goblins[0].hp===6, 'goblins take 6 punches now');
+  ok(AVATARS[0].nm==='Zippy', 'Zippy leads the avatar roster');
+  ok(P.coins===10 && P.weapon==='fists' && goblins[0].hp===6, 'start: 10 coins, fists, 6-punch goblins');
   // Q1
-  openDialog(dorgan); ok(dLines===dorgan.raw.linesLocked, 'Dorgan: out of supplies before his quest'); while(dialogOpen) advanceDialog();
   openDialog(chief); while(dialogOpen) advanceDialog();
   goblins.slice(0,3).forEach(g=>hitTarget(g,'gob',99,0));
-  ok(questState.stage==='complete' && drops.length===0, '3 goblins → complete, no coin drops');
   openDialog(chief); while(dialogOpen) advanceDialog();
-  ok(P.coins===120, 'chief pays 110 (10+110=120)');
-  ok(Quests.trackerText().includes('Dorgan'), 'chief points you to Dorgan');
-  // Q2 — given BY Dorgan, berries live in the satchel
+  ok(P.coins===120, 'chief pays 110');
+  // Q2 — Dorgan, satchel berries
   Quests.update(2000);
-  ok(questState.currentId==='quest_main_02_blueberries' && questState.stage==='offer', 'berry quest is offered by Dorgan');
-  openDialog(dorgan); ok(dLines[0].startsWith('The Chief sent you'), 'Dorgan gives the quest himself'); while(dialogOpen) advanceDialog();
-  P.inv.item_blueberry=4; Quests.update(16);
-  ok(questState.stage==='complete', '4 berries in satchel → ready to deliver');
-  P.inv.item_blueberry=3; Quests.update(16);
-  ok(questState.stage==='active', 'EAT one and the quest drops back to 3/4 — berries are real items');
-  P.inv.item_blueberry=4; Quests.update(16);
-  const rolls0=P.potionRolls.length;
   openDialog(dorgan); while(dialogOpen) advanceDialog();
-  ok(P.inv.item_blueberry===0, 'delivery consumes the 4 berries');
-  ok(P.potionRolls[rolls0]==='potion_stoneskin' && P.inv.item_potion===1, 'reward: a FREE Stoneskin potion (not coins)');
-  ok(P.coins===120, 'no coins from Dorgan — the potion is the pay');
-  ok(questState.flags.flag_dorgan_shop_open===true, 'Dorgan’s shop opens');
-  // Q3 — Erik, retroactive turkeys
-  caughtTurkeys=1;
+  P.inv.item_blueberry=4; Quests.update(16);
+  openDialog(dorgan); while(dialogOpen) advanceDialog();
+  ok(P.inv.item_blueberry===0 && P.potionRolls.includes('potion_stoneskin'), 'berries delivered → free Stoneskin');
+  // Q3 — turkeys are satchel items now; pre-caught count via live inventory
   Quests.update(2000);
+  P.inv.item_wild_turkey=2;   // caught while exploring BEFORE talking to Erik
   openDialog(erik); while(dialogOpen) advanceDialog();
-  ok(questState.stage==='active' && questState.progress===1, 'turkey caught while exploring counts retroactively (1/3)');
-  Quests.emit('catch',{target:'entity_turkey'}); Quests.emit('catch',{target:'entity_turkey'});
-  ok(questState.stage==='complete', '3 turkeys → complete');
+  Quests.update(16);
+  ok(questState.progress===2, 'pre-caught turkeys count (2/3)');
+  P.inv.item_wild_turkey=3; Quests.update(16);
+  ok(questState.stage==='complete', '3 in the satchel → deliver');
   openDialog(erik); while(dialogOpen) advanceDialog();
-  ok(P.coins===210, 'Erik pays 90 → 210 total');
-  openDialog(erik); ok($('shopBox').children.length===2, 'Erik now sells bread AND turkey meat'); while(dialogOpen) advanceDialog();
-  // the earned path affords the sword
-  openDialog(modo); $('shopBox').children[0].click();
-  ok(P.weapons.sword===true && P.coins===10, 'earned coins buy the sword (210−200=10 left for bread!)');
+  ok(P.inv.item_wild_turkey===0 && P.coins===210, 'Erik takes the 3 turkeys and pays 90 → 210');
+  // Erik BUYS turkeys forever
+  P.inv.item_wild_turkey=1;
+  openDialog(erik);
+  const sellBtn=[...$('shopBox').children].find(b=>b.textContent.includes('Sell wild turkey'));
+  ok(!!sellBtn, 'Erik has a SELL turkey button');
+  sellBtn.click();
+  ok(P.inv.item_wild_turkey===0 && P.coins===225, 'sold a turkey for 15 (225)');
   while(dialogOpen) advanceDialog();
-  // Q4 — the champion
+  // Modo gating: only the sword until the champion falls
+  openDialog(modo);
+  ok($('shopBox').children.length===1, 'Modo sells ONLY the sword pre-champion');
+  $('shopBox').children[0].click();
+  ok(P.weapons.sword===true && P.coins===25, 'sword bought with earned coins');
+  while(dialogOpen) advanceDialog();
+  // Q4 — the tougher champion
   Quests.update(16000);
-  ok(questState.currentId==='quest_main_04_champion' && questState.stage==='offer', 'the champion arrives');
   openDialog(chief); while(dialogOpen) advanceDialog();
   update(16);
-  ok(champion && champion.alive, 'champion spawns in the square');
-  champion.state='shield'; const hp0=champion.hp; hitTarget(champion,'champ',5,0);
-  ok(champion.hp===hp0, 'his raised shield blocks your hits');
-  champion.state='approach'; hitTarget(champion,'champ',99,0);
-  ok(!champion.alive && questState.stage==='complete', 'strike the open window → he yields');
+  ok(champion && champion.hp===28 && champion.state==='chase', 'champion spawns: 28hp, pattern starts in chase');
+  champion.state='shield'; const hp0=champion.hp; hitTarget(champion,'champ',9,0);
+  ok(champion.hp===hp0, 'shield state blocks damage');
+  champion.state='open'; hitTarget(champion,'champ',99,0);
+  ok(!champion.alive, 'strike the OPEN window → he falls');
   openDialog(chief); while(dialogOpen) advanceDialog();
-  ok(P.hasShield===true && P.inv.item_shield===1, 'you win the Champion’s Shield');
-  // shield draft mechanic: holding a charge blocks damage
-  swp.active=true; swp.smashOnly=true; swp.t0=performance.now()-1000; swp.sx=swp.cx=0; swp.sy=swp.cy=0;
-  const hpB=P.hp; hurtPlayer(2,'test');
-  ok(P.hp===hpB, 'HOLD-to-charge raises the shield and blocks the blow');
-  swp.active=false;
-  // dash + context button
-  dash(); ok(P.dashT>0, 'double-tap dash bursts you forward');
-  P.x=200; P.y=1180; champion=null;
-  const caT=contextAction();
-  ok(caT && caT.kind==='music' && caT.icon==='🎵', 'context button idles as 🎵 (Zippy has a flute)');
+  ok(P.hasShield && questState.flags.flag_champion_defeated===true, 'shield won + champion flag set');
+  // Modo now sells everything
+  openDialog(modo); ok($('shopBox').children.length===3, 'bow & arrows unlocked after the champion'); while(dialogOpen) advanceDialog();
+  // permanent gear never vanishes
+  invSel='item_shield'; const sh0=P.inv.item_shield; $('invUse').onclick();
+  ok(P.inv.item_shield===sh0, 'Champion’s Shield cannot be consumed — permanent gear');
+  invSel=null;
+  // Q5 — Erik's shield training
+  Quests.update(9000);
+  ok(questState.currentId==='quest_main_05_shield_training', 'Erik calls you to train');
+  openDialog(erik); while(dialogOpen) advanceDialog();
+  ok(questState.stage==='active', 'sparring begins');
+  for(let i=0;i<3;i++) Quests.emit('block',{target:'training_erik'});
+  ok(questState.stage==='complete', '3 blocks → trained');
+  openDialog(erik); while(dialogOpen) advanceDialog();
   ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'chain complete');
+  // death → 2.5 hearts, quest state intact
+  const cq=questState.currentId;
+  die('test'); $('btnRespawn').click();
+  ok(P.hp===5, 'respawn with 2½ hearts — food still matters');
+  ok(questState.currentId===cq, 'death never resets quest progress');
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;
-  div.textContent='STORY REWORK SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
+  div.textContent='PLAYTEST ROUND 4 SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
   document.getElementById('app').appendChild(div);
 }

@@ -4,8 +4,7 @@ export default {
   id:'quest_main_03_turkeys',
   giver:'npc_erik',
   turnIn:'npc_erik',
-  objective:{ type:'catch', target:'entity_turkey', count:3 },
-  retroactive:true,
+  objective:{ type:'deliver', item:'item_wild_turkey', count:3 },
   dialogue:{
     offer:["Psst — warrior! Business idea. The wild turkeys in the meadow? Their feathers sell like fresh bread.",
            "Catch me 3. Sneak close and GRAB one — the 🤲 button appears when you're near enough.",
@@ -18,7 +17,7 @@ export default {
   },
   tracker:{
     offer:'🪙 Talk to Erik',
-    active:'🦃 Turkeys: {n}/3',
+    active:'🦃 Turkeys in satchel: {n}/3',
     complete:'🏆 Bring the turkeys to Erik',
     afterReward:'🔨 A sword awaits at Modo’s…',
   },

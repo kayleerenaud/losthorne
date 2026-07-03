@@ -6,6 +6,9 @@ export default {
   pos:{x:260,y:120},   // position INSIDE his shop
   look:{ outfit:'#2f5d7d', hat:false },
   lines:["Welcome to Erik\u2019s! Bread, fresh-ish — 10 coins. Nothing in Losthorne is free, friend."],
+  buys:[
+    { item:'item_wild_turkey', label:'💰 Sell wild turkey — +{price} coins', banner:'💰 Erik counts feathers happily. +15 coins' },
+  ],
   shop:[
     { item:'item_bread',  label:'🍞 Buy bread — {price} coins (goes to satchel)', banner:'🍞 Bread tucked into your satchel' },
     { item:'item_turkey', label:'🍗 Turkey meat — {price} coins (+1½ ❤️)', banner:'🍗 Roast turkey wrapped and tucked away', requiresFlag:'flag_erik_turkey_stock' },
