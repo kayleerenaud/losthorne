@@ -425,9 +425,14 @@
       }
       const q = defs[questState.currentId];
       if (q && q.objective.type === "deliver" && (questState.stage === "active" || questState.stage === "complete")) {
-        const n = hooks.itemCount ? hooks.itemCount(q.objective.item) : 0;
-        questState.progress = Math.min(n, q.objective.count);
-        const done = n >= q.objective.count;
+        const parts = q.objective.items || [q.objective];
+        let prog = 0, done = true;
+        for (const pt2 of parts) {
+          const n = hooks.itemCount ? hooks.itemCount(pt2.item) : 0;
+          prog += Math.min(n, pt2.count);
+          if (n < pt2.count) done = false;
+        }
+        questState.progress = prog;
         if (done && questState.stage === "active") {
           questState.stage = "complete";
           hooks.banner(q.banners.objectiveDone);
@@ -478,7 +483,9 @@
           hooks.banner(q.banners.objectiveDone);
         }
       } else if (questState.stage === "complete") {
-        if (q.objective.type === "deliver" && hooks.takeItems) hooks.takeItems(q.objective.item, q.objective.count);
+        if (q.objective.type === "deliver" && hooks.takeItems) {
+          for (const pt2 of q.objective.items || [q.objective]) hooks.takeItems(pt2.item, pt2.count);
+        }
         if ((_a = q.reward) == null ? void 0 : _a.coins) hooks.addCoins(q.reward.coins);
         if (((_b = q.reward) == null ? void 0 : _b.potion) && hooks.givePotion) hooks.givePotion(q.reward.potion);
         if (((_c = q.reward) == null ? void 0 : _c.item) && hooks.giveItem) hooks.giveItem(q.reward.item);
@@ -501,7 +508,14 @@
     trackerText() {
       const q = defs[questState.currentId];
       if (!q) return "";
-      const t = q.tracker[questState.stage] || "";
+      let t = q.tracker[questState.stage] || "";
+      if (t.includes("{multi}") && q.objective.items && hooks.itemIcon) {
+        const parts = q.objective.items.map((pt2) => {
+          const n = Math.min(hooks.itemCount ? hooks.itemCount(pt2.item) : 0, pt2.count);
+          return hooks.itemIcon(pt2.item) + " " + n + "/" + pt2.count;
+        }).join(" · ");
+        t = t.replace("{multi}", parts);
+      }
       return t.replace("{n}", String(questState.progress));
     }
   };
@@ -546,14 +560,15 @@
     id: "quest_main_02_blueberries",
     giver: "npc_dorgan",
     turnIn: "npc_dorgan",
-    objective: { type: "deliver", item: "item_blueberry", count: 4 },
+    objective: { type: "deliver", items: [{ item: "item_blueberry", count: 4 }, { item: "item_red_berry", count: 2 }] },
     dialogue: {
       offer: [
         "The Chief sent you? Ha! Then you'll want what everyone wants — a potion.",
         "I could brew you a SHIELD of stone for your very skin… but my cupboard is bare.",
-        "Bring me 4 blueberries from the wild bushes — the BLUE ones, mind — and the potion is yours, free."
+        "Bring me 4 BLUEBERRIES — and 2 RED berries. Yes, the deadly ones. You don't EAT red berries, warrior. You BREW with them.",
+        "In the satchel they're harmless. In your mouth they're a funeral. Off you go — and mind the goblins out there."
       ],
-      active: ["Four blueberries, warrior — in your satchel, not in your belly! The meadow bushes regrow quickly."],
+      active: ["Four blue, two red — in the satchel, not in your belly! The forest bushes regrow; the goblins, sadly, also regrow."],
       complete: [
         "Ohh, plump and perfectly BLUE! Watch the cauldron… there. Drink this when danger comes: STONESKIN.",
         "And now that I'm restocked, my shop is open to you — 100 coins a mystery, when you have it.",
@@ -563,15 +578,15 @@
     },
     tracker: {
       offer: "🧪 Talk to Dorgan",
-      active: "🫐 Berries in satchel: {n}/4",
+      active: "{multi}",
       complete: "🏆 Deliver the berries to Dorgan",
       afterReward: "🪙 Erik has work for you…"
     },
     banners: {
-      start: "📜 Quest: gather 4 blueberries for Dorgan (keep them in your satchel!)",
-      objectiveDone: "🫐 4/4 in the satchel! Take them to Dorgan!",
+      start: "📜 Quest: 4 blueberries + 2 RED berries for Dorgan (satchel only — never eat the red!)",
+      objectiveDone: "🧺 All berries gathered! Take them to Dorgan!",
       reward: "🎉 Dorgan brews you a FREE Stoneskin potion — his shop is OPEN!",
-      progress: "🫐 Satchel: {n}/4"
+      progress: null
     },
     reward: { potion: "potion_stoneskin" },
     setFlagOnReward: "flag_dorgan_shop_open",
@@ -1064,7 +1079,8 @@
       }
       P.inv[id] = (P.inv[id] || 0) + 1;
     },
-    retroCount: (o) => o.target === "entity_turkey" ? caughtTurkeys : 0
+    retroCount: (o) => o.target === "entity_turkey" ? caughtTurkeys : 0,
+    itemIcon: (id) => ITEM_DEFS[id] && ITEM_DEFS[id].ic || "•"
   });
   var gobRespawnT = 0;
   var joy = { active: false, id: -1, sx: 0, sy: 0, dx: 0, dy: 0 };
@@ -1780,15 +1796,16 @@
       if (Math.hypot(b.x - P.x, b.y - P.y) < 30) {
         b.taken = true;
         b.respawn = 25e3;
-        if (b.type === "blue") {
-          P.inv.item_blueberry = (P.inv.item_blueberry || 0) + 1;
-          addFloat(P.x, P.y - 34, "+🫐", "#7ea8d6", 17);
-          const q = questState.currentId === "quest_main_02_blueberries" && questState.stage !== "afterReward";
-          banner(q ? "🫐 Satchel: " + Math.min(P.inv.item_blueberry, 4) + "/4" : "🫐 Blueberry into the satchel");
-        } else {
-          P.inv.item_red_berry = (P.inv.item_red_berry || 0) + 1;
-          addFloat(P.x, P.y - 34, "+🔴", "#e05545", 17);
-          banner("🔴 Red berries into the satchel. Remember what the Chief said…");
+        {
+          const isBlue = b.type === "blue";
+          const id = isBlue ? "item_blueberry" : "item_red_berry";
+          P.inv[id] = (P.inv[id] || 0) + 1;
+          addFloat(P.x, P.y - 34, isBlue ? "+🫐" : "+🔴", isBlue ? "#7ea8d6" : "#e05545", 17);
+          const q = questState.currentId === "quest_main_02_blueberries" && (questState.stage === "active" || questState.stage === "complete");
+          if (q) {
+            Quests.update(0);
+            banner("🧺 " + (Quests.trackerText() || "gathering…"));
+          } else banner(isBlue ? "🫐 Blueberry into the satchel" : "🔴 Red berries into the satchel. Remember what the Chief said…");
         }
       }
     }
@@ -2884,9 +2901,18 @@
     while (dialogOpen) advanceDialog();
     P.inv.item_blueberry = 4;
     Quests.update(16);
+    ok(questState.stage === "active", "4 blue alone is NOT enough — Dorgan wants 2 red too");
+    P.inv.item_red_berry = 2;
+    Quests.update(16);
+    ok(questState.stage === "complete", "4 blue + 2 red → ready to deliver");
+    P.inv.item_blueberry = 3;
+    Quests.update(16);
+    ok(questState.stage === "active", "eat a quest berry and progress drops back — they are real items");
+    P.inv.item_blueberry = 4;
+    Quests.update(16);
     openDialog(dorgan);
     while (dialogOpen) advanceDialog();
-    ok(P.inv.item_blueberry === 0 && P.potionRolls.includes("potion_stoneskin"), "berries delivered → free Stoneskin");
+    ok(P.inv.item_blueberry === 0 && P.inv.item_red_berry === 0 && P.potionRolls.includes("potion_stoneskin"), "both berry kinds delivered → free Stoneskin");
     Quests.update(2e3);
     P.inv.item_wild_turkey = 2;
     openDialog(erik);

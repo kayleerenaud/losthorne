@@ -151,6 +151,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **Quests can be turned in to someone other than the giver:** the blueberry quest is GIVEN by the chief but DELIVERED to Dorgan — he congratulates you, pays 40 coins, and only then opens his potion shop. ✅
 - **Challenge 1 is FIVE goblins now** (three was too easy). ✅
 - **Fishing & boat-driving** ✅: learn to fish with Bog (adaptive coaching), and after your first catch he'll teach boat-driving — a skill banked for later villages. **Later quests logged:** buying your OWN boat; the shipwreck rescue ("take my boat — save them!") that foreshadows the Kraken.
+- **Challenge 2 asks for BOTH berries** ✅: 4 blueberries AND 2 red berries — Dorgan doesn't eat red berries, he BREWS with them. The longer forest trip means more goblin run-ins on purpose.
 - **Challenge 3 — Erik's turkeys** ✅: caught turkeys go INTO YOUR SATCHEL as items; deliver 3 to Erik (pre-caught ones count automatically). Reward 90 coins + turkey meat for sale + Erik buys extra turkeys at 15 forever. Teaches GRAB.
 - **Challenge 5 — MODO's shield training** ✅: after you win the champion's shield, MODO calls you to the forge and spars you with a wooden sword. His instructions are explicit: *press and HOLD the attack button — holding = shield UP (silver bubble), release = shield down.* BLOCK 3 swings; he coaches every miss.
 - Big quests come from chiefs; villagers giving mini-quests is an idea under discussion (see §13).
@@ -208,5 +209,6 @@ Each avatar has their own unique personal side quest that the others don't — r
 - *v0.13 — permanent gear fix, Modo bow-gating, sellable wild turkeys, champion pattern buff (28hp, relentless), dash-while-steering, 2½-heart respawn w/ quest persistence, Erik's shield-training challenge*
 - *v0.14 — FIVE goblins, red berries to satchel (deadly to eat), the cursed stone, Fishing v1 with Bog (pond, boat, cast/reel tension minigame, half-catch split, hooks, fish selling, boat-driving skill), #fish dev hash*
 - *v0.15 — shield training moved to MODO with explicit HOLD instructions, 🛡️ SHIELD UP bubble visual, permanent gear uncounted in satchel, scrollable shop lists*
+- *v0.16 — goblin village boundary; challenge 2 = 4 blueberries + 2 red berries (multi-item deliveries in the quest engine, live 🫐/🔴 tracker)*
 - *v0.7 — Genshin-referenced control cluster, 💥 smash skill button, contextual 💬 talk button near NPCs*
 - *v0.8 — one-finger play: invisible anywhere-joystick, attack gestures anchored to the attack button, smash-dim fix*

@@ -253,6 +253,7 @@ Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questS
   givePotion: (k)=>{ P.potionRolls.push(k); P.inv.item_potion=(P.inv.item_potion||0)+1; },
   giveItem: (id)=>{ if(id==='item_shield'){ P.hasShield=true; } P.inv[id]=(P.inv[id]||0)+1; },
   retroCount: (o)=> o.target==='entity_turkey' ? caughtTurkeys : 0,
+  itemIcon: (id)=> (ITEM_DEFS[id]&&ITEM_DEFS[id].ic)||'•',
 });
 let gobRespawnT=0;
 
@@ -695,16 +696,13 @@ function update(dt){
     if(b.taken){ b.respawn-=dt; if(b.respawn<=0 && b.type==='blue') b.taken=false; continue; }
     if(Math.hypot(b.x-P.x,b.y-P.y)<30){
       b.taken=true; b.respawn=25000;
-      if(b.type==='blue'){
-        P.inv.item_blueberry=(P.inv.item_blueberry||0)+1;
-        addFloat(P.x,P.y-34,'+🫐','#7ea8d6',17);
-        const q=questState.currentId==='quest_main_02_blueberries' && questState.stage!=='afterReward';
-        banner(q? '🫐 Satchel: '+Math.min(P.inv.item_blueberry,4)+'/4' : '🫐 Blueberry into the satchel');
-      }
-      else {
-        P.inv.item_red_berry=(P.inv.item_red_berry||0)+1;
-        addFloat(P.x,P.y-34,'+🔴','#e05545',17);
-        banner('🔴 Red berries into the satchel. Remember what the Chief said…');
+      { const isBlue=b.type==='blue';
+        const id=isBlue?'item_blueberry':'item_red_berry';
+        P.inv[id]=(P.inv[id]||0)+1;
+        addFloat(P.x,P.y-34,isBlue?'+🫐':'+🔴',isBlue?'#7ea8d6':'#e05545',17);
+        const q=questState.currentId==='quest_main_02_blueberries' && (questState.stage==='active'||questState.stage==='complete');
+        if(q){ Quests.update(0); banner('🧺 '+ (Quests.trackerText()||'gathering…')); }
+        else banner(isBlue? '🫐 Blueberry into the satchel' : '🔴 Red berries into the satchel. Remember what the Chief said…');
       }
     } }
 
@@ -1263,8 +1261,14 @@ if(location.hash==='#test-quests'){
   Quests.update(2000);
   openDialog(dorgan); while(dialogOpen) advanceDialog();
   P.inv.item_blueberry=4; Quests.update(16);
+  ok(questState.stage==='active', '4 blue alone is NOT enough — Dorgan wants 2 red too');
+  P.inv.item_red_berry=2; Quests.update(16);
+  ok(questState.stage==='complete', '4 blue + 2 red → ready to deliver');
+  P.inv.item_blueberry=3; Quests.update(16);
+  ok(questState.stage==='active', 'eat a quest berry and progress drops back — they are real items');
+  P.inv.item_blueberry=4; Quests.update(16);
   openDialog(dorgan); while(dialogOpen) advanceDialog();
-  ok(P.inv.item_blueberry===0 && P.potionRolls.includes('potion_stoneskin'), 'berries delivered → free Stoneskin');
+  ok(P.inv.item_blueberry===0 && P.inv.item_red_berry===0 && P.potionRolls.includes('potion_stoneskin'), 'both berry kinds delivered → free Stoneskin');
   // Q3 — turkeys are satchel items now; pre-caught count via live inventory
   Quests.update(2000);
   P.inv.item_wild_turkey=2;   // caught while exploring BEFORE talking to Erik

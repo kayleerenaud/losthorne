@@ -38,12 +38,18 @@ export const Quests = {
         questState.progress = 0;
         if(p.banner) hooks.banner(p.banner);
       } }
-    // 'deliver' objectives track live inventory: eat a quest berry and progress drops back
+    // 'deliver' objectives track live inventory: eat a quest berry and progress drops back.
+    // Supports one item ({item,count}) or several ({items:[{item,count},...]}).
     const q = defs[questState.currentId];
     if(q && q.objective.type==='deliver' && (questState.stage==='active' || questState.stage==='complete')){
-      const n = hooks.itemCount ? hooks.itemCount(q.objective.item) : 0;
-      questState.progress = Math.min(n, q.objective.count);
-      const done = n >= q.objective.count;
+      const parts = q.objective.items || [q.objective];
+      let prog=0, done=true;
+      for(const pt of parts){
+        const n = hooks.itemCount ? hooks.itemCount(pt.item) : 0;
+        prog += Math.min(n, pt.count);
+        if(n < pt.count) done=false;
+      }
+      questState.progress = prog;
       if(done && questState.stage==='active'){ questState.stage='complete'; hooks.banner(q.banners.objectiveDone); }
       if(!done && questState.stage==='complete'){ questState.stage='active'; }
     }
@@ -92,7 +98,9 @@ export const Quests = {
         questState.stage='complete'; hooks.banner(q.banners.objectiveDone);
       }
     } else if(questState.stage==='complete'){
-      if(q.objective.type==='deliver' && hooks.takeItems) hooks.takeItems(q.objective.item, q.objective.count);
+      if(q.objective.type==='deliver' && hooks.takeItems){
+        for(const pt of (q.objective.items || [q.objective])) hooks.takeItems(pt.item, pt.count);
+      }
       if(q.reward?.coins) hooks.addCoins(q.reward.coins);
       if(q.reward?.potion && hooks.givePotion) hooks.givePotion(q.reward.potion);
       if(q.reward?.item && hooks.giveItem) hooks.giveItem(q.reward.item);
@@ -114,7 +122,14 @@ export const Quests = {
   trackerText(){
     const q = defs[questState.currentId];
     if(!q) return '';
-    const t = q.tracker[questState.stage] || '';
+    let t = q.tracker[questState.stage] || '';
+    if(t.includes('{multi}') && q.objective.items && hooks.itemIcon){
+      const parts=q.objective.items.map(pt=>{
+        const n=Math.min(hooks.itemCount? hooks.itemCount(pt.item):0, pt.count);
+        return hooks.itemIcon(pt.item)+' '+n+'/'+pt.count;
+      }).join(' · ');
+      t=t.replace('{multi}', parts);
+    }
     return t.replace('{n}', String(questState.progress));
   },
 };
