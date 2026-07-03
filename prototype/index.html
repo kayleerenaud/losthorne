@@ -181,7 +181,7 @@
       id: "item_sword",
       ic: "🗡️",
       nm: "Forged Sword",
-      st: "Moto Moto steel. Goblins fall in 3 good hits instead of 8 punches.",
+      st: "Modo steel. Goblins fall in 3 good hits instead of 8 punches.",
       effect: { kind: "unlock_weapon", weapon: "sword" }
     },
     item_bow: {
@@ -246,14 +246,14 @@
     shop: [{ item: "item_potion", label: "🧪 Mystery potion — {price} coins (rolled when you buy!)", banner: null }]
   };
 
-  // prototype/src/js/data/npcs/moto-moto.js
-  var moto_moto_default = {
-    id: "npc_moto_moto",
-    name: "Moto Moto the Blacksmith",
+  // prototype/src/js/data/npcs/modo.js
+  var modo_default = {
+    id: "npc_modo",
+    name: "Modo the Blacksmith",
     pos: { x: 1015, y: 1235 },
     look: { outfit: "#4f4a45", hat: false },
     lines: [
-      "Moto Moto likes warriors who hit hard. Fists are free — steel is not.",
+      "Modo likes warriors who hit hard. Fists are free — steel is not.",
       "A forged sword, a hunting bow, arrows by the pack. Coins first, friend."
     ],
     shop: [
@@ -596,7 +596,7 @@
   [[620, 1120], [980, 1120], [560, 1300], [1030, 1300], [790, 1370]].forEach((h) => houses.push({ x: h[0], y: h[1] }));
   [[420, 880], [1180, 840], [760, 760], [300, 1020], [1320, 1e3]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "blue", taken: false, respawn: 0 }));
   [[560, 940], [1050, 760]].forEach((b) => bushes.push({ x: b[0], y: b[1], type: "red", taken: false, respawn: 0 }));
-  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default, moto_moto_default].map((d) => ({
+  var NPCS = [chief_bonbottom_default, erik_default, dorgan_default, modo_default].map((d) => ({
     id: d.id,
     nm: d.name,
     x: d.pos.x,
@@ -788,7 +788,7 @@
     } else if (kind === "wpn") {
       const ows = ownedWeapons();
       if (ows.length < 2) {
-        banner("👊 Only your fists for now — visit Moto Moto the blacksmith!");
+        banner("👊 Only your fists for now — visit Modo the blacksmith!");
         return;
       }
       P.weapon = ows[(ows.indexOf(P.weapon) + 1) % ows.length];
@@ -907,7 +907,7 @@
   function fireArrow(ang, power) {
     if (blocked()) return;
     if (P.arrows <= 0) {
-      banner("🎯 Out of arrows! Moto Moto sells packs.");
+      banner("🎯 Out of arrows! Modo sells packs.");
       return;
     }
     P.arrows--;
@@ -1749,7 +1749,7 @@
     const R = [], ok = (c, m) => R.push((c ? "✅ PASS" : "❌ FAIL") + " — " + m);
     const chief = NPCS.find((n) => n.id === "npc_chief_bonbottom");
     const dorgan = NPCS.find((n) => n.id === "npc_dorgan");
-    const moto = NPCS.find((n) => n.id === "npc_moto_moto");
+    const modo = NPCS.find((n) => n.id === "npc_modo");
     ok(P.weapon === "fists" && !P.weapons.sword && !P.weapons.bow, "you start with FISTS only");
     ok(goblins[0].hp === 8, "goblin takes 8 punches (or 3 sword hits at dmg 3)");
     ok(dummies[0].hp === 5, "training dummy takes 5 hits");
@@ -1785,8 +1785,8 @@
     ok($("shopBox").children.length === 1 && $("shopBox").children[0].textContent.includes("100"), "Dorgan now sells potions at 100");
     while (dialogOpen) advanceDialog();
     ok(P.coins === 150, "coins after both quests = 150 (NOTE: sword costs 200 — flagged to Kaylee)");
-    openDialog(moto);
-    ok($("shopBox").children.length === 3, "Moto Moto sells sword / bow / arrows");
+    openDialog(modo);
+    ok($("shopBox").children.length === 3, "Modo sells sword / bow / arrows");
     P.coins = 500;
     $("shopBox").children[0].click();
     ok(P.weapons.sword === true && P.coins === 300, "bought the sword for 200");

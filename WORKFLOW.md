@@ -18,7 +18,7 @@
 
 **3. BUILD**
 - **Data before logic:** new content (NPCs, enemies, items, dialogue, zones) goes into data/config files, never hardcoded into rendering or engine files.
-- **Stable IDs now:** every placeholder gets a real, stable key (e.g. `npc_moto_moto`, `tile_forest_floor`) — no positional or file-order references. Real designs later = renaming file contents behind an existing key.
+- **Stable IDs now:** every placeholder gets a real, stable key (e.g. `npc_modo`, `tile_forest_floor`) — no positional or file-order references. Real designs later = renaming file contents behind an existing key.
 - **Rendering separate from state:** how something is drawn stays separate from what exists / what it's doing. Position/state logic must not know or care that it's drawn top-down.
 - **Test on the actual target** (phone-sized, touch, landscape) before calling something done — not just desktop view.
 
@@ -49,7 +49,7 @@
 
 - **Version:** v0.10 — playtest fixes round 1 (on top of half-done reorg: steps 1–5 of 10 complete)
 - **Phase:** playtest-driven feature work; reorg steps 6–10 still queued
-- **This checkpoint:** charged smash (mini/full, rooted while charging), fists-first progression, Moto Moto shop (sword/bow/arrow packs), limited arrows, potion rolled at purchase + depleting bar + lost on death, bread 10 / potion 100, no goblin coin drops, dummies 5 hits, berry quest turns in to Dorgan and unlocks his shop. Verified by 26-assertion smoke test.
+- **This checkpoint:** charged smash (mini/full, rooted while charging), fists-first progression, Modo shop (sword/bow/arrow packs), limited arrows, potion rolled at purchase + depleting bar + lost on death, bread 10 / potion 100, no goblin coin drops, dummies 5 hits, berry quest turns in to Dorgan and unlocks his shop. Verified by 26-assertion smoke test.
 - **Flagged to Kaylee:** economy gap (quests pay 150, sword costs 200); arrow pack size 10 = guess; villagers-give-mini-quests undecided
 - **Known issues:** dead code + dev shortcuts still pending reorg step 9
 - **Placeholders:** all art, mock logins, mock room codes

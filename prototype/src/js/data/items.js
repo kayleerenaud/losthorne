@@ -8,7 +8,7 @@ export const ITEM_DEFS = {
     st:'A power for 30 seconds — rolled the moment you buy it:<br>💪 Ogre Strength (hit much harder)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
     effect:{ kind:'mystery_potion' } },
   item_sword:  { id:'item_sword', ic:'🗡️', nm:'Forged Sword',
-    st:'Moto Moto steel. Goblins fall in 3 good hits instead of 8 punches.',
+    st:'Modo steel. Goblins fall in 3 good hits instead of 8 punches.',
     effect:{ kind:'unlock_weapon', weapon:'sword' } },
   item_bow:    { id:'item_bow', ic:'🏹', nm:'Hunting Bow',
     st:'Strike from a distance — but every shot costs an arrow.',

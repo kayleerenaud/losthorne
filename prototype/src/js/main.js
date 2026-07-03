@@ -6,7 +6,7 @@ import { POTION_POWERS, POTION_DURATION_MS } from './data/potions.js';
 import npcChief from './data/npcs/chief-bonbottom.js';
 import npcErik from './data/npcs/erik.js';
 import npcDorgan from './data/npcs/dorgan.js';
-import npcMoto from './data/npcs/moto-moto.js';
+import npcModo from './data/npcs/modo.js';
 import { Quests, questState } from './engine/quests.js';
 import questGoblins from './data/quests/main-01-goblins.js';
 import questBlueberries from './data/quests/main-02-blueberries.js';
@@ -109,7 +109,7 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
 // NPCs are built from data files; dialogue & shops resolved at talk-time from raw data.
-const NPCS = [npcChief, npcErik, npcDorgan, npcMoto].map(d=>({
+const NPCS = [npcChief, npcErik, npcDorgan, npcModo].map(d=>({
   id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat, raw:d,
 }));
 function npcLines(n){ const d=n.raw;
@@ -227,7 +227,7 @@ function pressButton(kind){
   else if(kind==='talk'){ const n=npcNearby(); if(n && !dialogOpen) openDialog(n); }
   else if(kind==='wpn'){
     const ows=ownedWeapons();
-    if(ows.length<2){ banner('👊 Only your fists for now — visit Moto Moto the blacksmith!'); return; }
+    if(ows.length<2){ banner('👊 Only your fists for now — visit Modo the blacksmith!'); return; }
     P.weapon = ows[(ows.indexOf(P.weapon)+1)%ows.length];
     banner(P.weapon==='fists'? '👊 Fists up!' : P.weapon==='sword'? '🗡️ Sword drawn' : '🏹 Bow ready — pull back and release! Arrows: '+P.arrows);
   }
@@ -324,7 +324,7 @@ function chargeInfo(){
 }
 function fireArrow(ang,power){
   if(blocked()) return;
-  if(P.arrows<=0){ banner('🎯 Out of arrows! Moto Moto sells packs.'); return; }
+  if(P.arrows<=0){ banner('🎯 Out of arrows! Modo sells packs.'); return; }
   P.arrows--;
   P.dir=ang;
   const sp=5+(power/130)*8;
@@ -748,7 +748,7 @@ if(location.hash==='#test-quests'){
   const R=[], ok=(c,m)=>R.push((c?'✅ PASS':'❌ FAIL')+' — '+m);
   const chief=NPCS.find(n=>n.id==='npc_chief_bonbottom');
   const dorgan=NPCS.find(n=>n.id==='npc_dorgan');
-  const moto=NPCS.find(n=>n.id==='npc_moto_moto');
+  const modo=NPCS.find(n=>n.id==='npc_modo');
   ok(P.weapon==='fists' && !P.weapons.sword && !P.weapons.bow, 'you start with FISTS only');
   ok(goblins[0].hp===8, 'goblin takes 8 punches (or 3 sword hits at dmg 3)');
   ok(dummies[0].hp===5, 'training dummy takes 5 hits');
@@ -781,9 +781,9 @@ if(location.hash==='#test-quests'){
   ok($('shopBox').children.length===1 && $('shopBox').children[0].textContent.includes('100'), 'Dorgan now sells potions at 100');
   while(dialogOpen) advanceDialog();
   ok(P.coins===150, 'coins after both quests = 150 (NOTE: sword costs 200 — flagged to Kaylee)');
-  // Moto Moto sells three things; buying works end-to-end
-  openDialog(moto);
-  ok($('shopBox').children.length===3, 'Moto Moto sells sword / bow / arrows');
+  // Modo sells three things; buying works end-to-end
+  openDialog(modo);
+  ok($('shopBox').children.length===3, 'Modo sells sword / bow / arrows');
   P.coins=500;
   $('shopBox').children[0].click();
   ok(P.weapons.sword===true && P.coins===300, 'bought the sword for 200');

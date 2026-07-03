@@ -22,7 +22,7 @@ Open `prototype/index.html` in a browser — everything is one self-contained fi
 | Chief Bonbottom | Quest-giver, peaceful chief |
 | Dorgan | Potion-maker — random gifts |
 | Erik (with a K) | Trader — nothing is free |
-| Moto Moto | Blacksmith *(coming soon)* |
+| Modo | Blacksmith *(coming soon)* |
 | Jesse | Traveling storyteller *(coming soon)* |
 
 ## Roadmap
