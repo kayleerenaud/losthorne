@@ -47,15 +47,17 @@
   #deathScr { background:rgba(10,5,5,.93); z-index:50; }
   #deathScr h2 { color:#e05545; font-size:30px; }
   #deathScr p { color:#d8c8a8; margin:12px 0 18px; font-size:16px; max-width:300px; line-height:1.5; }
-  /* ---------- ROTATE HINT (game is landscape) ---------- */
-  #rotate { position:fixed; inset:0; z-index:60; background:#12100e; display:none; flex-direction:column; align-items:center; justify-content:center; color:#e8d9a8; text-align:center; padding:30px; }
-  #rotate .ph { font-size:64px; animation:spin90 1.8s ease-in-out infinite; }
-  @keyframes spin90 { 0%,20%{transform:rotate(0)} 60%,100%{transform:rotate(90deg)} }
-  /* whole app is landscape-only — user rotates the phone */
-  @media (orientation: portrait) { #rotate { display:flex; } }
+  /* ---------- FORCED LANDSCAPE ----------
+     The app always renders horizontally. If the viewport is portrait,
+     we rotate the whole app 90° so it stays landscape-shaped. */
+  #app { position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; }
+  body.forceLand #app { width:100vh; height:100vw; transform:rotate(90deg) translateY(-100%); transform-origin:top left; }
+  #app .screen, #app #gameWrap, #app #dialog, #app #banner { position:absolute; }
+  .screen { overflow-y:auto; }
 </style>
 </head>
 <body>
+<div id="app">
 
 <!-- TITLE / LOGIN -->
 <div id="title" class="screen">
@@ -101,9 +103,6 @@
 </div>
 <div id="banner"></div>
 
-<!-- ROTATE HINT -->
-<div id="rotate"><div class="ph">📱</div><h2>Turn your phone sideways!</h2><div class="note">Losthorne is played in landscape — like a real adventure.</div></div>
-
 <!-- DEATH -->
 <div id="deathScr" class="screen hidden">
   <h2 id="deathTitle">You have fallen</h2>
@@ -111,6 +110,7 @@
   <button class="btn" id="btnRespawn">Rise again at the village edge</button>
 </div>
 
+</div><!-- /#app -->
 <script>
 'use strict';
 // ============================================================
@@ -174,9 +174,18 @@ function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,
 // ============================================================
 const W=1600, H=1600;                       // world size
 const cvs=$('game'), ctx=cvs.getContext('2d');
-let vw=0, vh=0, dpr=1;
-function resize(){ dpr=Math.min(devicePixelRatio||1,2); vw=innerWidth; vh=innerHeight; cvs.width=vw*dpr; cvs.height=vh*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
-addEventListener('resize',resize); resize();
+let vw=0, vh=0, dpr=1, rotated=false;
+function resize(){
+  rotated = innerHeight > innerWidth;                 // portrait viewport → rotate the app
+  document.body.classList.toggle('forceLand', rotated);
+  dpr=Math.min(devicePixelRatio||1,2);
+  vw = rotated? innerHeight : innerWidth;             // logical (landscape) size
+  vh = rotated? innerWidth  : innerHeight;
+  cvs.width=vw*dpr; cvs.height=vh*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize',resize); addEventListener('orientationchange',()=>setTimeout(resize,60)); resize();
+// map a physical touch/mouse point to logical (landscape) coordinates
+function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:500, speed:2.5, slashT:0, hurtT:0, kills:0 };
 let hungerT = 0;
@@ -246,17 +255,17 @@ function atkBtn(){ return {x:vw-Math.max(80,vw*0.11), y:vh-95, r:40}; }
 const keys={};
 addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
 
-cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches){
-  if(t.clientX < vw*0.45 && !joy.active){ joy.active=true; joy.id=t.identifier; joy.sx=t.clientX; joy.sy=t.clientY; joy.dx=joy.dy=0; }
-  else if(!swp.active){ swp.active=true; swp.id=t.identifier; swp.sx=t.clientX; swp.sy=t.clientY; }
+cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches){ const p=pt(t);
+  if(p.x < vw*0.45 && !joy.active){ joy.active=true; joy.id=t.identifier; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; }
+  else if(!swp.active){ swp.active=true; swp.id=t.identifier; swp.sx=p.x; swp.sy=p.y; }
 } e.preventDefault(); },{passive:false});
-cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches){
-  if(joy.active && t.identifier===joy.id){ joy.dx=t.clientX-joy.sx; joy.dy=t.clientY-joy.sy; }
+cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches){ const p=pt(t);
+  if(joy.active && t.identifier===joy.id){ joy.dx=p.x-joy.sx; joy.dy=p.y-joy.sy; }
 } e.preventDefault(); },{passive:false});
-cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches){
+cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches){ const p=pt(t);
   if(joy.active && t.identifier===joy.id){ joy.active=false; joy.dx=joy.dy=0; }
   if(swp.active && t.identifier===swp.id){
-    const dx=t.clientX-swp.sx, dy=t.clientY-swp.sy, ab=atkBtn();
+    const dx=p.x-swp.sx, dy=p.y-swp.sy, ab=atkBtn();
     if(Math.hypot(dx,dy)>18) slash(Math.atan2(dy,dx));
     else if(Math.hypot(swp.sx-ab.x, swp.sy-ab.y)<ab.r+14) slash(P.dir); // attack button tap
     else tapAction();
@@ -264,8 +273,8 @@ cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches){
   }
 } e.preventDefault(); },{passive:false});
 // mouse fallback (desktop testing)
-cvs.addEventListener('mousedown',e=>{ swp.active=true; swp.sx=e.clientX; swp.sy=e.clientY; });
-cvs.addEventListener('mouseup',e=>{ if(!swp.active)return; const dx=e.clientX-swp.sx,dy=e.clientY-swp.sy;
+cvs.addEventListener('mousedown',e=>{ const p=pt(e); swp.active=true; swp.sx=p.x; swp.sy=p.y; });
+cvs.addEventListener('mouseup',e=>{ if(!swp.active)return; const p=pt(e); const dx=p.x-swp.sx,dy=p.y-swp.sy;
   if(Math.hypot(dx,dy)>18) slash(Math.atan2(dy,dx)); else tapAction(); swp.active=false; });
 
 function tapAction(){ // talk to nearby NPC, or slash forward
