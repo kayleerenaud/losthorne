@@ -310,50 +310,77 @@ const blocked = ()=> dialogOpen || invOpen;
 const keys={};
 addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
 
-cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches){ const p=pt(t);
-  if(p.x < vw*0.45 && !joy.active){ joy.active=true; joy.id=t.identifier; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; }
-  else if(!swp.active){ swp.active=true; swp.id=t.identifier; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
-} e.preventDefault(); },{passive:false});
-cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches){ const p=pt(t);
-  if(joy.active && t.identifier===joy.id){ joy.dx=p.x-joy.sx; joy.dy=p.y-joy.sy; }
-  if(swp.active && t.identifier===swp.id){ swp.cx=p.x; swp.cy=p.y; }
-} e.preventDefault(); },{passive:false});
-cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches){ const p=pt(t);
-  if(joy.active && t.identifier===joy.id){ joy.active=false; joy.dx=joy.dy=0; }
-  if(swp.active && t.identifier===swp.id){ rightRelease(p.x,p.y); swp.active=false; }
-} e.preventDefault(); },{passive:false});
-// mouse fallback (desktop testing)
-cvs.addEventListener('mousedown',e=>{ const p=pt(e); swp.active=true; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); });
-cvs.addEventListener('mousemove',e=>{ if(swp.active){ const p=pt(e); swp.cx=p.x; swp.cy=p.y; } });
-cvs.addEventListener('mouseup',e=>{ if(!swp.active)return; const p=pt(e); rightRelease(p.x,p.y); swp.active=false; });
-
-// interpret a right-side release: tap / swipe / hold, per current weapon
-function rightRelease(x,y){
+// ---- ONE-FINGER-FRIENDLY INPUT ----
+// Press & drag ANYWHERE (that isn't a button) = invisible joystick, appears under your finger.
+// Combat gestures start FROM the attack button: tap = attack, drag = aim slice / pull bow, hold = smash.
+// Other buttons are simple taps. Two-finger play (move + fight at once) still works.
+const btnTouch={active:false,id:-1,kind:null,sx:0,sy:0};
+function buttonAt(x,y){
+  const near=(b,pad)=>Math.hypot(x-b.x,y-b.y)<b.r+(pad||10);
+  if(near(atkBtn(),14)) return 'atk';
+  if(near(smashBtn(),12)) return 'smash';
+  if(near(wpnBtn(),12)) return 'wpn';
+  if(near(bagBtn(),12)) return 'bag';
+  if(npcNearby() && !dialogOpen && near(talkBtn(),12)) return 'talk';
+  return null;
+}
+function pointerDown(p,id){
+  if(invOpen) return;
+  const b=buttonAt(p.x,p.y);
+  if(b==='atk' && !swp.active){ swp.active=true; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
+  else if(b && !btnTouch.active){ btnTouch.active=true; btnTouch.id=id; btnTouch.kind=b; btnTouch.sx=p.x; btnTouch.sy=p.y; }
+  else if(!b && !joy.active){ joy.active=true; joy.id=id; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; joy.t0=performance.now(); }
+}
+function pointerMove(p,id){
+  if(joy.active && id===joy.id){ joy.dx=p.x-joy.sx; joy.dy=p.y-joy.sy; }
+  if(swp.active && id===swp.id){ swp.cx=p.x; swp.cy=p.y; }
+}
+function pointerUp(p,id){
+  if(joy.active && id===joy.id){
+    const dist=Math.hypot(p.x-joy.sx,p.y-joy.sy), dur=performance.now()-(joy.t0||0);
+    joy.active=false; joy.dx=joy.dy=0;
+    if(dist<8 && dur<260) groundTap();          // a plain tap: talk/advance, never attacks
+  }
+  if(btnTouch.active && id===btnTouch.id){
+    if(Math.hypot(p.x-btnTouch.sx,p.y-btnTouch.sy)<=20) pressButton(btnTouch.kind);
+    btnTouch.active=false;
+  }
+  if(swp.active && id===swp.id){ attackRelease(p.x,p.y); swp.active=false; }
+}
+function groundTap(){
+  if(dialogOpen){ advanceDialog(); return; }
+  const n=npcNearby(); if(n) openDialog(n);
+}
+function pressButton(kind){
+  if(kind==='smash'){ smash(); }
+  else if(kind==='bag'){ openInv(); }
+  else if(kind==='talk'){ const n=npcNearby(); if(n && !dialogOpen) openDialog(n); }
+  else if(kind==='wpn'){
+    P.weapon = P.weapon==='sword'?'bow':'sword';
+    banner(P.weapon==='sword'? '🗡️ Sword drawn — drag from ⚔️ to aim a slice' : '🏹 Bow ready — drag from the button & release!');
+  }
+}
+// release of a gesture that STARTED on the attack button
+function attackRelease(x,y){
   if(invOpen) return;
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
-  const dur=performance.now()-swp.t0, ab=atkBtn(), wb=wpnBtn(), bb=bagBtn(), sb=smashBtn(), tb=talkBtn();
-  if(dist<=18 && npcNearby() && Math.hypot(swp.sx-tb.x,swp.sy-tb.y)<tb.r+12 && !dialogOpen){ openDialog(npcNearby()); return; } // contextual talk
-  if(dist<=18 && Math.hypot(swp.sx-sb.x,swp.sy-sb.y)<sb.r+12){ smash(); return; }   // smash skill button
-  if(dist<=18 && Math.hypot(swp.sx-bb.x,swp.sy-bb.y)<bb.r+12){ openInv(); return; } // satchel
-  if(dist<=18 && Math.hypot(swp.sx-wb.x,swp.sy-wb.y)<wb.r+12){ // weapon toggle
-    P.weapon = P.weapon==='sword'?'bow':'sword';
-    banner(P.weapon==='sword'? '🗡️ Sword drawn — swipe to slice, hold to SMASH' : '🏹 Bow ready — pull back and release!');
-    return;
-  }
+  const dur=performance.now()-swp.t0;
   if(P.weapon==='bow'){
-    if(dist>25){ // slingshot: fire opposite the pull
-      const ang=Math.atan2(-dy,-dx), power=Math.min(dist,130);
-      fireArrow(ang,power);
-    } else if(Math.hypot(swp.sx-ab.x,swp.sy-ab.y)<ab.r+14) fireArrow(P.dir,75);
-    else tapAction();
+    if(dist>25){ const ang=Math.atan2(-dy,-dx); fireArrow(ang,Math.min(dist,130)); } // slingshot
+    else fireArrow(P.dir,75);
     return;
   }
-  // sword
-  if(dist>18) slash(Math.atan2(dy,dx));
-  else if(dur>350) smash();
-  else if(Math.hypot(swp.sx-ab.x,swp.sy-ab.y)<ab.r+14) slash(P.dir);
-  else tapAction();
+  if(dist>18) slash(Math.atan2(dy,dx));   // aimed slice
+  else if(dur>350) smash();               // hold = smash
+  else slash(P.dir);                      // tap = quick slash
 }
+cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches) pointerDown(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) pointerMove(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches) pointerUp(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+// mouse fallback (desktop testing)
+cvs.addEventListener('mousedown',e=>pointerDown(pt(e),'m'));
+cvs.addEventListener('mousemove',e=>pointerMove(pt(e),'m'));
+cvs.addEventListener('mouseup',e=>pointerUp(pt(e),'m'));
 
 function tapAction(){ // talk to nearby NPC, or attack forward
   if(dialogOpen){ advanceDialog(); return; }
@@ -726,12 +753,14 @@ function draw(){
   ctx.fillStyle='rgba(20,16,10,.72)'; rr(ctx, 14, top+38, ctx.measureText(qt).width+22, 26, 8);
   ctx.fillStyle='#e8d9a8'; ctx.fillText(qt, 25, top+56);
 
-  // joystick — ALWAYS visible (Kaylee: "I want to see the toggle")
-  const jx = joy.active? joy.sx : joyHome().x, jy = joy.active? joy.sy : joyHome().y;
-  ctx.strokeStyle='rgba(240,230,200,.4)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.stroke();
-  ctx.fillStyle='rgba(240,230,200,.08)'; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.fill();
-  { const m=Math.hypot(joy.dx,joy.dy)||1, cl=joy.active? Math.min(m,50):0;
-    ctx.fillStyle='rgba(240,230,200,.5)'; ctx.beginPath(); ctx.arc(jx+(joy.dx/m)*cl, jy+(joy.dy/m)*cl, 22,0,7); ctx.fill(); }
+  // joystick — invisible until you press & drag; appears under your finger, anywhere
+  if(joy.active){
+    const jx=joy.sx, jy=joy.sy;
+    ctx.strokeStyle='rgba(240,230,200,.4)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.stroke();
+    ctx.fillStyle='rgba(240,230,200,.08)'; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.fill();
+    const m=Math.hypot(joy.dx,joy.dy)||1, cl=Math.min(m,50);
+    ctx.fillStyle='rgba(240,230,200,.5)'; ctx.beginPath(); ctx.arc(jx+(joy.dx/m)*cl, jy+(joy.dy/m)*cl, 22,0,7); ctx.fill();
+  }
   // attack button — always visible
   const ab=atkBtn();
   ctx.fillStyle='rgba(90,69,38,.55)'; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.fill();
@@ -745,9 +774,9 @@ function draw(){
   ctx.font=(wb.r*0.85)+'px Georgia'; ctx.fillText(P.weapon==='sword'?'🏹':'🗡️', wb.x, wb.y+2);
   ctx.textBaseline='alphabetic';
   ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('switch', wb.x, wb.y+wb.r+13);
-  // smash "skill" button (dims while on cooldown)
+  // smash "skill" button (dims only after a SMASH, not a slice)
   const sb=smashBtn();
-  ctx.globalAlpha = P.slashT>0? .35 : 1;
+  ctx.globalAlpha = P.smashT>0? .35 : 1;
   ctx.fillStyle='rgba(122,63,26,.6)'; ctx.beginPath(); ctx.arc(sb.x,sb.y,sb.r,0,7); ctx.fill();
   ctx.strokeStyle='rgba(255,190,110,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(sb.x,sb.y,sb.r,0,7); ctx.stroke();
   ctx.font=(sb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💥', sb.x, sb.y+2); ctx.textBaseline='alphabetic';
@@ -769,9 +798,10 @@ function draw(){
     ctx.font=(tb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💬', tb.x, tb.y+2); ctx.textBaseline='alphabetic';
     ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.fillText(nearN.nm.split(' ')[0], tb.x, tb.y-tb.r-8);
   }
-  ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia';
-  ctx.fillText('move', jx, jy+68);
-  ctx.fillText(P.weapon==='sword'? 'swipe: slice • 💥 or hold: SMASH':'pull back & release to shoot!', ab.x-6, ab.y+ab.r+18);
+  ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
+  if(!joy.active) ctx.fillText('press & drag anywhere to move', 18, vh-20);
+  ctx.textAlign='center';
+  ctx.fillText(P.weapon==='sword'? 'drag from ⚔️: aimed slice • hold: SMASH':'drag from 🏹 & release to shoot!', ab.x-24, ab.y+ab.r+18);
   // active potion status — lives under the coin counter (right side), away from notifications
   if(pot.t>0 && pot.type){
     const pp=POTIONS[pot.type], secs=Math.ceil(pot.t/1000);

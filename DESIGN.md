@@ -26,17 +26,18 @@
 
 ## 3. Controls & Interface
 
-- **Two-finger touch controls.**
+- **Playable with ONE finger or two.** Press & drag anywhere on open screen = an invisible joystick that appears under your finger and moves the player. Combat comes from the button cluster, so a second finger is optional — two-finger play (move + fight simultaneously) still works. ✅
 - **Top-down camera, like Zelda.**
 - **Landscape/horizontal always** — even the login screen. The app renders horizontally no matter how the device is held. ✅
 - **Visible on-screen controls** — the joystick and buttons are always shown. ✅
 - Combat gestures (see §7): slice swipe, smash, pull-back archery.
 - **Feel target:** Genshin Impact's phone-smoothness + Zelda's intuitiveness.
 - **Layout reference — Genshin Impact mobile** (game8.co controls guide):
-  - Virtual joystick lower-LEFT for movement ✅
+  - Movement joystick: invisible until pressed; appears wherever the finger lands on open ground ✅
   - Attack cluster lower-RIGHT: big crossed-swords attack button in the corner, smaller ability buttons arced around it ✅ (💥 smash skill button, 🏹/🗡️ weapon switch, 🎒 satchel)
   - **Contextual interaction prompts:** a 💬 talk button APPEARS near the cluster only when you're close to someone you can talk to, labeled with their name ✅ (Genshin shows special commands only when relevant)
-  - Skill buttons support tap AND hold-for-stronger ✅ (tap 💥 or hold anywhere = smash)
+  - Skill buttons support tap AND hold-for-stronger ✅ (tap 💥, or press-and-hold the attack button = smash). The 💥 button dims only during a smash cooldown, never during a slice ✅
+  - Attack gestures start FROM the attack button: tap = quick attack, drag from it = aimed slice / bow pull-back ✅
   - Bow aiming: pull-back slingshot (touch-native take on Genshin's aim mode) ✅
   - Future, from the same reference: sprint/evade button with stamina 🔜, camera sensitivity settings (N/A for fixed top-down), pinch-zoom 🔜?
 - **Inventory:** a satchel button (🎒 bag icon) opens your bag — slots holding armor, artifacts, supplies, food. Always accessible. Tap an item to enlarge it and see its stats, then decide whether to use it. Purchases (bread, potions) go INTO the satchel rather than taking effect instantly. ✅
