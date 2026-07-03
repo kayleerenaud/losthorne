@@ -1,0 +1,708 @@
+'use strict';
+// ============================================================
+// LOSTHORNE: LAST LIGHT — playable prototype slice
+// Top-down Zelda-style • two-thumb controls • mocked login/rooms
+// ============================================================
+const $ = id => document.getElementById(id);
+
+// ---------- Avatars (the 4 designed by Josiah & Malachi) ----------
+const AVATARS = [
+  { nm:'Flute Boy',   ds:'curly dirty-blonde hair, brown vest, wooden flute', hair:'#c9a35a', outfit:'#7a5230', skin:'#e8b98a', item:'flute'  },
+  { nm:'Leather Lad', ds:'black ruffled hair, leather jacket, silver buckle', hair:'#241f1c', outfit:'#4a3826', skin:'#dfa878', item:'buckle' },
+  { nm:'Bone Pin',    ds:'big bun with a bone pin, dress & fur shawl',        hair:'#2e2119', outfit:'#6d4a56', skin:'#9c6b47', item:'pin'    },
+  { nm:'Lute Girl',   ds:'two Dutch braids, always carries her lute',         hair:'#e5c874', outfit:'#54636b', skin:'#eec49a', item:'lute'   },
+];
+let chosen = -1;
+
+// ---------- Screen flow ----------
+function show(id){ ['title','lobby','select','gameWrap','deathScr'].forEach(s=>$(s).classList.add('hidden')); $(id).classList.remove('hidden');
+  document.body.classList.toggle('ingame', id==='gameWrap'); }
+$('btnGuest').onclick = ()=> show('lobby');
+$('btnGoogle').onclick = $('btnSupa').onclick = function(){ this.textContent='🔧 Pretend-login successful!'; setTimeout(()=>show('lobby'),450); };
+$('btnHost').onclick = ()=>{
+  const L='BCDFGHKLMNPRSTVWZ', c=()=>L[Math.floor(Math.random()*L.length)];
+  $('codeText').textContent = 'LOST-'+c()+c()+c()+c();
+  $('hostCode').classList.remove('hidden'); $('joinBox').classList.add('hidden'); $('btnHost').classList.add('hidden');
+};
+$('btnJoin').onclick = ()=>{
+  const v=$('joinInput').value.trim();
+  banner(v? 'Fire "'+v.toUpperCase()+'" found! (multiplayer is pretend for now)' : 'Type a code first!');
+  if(v) setTimeout(()=>show('select'),900);
+};
+$('btnGo').onclick = ()=> show('select');
+$('btnStart').onclick = ()=>{ if(chosen>=0) startGame(); };
+
+// avatar cards
+AVATARS.forEach((a,i)=>{
+  const d=document.createElement('div'); d.className='card';
+  const cv=document.createElement('canvas'); cv.width=cv.height=72;
+  d.appendChild(cv);
+  d.insertAdjacentHTML('beforeend','<div class="nm">'+a.nm+'</div><div class="ds">'+a.ds+'</div>');
+  drawAvatarIcon(cv.getContext('2d'), a);
+  d.onclick=()=>{ document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel')); d.classList.add('sel'); chosen=i; $('btnStart').disabled=false; $('btnStart').style.opacity=1; };
+  $('avatarGrid').appendChild(d);
+});
+function drawAvatarIcon(c,a){
+  c.clearRect(0,0,72,72);
+  c.fillStyle=a.outfit; rr(c,22,34,28,30,8);                    // body
+  c.fillStyle=a.skin; c.beginPath(); c.arc(36,24,13,0,7); c.fill(); // head
+  c.fillStyle=a.hair; c.beginPath(); c.arc(36,19,13,Math.PI,0); c.fill(); c.fillRect(23,17,26,6);
+  c.fillStyle='#1c150e'; c.fillRect(31,25,3,3); c.fillRect(40,25,3,3); // eyes
+  if(a.item==='flute'){ c.strokeStyle='#a87c3f'; c.lineWidth=3.5; c.beginPath(); c.moveTo(48,42); c.lineTo(64,34); c.stroke(); }
+  if(a.item==='lute'){ c.fillStyle='#8a5a28'; c.beginPath(); c.ellipse(56,48,8,11,-.5,0,7); c.fill(); c.strokeStyle='#caa'; c.lineWidth=1.5; c.beginPath(); c.moveTo(50,58); c.lineTo(63,36); c.stroke(); }
+  if(a.item==='buckle'){ c.fillStyle='#cfd4da'; c.fillRect(32,46,8,7); }
+  if(a.item==='pin'){ c.fillStyle='#efe6d0'; c.save(); c.translate(46,14); c.rotate(.6); c.fillRect(-1.5,-8,3,16); c.restore(); }
+}
+function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); c.fill(); }
+
+// ============================================================
+// WORLD
+// ============================================================
+const W=1600, H=1600;                       // world size
+const cvs=$('game'), ctx=cvs.getContext('2d');
+let vw=0, vh=0, dpr=1, rotated=false;
+function resize(){
+  rotated = innerHeight > innerWidth;                 // portrait viewport → rotate the app
+  document.body.classList.toggle('forceLand', rotated);
+  dpr=Math.min(devicePixelRatio||1,2);
+  vw = rotated? innerHeight : innerWidth;             // logical (landscape) size
+  vh = rotated? innerWidth  : innerHeight;
+  cvs.width=vw*dpr; cvs.height=vh*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize',resize); addEventListener('orientationchange',()=>setTimeout(resize,60)); resize();
+// map a physical touch/mouse point to logical (landscape) coordinates
+function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
+
+const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:50, speed:2.5, slashT:0, smashT:0, hurtT:0, kills:0, weapon:'sword', inv:{bread:0,potion:0} };
+const floats=[];   // floating damage/pickup numbers
+const drops=[];    // coins dropped by creatures — walk over to collect
+function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
+function dropCoins(x,y){
+  const piles=2+Math.floor(Math.random()*2);
+  for(let i=0;i<piles;i++) drops.push({x:x+(Math.random()*36-18), y:y+(Math.random()*36-18), amt:2+Math.floor(Math.random()*3)});
+}
+const pot = { type:null, t:0 };  // Dorgan's random-power potion
+const POTIONS = { str:{ic:'💪',nm:'Ogre Strength'}, spd:{ic:'⚡',nm:'Wind Speed'}, stone:{ic:'🛡️',nm:'Stoneskin'} };
+const arrows = [];
+const dummies = [ {x:660,y:1265,hp:3,maxhp:3,hurtT:0,respawnT:0,showBar:false}, {x:945,y:1265,hp:3,maxhp:3,hurtT:0,respawnT:0,showBar:false} ];
+let hungerT = 0;
+const HUNGER_EVERY = 75000; // ms until you lose half a heart (Kaylee: "give me longer!")
+
+const trees=[], houses=[], bushes=[];
+// forest (north)
+for(let i=0;i<46;i++) trees.push({x:80+Math.random()*(W-160), y:70+Math.random()*560, r:22+Math.random()*14});
+// scattered mid trees
+for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random()*260, r:20+Math.random()*10});
+// village houses
+[[620,1120],[980,1120],[560,1300],[1030,1300],[790,1370]].forEach(h=>houses.push({x:h[0],y:h[1]}));
+// berry bushes: type 'blue' safe, 'red' DEADLY
+[[420,880],[1180,840],[760,760],[300,1020],[1320,1000]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'blue',taken:false,respawn:0}));
+[[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
+
+const NPCS = [
+  { nm:'Chief Bonbottom', x:800, y:1140, col:'#7d2f2f', hat:true,
+    lines:["Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
+           "Goblins have crept into the north forest. They scare the children and steal our bread!",
+           "Drive off 3 goblins, and there'll be 60 coins in it for you.",
+           "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."] },
+  { nm:'Erik the Trader', x:930, y:1195, col:'#2f5d7d', hat:false,
+    lines:["Psst — bread, fresh-ish! Only 8 coins. Nothing in Losthorne is free, friend."],
+    shop:{ label:'🍞 Buy bread — 8 coins (goes to satchel)', fn(){
+      if(P.coins>=8){ P.coins-=8; P.inv.bread++; banner('🍞 Bread tucked into your satchel'); }
+      else banner('Not enough coins!'); } } },
+  { nm:'Dorgan the Potion-Maker', x:665, y:1190, col:'#53406e', hat:false,
+    lines:["Hm? Ah — a warrior. I brew what the wilds allow… and the wilds are generous, if unpredictable.",
+           "My potions grant a RANDOM gift. Strength, speed, skin of stone — courage chooses its own shape. Care to gamble?"],
+    shop:{ label:'🧪 Mystery potion — 30 coins (goes to satchel)', fn(){
+      if(P.coins>=30){ P.coins-=30; P.inv.potion++; banner('🧪 A mystery potion sloshes in your satchel'); }
+      else banner('Not enough coins!'); } } },
+];
+
+const goblins=[];
+function spawnGoblins(){
+  goblins.length=0;
+  [[600,420],[840,300],[1120,460],[920,560]].forEach(g=>goblins.push({x:g[0],y:g[1],hp:2,maxhp:2,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
+}
+spawnGoblins();
+
+// ---------- QUEST STATE MACHINE ----------
+// stage: 'new' = chief has a quest to give • 'active' = doing it
+//        'complete' = objective met, return to chief • 'rewarded' = free exploring
+let questIdx=0, questStage='new', betweenT=0, berriesGot=0, gobRespawnT=0;
+const CHIEF_LINES = {
+  q0new: ["Ah! Our newest warrior. Losthorne is the LAST free village — everything beyond the woods has fallen.",
+          "Goblins have crept into the north forest. They scare the children and steal our bread!",
+          "Drive off 3 goblins, and there'll be 60 coins in it for you.",
+          "Oh — and NEVER eat the red berries. The blue ones heal. The red ones… we lost old Gregor that way."],
+  q0active: ["The goblins won't leave on their own, warrior! North, up the path, through the woods."],
+  q0complete: ["HA! You did it! Three goblins gone — the children can play again.",
+               "You have my thanks, and 60 coins, well earned. Now rest and explore — I'll send for you when Losthorne needs you."],
+  q0rewarded: ["Enjoy the calm, warrior. Stretch your legs, taste the blueberries. I'll call when there's work."],
+  q1new: ["There you are! Dorgan is brewing a potion of courage, and he's short on ingredients.",
+          "Bring me 4 blueberries from the wild bushes. The BLUE ones, mind you. Blue. I cannot stress this enough."],
+  q1active: ["Blueberries! Four! The bushes in the meadows regrow quickly — off you go."],
+  q1complete: ["Perfect — plump and blue! Dorgan sends his thanks… and I'll add 40 coins from the village purse.",
+               "You've done all I have for now, warrior. Explore Losthorne freely — greater adventures are stirring…"],
+  done: ["The village is safe and the fires are warm, thanks to you. Explore! Adventure will come knocking soon enough."],
+};
+function chiefLines(){
+  if(questIdx===0) return CHIEF_LINES['q0'+questStage] || CHIEF_LINES.q0active;
+  if(questIdx===1) return CHIEF_LINES['q1'+questStage] || CHIEF_LINES.q1active;
+  return CHIEF_LINES.done;
+}
+
+// ============================================================
+// INPUT — left thumb = move (joystick), right thumb = swipe to slash
+// ============================================================
+const joy={active:false,id:-1,sx:0,sy:0,dx:0,dy:0};
+const swp={active:false,id:-1,sx:0,sy:0,cx:0,cy:0,t0:0};
+// Genshin-style lower-right button cluster: big attack in the corner,
+// smaller ability buttons arced around it, contextual talk button when near NPCs
+function joyHome(){ return {x:Math.max(80,vw*0.14), y:vh-95}; }
+function atkBtn(){ return {x:vw-Math.max(80,vw*0.11), y:vh-95, r:40}; }
+function smashBtn(){ const a=atkBtn(); return {x:a.x-92, y:a.y+14, r:29}; }   // skill button, left of attack
+function wpnBtn(){ const a=atkBtn(); return {x:a.x, y:a.y-98, r:27}; }        // above attack
+function bagBtn(){ const a=atkBtn(); return {x:a.x-84, y:a.y-76, r:25}; }     // diagonal
+function talkBtn(){ const a=atkBtn(); return {x:a.x, y:a.y-182, r:28}; }      // contextual — only when near someone
+function npcNearby(){ for(const n of NPCS){ if(Math.hypot(n.x-P.x,n.y-P.y)<70) return n; } return null; }
+const blocked = ()=> dialogOpen || invOpen;
+const keys={};
+addEventListener('keydown',e=>keys[e.key]=1); addEventListener('keyup',e=>keys[e.key]=0);
+
+// ---- ONE-FINGER-FRIENDLY INPUT ----
+// Press & drag ANYWHERE (that isn't a button) = invisible joystick, appears under your finger.
+// Combat gestures start FROM the attack button: tap = attack, drag = aim slice / pull bow, hold = smash.
+// Other buttons are simple taps. Two-finger play (move + fight at once) still works.
+const btnTouch={active:false,id:-1,kind:null,sx:0,sy:0};
+function buttonAt(x,y){
+  const near=(b,pad)=>Math.hypot(x-b.x,y-b.y)<b.r+(pad||10);
+  if(near(atkBtn(),14)) return 'atk';
+  if(near(smashBtn(),12)) return 'smash';
+  if(near(wpnBtn(),12)) return 'wpn';
+  if(near(bagBtn(),12)) return 'bag';
+  if(npcNearby() && !dialogOpen && near(talkBtn(),12)) return 'talk';
+  return null;
+}
+function pointerDown(p,id){
+  if(invOpen) return;
+  const b=buttonAt(p.x,p.y);
+  if(b==='atk' && !swp.active){ swp.active=true; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
+  else if(b && !btnTouch.active){ btnTouch.active=true; btnTouch.id=id; btnTouch.kind=b; btnTouch.sx=p.x; btnTouch.sy=p.y; }
+  else if(!b && !joy.active){ joy.active=true; joy.id=id; joy.sx=p.x; joy.sy=p.y; joy.dx=joy.dy=0; joy.t0=performance.now(); }
+}
+function pointerMove(p,id){
+  if(joy.active && id===joy.id){ joy.dx=p.x-joy.sx; joy.dy=p.y-joy.sy; }
+  if(swp.active && id===swp.id){ swp.cx=p.x; swp.cy=p.y; }
+}
+function pointerUp(p,id){
+  if(joy.active && id===joy.id){
+    const dist=Math.hypot(p.x-joy.sx,p.y-joy.sy), dur=performance.now()-(joy.t0||0);
+    joy.active=false; joy.dx=joy.dy=0;
+    if(dist<8 && dur<260) groundTap();          // a plain tap: talk/advance, never attacks
+  }
+  if(btnTouch.active && id===btnTouch.id){
+    if(Math.hypot(p.x-btnTouch.sx,p.y-btnTouch.sy)<=20) pressButton(btnTouch.kind);
+    btnTouch.active=false;
+  }
+  if(swp.active && id===swp.id){ attackRelease(p.x,p.y); swp.active=false; }
+}
+function groundTap(){
+  if(dialogOpen){ advanceDialog(); return; }
+  const n=npcNearby(); if(n) openDialog(n);
+}
+function pressButton(kind){
+  if(kind==='smash'){ smash(); }
+  else if(kind==='bag'){ openInv(); }
+  else if(kind==='talk'){ const n=npcNearby(); if(n && !dialogOpen) openDialog(n); }
+  else if(kind==='wpn'){
+    P.weapon = P.weapon==='sword'?'bow':'sword';
+    banner(P.weapon==='sword'? '🗡️ Sword drawn — drag from ⚔️ to aim a slice' : '🏹 Bow ready — drag from the button & release!');
+  }
+}
+// release of a gesture that STARTED on the attack button
+function attackRelease(x,y){
+  if(invOpen) return;
+  const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
+  const dur=performance.now()-swp.t0;
+  if(P.weapon==='bow'){
+    if(dist>25){ const ang=Math.atan2(-dy,-dx); fireArrow(ang,Math.min(dist,130)); } // slingshot
+    else fireArrow(P.dir,75);
+    return;
+  }
+  if(dist>18) slash(Math.atan2(dy,dx));   // aimed slice
+  else if(dur>350) smash();               // hold = smash
+  else slash(P.dir);                      // tap = quick slash
+}
+cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches) pointerDown(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) pointerMove(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches) pointerUp(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+// mouse fallback (desktop testing)
+cvs.addEventListener('mousedown',e=>pointerDown(pt(e),'m'));
+cvs.addEventListener('mousemove',e=>pointerMove(pt(e),'m'));
+cvs.addEventListener('mouseup',e=>pointerUp(pt(e),'m'));
+
+function tapAction(){ // talk to nearby NPC, or attack forward
+  if(dialogOpen){ advanceDialog(); return; }
+  for(const n of NPCS){ if(Math.hypot(n.x-P.x,n.y-P.y)<70){ openDialog(n); return; } }
+  if(P.weapon==='bow') fireArrow(P.dir,75); else slash(P.dir);
+}
+
+// ============================================================
+// COMBAT
+// ============================================================
+function eachTarget(cb){
+  for(const g of goblins){ if(g.alive) cb(g,'gob'); }
+  for(const d of dummies){ if(d.hp>0) cb(d,'dum'); }
+}
+function hitTarget(t,kind,dmg,ang){
+  t.hp-=dmg; t.hurtT=10; t.showBar=true;
+  // damage number: bigger hits look bigger (smash/strong arrows pop)
+  addFloat(t.x, t.y-30, '-'+dmg, dmg>=3?'#ff7b47':dmg>=2?'#ffb347':'#f0e6d0', dmg>=3?26:dmg>=2?22:15);
+  if(kind==='gob'){
+    const kb=dmg>=2? 42:26; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
+    if(t.hp<=0){ t.alive=false; P.kills++;
+      dropCoins(t.x,t.y);   // creatures DROP coins — go pick them up
+      banner('Goblin driven off!'+(questIdx===0&&questStage==='active'?'  ('+Math.min(P.kills,3)+'/3)':'')+' It dropped coins!');
+      if(P.kills>=3 && questIdx===0 && questStage==='active'){ questStage='complete'; banner('⚔️ Quest complete! Return to Chief Bonbottom!'); } }
+  } else {
+    if(t.hp<=0){ t.respawnT=8000; banner('🎯 Training dummy destroyed! It will be rebuilt.'); }
+  }
+}
+const dmgBonus = ()=> pot.type==='str'&&pot.t>0 ? 1 : 0;
+function slash(ang){
+  if(P.slashT>0 || blocked()) return;
+  P.dir=ang; P.slashT=14;
+  eachTarget((t,kind)=>{
+    const d=Math.hypot(t.x-P.x,t.y-P.y), a=Math.atan2(t.y-P.y,t.x-P.x);
+    let diff=Math.abs(a-ang); if(diff>Math.PI) diff=2*Math.PI-diff;
+    if(d<74 && diff<1.15) hitTarget(t,kind,1+dmgBonus(),a);
+  });
+}
+function smash(){ // heavy attack: hits ALL around you
+  if(P.slashT>0 || blocked()) return;
+  P.slashT=22; P.smashT=16;
+  eachTarget((t,kind)=>{
+    const d=Math.hypot(t.x-P.x,t.y-P.y);
+    if(d<95) hitTarget(t,kind,2+dmgBonus(),Math.atan2(t.y-P.y,t.x-P.x));
+  });
+}
+function fireArrow(ang,power){
+  if(blocked()) return;
+  P.dir=ang;
+  const sp=5+(power/130)*8;
+  arrows.push({x:P.x,y:P.y-6,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:70,dmg:(power>85?2:1)+dmgBonus(),ang});
+}
+function drinkPotion(){
+  const keys=Object.keys(POTIONS), k=keys[Math.floor(Math.random()*keys.length)];
+  pot.type=k; pot.t=30000;
+  banner(POTIONS[k].ic+' The potion takes hold: '+POTIONS[k].nm+'! (30s)');
+  addFloat(P.x,P.y-40,POTIONS[k].ic+' '+POTIONS[k].nm+'!','#d9b8ff',20);
+}
+
+// ---------- INVENTORY ----------
+const ITEMS = {
+  bread:  { ic:'🍞', nm:'Warm Bread', st:'Restores 1 ❤️ and quiets your hunger.<br><i>"Fresh-ish!" — Erik</i>',
+            use(){ P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0; banner('You eat the bread. +1 ❤️'); addFloat(P.x,P.y-36,'+1 ❤️','#7ed67e',18); } },
+  potion: { ic:'🧪', nm:'Mystery Potion', st:'A RANDOM power for 30 seconds:<br>💪 Ogre Strength (+1 damage on every hit)<br>⚡ Wind Speed (run much faster)<br>🛡️ Stoneskin (blows bounce off you)<br><i>"Courage chooses its own shape." — Dorgan</i>',
+            use(){ drinkPotion(); } },
+};
+let invOpen=false, invSel=null;
+function openInv(){ if(dialogOpen) closeDialog(); invOpen=true; invSel=null; renderInv(); $('inv').classList.remove('hidden'); }
+function closeInv(){ invOpen=false; $('inv').classList.add('hidden'); }
+function renderInv(){
+  const g=$('invGrid'), det=$('invDetail');
+  if(invSel){
+    g.classList.add('hidden'); det.classList.remove('hidden');
+    const it=ITEMS[invSel];
+    det.querySelector('.bigIc').textContent=it.ic;
+    det.querySelector('.inm').textContent=it.nm+'  ×'+P.inv[invSel];
+    det.querySelector('.ist').innerHTML=it.st;
+    return;
+  }
+  g.classList.remove('hidden'); det.classList.add('hidden');
+  g.innerHTML='';
+  let any=false;
+  for(const k in ITEMS){ if(P.inv[k]>0){ any=true;
+    const d=document.createElement('div'); d.className='invItem';
+    d.innerHTML='<div class="ic">'+ITEMS[k].ic+'</div><div class="ct">'+ITEMS[k].nm+' ×'+P.inv[k]+'</div>';
+    d.onclick=()=>{ invSel=k; renderInv(); };
+    g.appendChild(d);
+  } }
+  if(!any) g.innerHTML='<div class="invEmpty">Your satchel is empty.<br>Buy bread from Erik or a potion from Dorgan in the village.</div>';
+}
+$('invClose').onclick=closeInv;
+$('invBack').onclick=()=>{ invSel=null; renderInv(); };
+$('invUse').onclick=()=>{ if(invSel && P.inv[invSel]>0){ P.inv[invSel]--; ITEMS[invSel].use(); closeInv(); } };
+function hurtPlayer(n,why){
+  if(P.hurtT>0) return;
+  if(pot.type==='stone' && pot.t>0){ banner('🛡️ Stoneskin absorbs the blow!'); P.hurtT=30; return; }
+  P.hp-=n; P.hurtT=45;
+  if(P.hp<=0) die(why||'A goblin got the better of you.');
+}
+function die(msg,title){
+  $('deathTitle').textContent = title||'You have fallen';
+  $('deathMsg').textContent = msg+' You wake at the edge of the territory.';
+  show('deathScr');
+  running=false;
+}
+$('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=P.maxhp; hungerT=0; P.hurtT=60; show('gameWrap'); running=true; loop(); };
+
+// ============================================================
+// DIALOGUE
+// ============================================================
+let dialogOpen=false, dNpc=null, dIdx=0, dLines=[];
+function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
+  dLines = n.nm.startsWith('Chief') ? chiefLines() : n.lines;
+  renderDialog(); $('dialog').classList.remove('hidden'); }
+function renderDialog(){
+  $('dialog').querySelector('.who').textContent=dNpc.nm;
+  $('dialog').querySelector('.txt').textContent=dLines[dIdx];
+  const sb=$('shopBtn');
+  if(dNpc.shop){ sb.classList.remove('hidden'); sb.textContent=dNpc.shop.label;
+    sb.onclick=(e)=>{ e.stopPropagation(); dNpc.shop.fn(); };
+  } else sb.classList.add('hidden');
+}
+function advanceDialog(){
+  dIdx++;
+  if(dIdx>=dLines.length){
+    // chief dialogue endings drive the quest state machine
+    if(dNpc.nm.startsWith('Chief')){
+      if(questStage==='new') { questStage='active'; banner(questIdx===0? '📜 Quest: drive off 3 goblins in the north forest!' : '📜 Quest: gather 4 blueberries!'); }
+      else if(questStage==='complete'){
+        const reward = questIdx===0? 60 : 40;
+        P.coins+=reward; banner('🎉 The Chief congratulates you! +'+reward+' coins');
+        questStage='rewarded'; betweenT=0;
+        if(questIdx===1) questIdx=2; // all quests done → explore freely
+      }
+    }
+    closeDialog();
+  } else renderDialog();
+}
+function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden'); }
+$('dialog').onclick=advanceDialog;
+
+// ============================================================
+// BANNER
+// ============================================================
+let bannerT=null;
+function banner(t){ const b=$('banner'); b.textContent=t; b.style.opacity=1; clearTimeout(bannerT); bannerT=setTimeout(()=>b.style.opacity=0,2600); }
+
+// ============================================================
+// UPDATE
+// ============================================================
+let last=0, running=false;
+function update(dt){
+  // movement
+  let mx=0,my=0;
+  if(joy.active){ const m=Math.hypot(joy.dx,joy.dy); if(m>6){ const cl=Math.min(m,52)/52; mx=joy.dx/m*cl; my=joy.dy/m*cl; } }
+  if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
+  if(keys[' ']){ slash(P.dir); }
+  const spd = P.speed * (pot.type==='spd'&&pot.t>0 ? 1.75 : 1);
+  if((mx||my) && !blocked()){
+    P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
+    P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
+    for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
+    for(const h of houses){ if(Math.abs(P.x-h.x)<62 && Math.abs(P.y-h.y)<56){ if(Math.abs(P.x-h.x)/62>Math.abs(P.y-h.y)/56) P.x=h.x+Math.sign(P.x-h.x)*62; else P.y=h.y+Math.sign(P.y-h.y)*56; } }
+  }
+  if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; if(P.hurtT>0)P.hurtT--;
+  if(pot.t>0){ pot.t-=dt; if(pot.t<=0){ pot.type=null; banner('The potion wears off…'); } }
+
+  // arrows
+  for(let i=arrows.length-1;i>=0;i--){ const a=arrows[i];
+    a.x+=a.vx; a.y+=a.vy; a.life--;
+    let dead = a.life<=0 || a.x<0||a.x>W||a.y<0||a.y>H;
+    if(!dead) for(const t of trees){ if(Math.hypot(t.x-a.x,t.y-a.y)<t.r*.8){ dead=true; break; } }
+    if(!dead) eachTarget((t,kind)=>{ if(!dead && Math.hypot(t.x-a.x,t.y-a.y)<17){ hitTarget(t,kind,a.dmg,a.ang); dead=true; } });
+    if(dead) arrows.splice(i,1);
+  }
+
+  // training dummies rebuild
+  for(const d of dummies){ if(d.hp<=0){ d.respawnT-=dt; if(d.respawnT<=0){ d.hp=d.maxhp; d.showBar=false; } } if(d.hurtT>0)d.hurtT--; }
+
+  // floating numbers
+  for(let i=floats.length-1;i>=0;i--){ const f=floats[i]; f.t--; f.y-=.8; if(f.t<=0) floats.splice(i,1); }
+
+  // dropped coins — walk over to collect
+  for(let i=drops.length-1;i>=0;i--){ const c=drops[i];
+    if(Math.hypot(c.x-P.x,c.y-P.y)<30){ P.coins+=c.amt; addFloat(P.x,P.y-36,'+'+c.amt+' 🪙','#ffd977',17); drops.splice(i,1); } }
+
+  // goblins prowl back after a while (combat practice never runs dry)
+  if(goblins.every(g=>!g.alive)){ gobRespawnT+=dt;
+    if(gobRespawnT>30000){ gobRespawnT=0; spawnGoblins(); banner('🌲 More goblins prowl the north forest…'); } }
+  else gobRespawnT=0;
+
+  // hunger
+  hungerT+=dt;
+  if(hungerT>HUNGER_EVERY){ hungerT=0; P.hp--; banner('Your stomach growls… find food! -½ ❤️'); if(P.hp<=0) die('You starved in the wilds.','Hunger wins'); }
+
+  // berries (blue bushes regrow after ~25s)
+  for(const b of bushes){
+    if(b.taken){ b.respawn-=dt; if(b.respawn<=0 && b.type==='blue') b.taken=false; continue; }
+    if(Math.hypot(b.x-P.x,b.y-P.y)<30){
+      b.taken=true; b.respawn=25000;
+      if(b.type==='blue'){ P.hp=Math.min(P.maxhp,P.hp+1); hungerT=0;
+        if(questIdx===1 && questStage==='active'){ berriesGot++;
+          if(berriesGot>=4){ questStage='complete'; banner('🫐 4/4! Bring them to Chief Bonbottom!'); }
+          else banner('🫐 Blueberries: '+berriesGot+'/4  (+½ ❤️)');
+        } else banner('Sweet blueberries! +½ ❤️');
+      }
+      else { die('You ate the RED berries. The Chief warned you…','The red berries'); }
+    } }
+
+  // between quests: let them explore, then the chief calls
+  if(questStage==='rewarded' && questIdx<1){
+    betweenT+=dt;
+    if(betweenT>40000){ questIdx=1; questStage='new'; berriesGot=0; banner('📜 Chief Bonbottom has a new task for you!'); }
+  }
+
+  // goblins
+  for(const g of goblins){ if(!g.alive) continue;
+    if(g.hurtT>0){g.hurtT--; continue;}
+    const d=Math.hypot(P.x-g.x,P.y-g.y);
+    if(d<170 && !blocked()){ const a=Math.atan2(P.y-g.y,P.x-g.x); g.x+=Math.cos(a)*1.35; g.y+=Math.sin(a)*1.35; g.dir=a;
+      if(d<30 && g.atkT<=0){ hurtPlayer(1); g.atkT=70; banner('A goblin bites you! -½ ❤️'); } }
+    else { g.t+=dt; if(g.t>2200){ g.t=0; g.dir=Math.random()*7; } g.x+=Math.cos(g.dir)*.4; g.y+=Math.sin(g.dir)*.4; }
+    g.x=Math.max(40,Math.min(W-40,g.x)); g.y=Math.max(40,Math.min(H-40,g.y));
+    if(g.atkT>0)g.atkT--;
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function draw(){
+  const camX=Math.max(0,Math.min(W-vw,P.x-vw/2)), camY=Math.max(0,Math.min(H-vh,P.y-vh/2));
+  // ground
+  const grd=ctx.createLinearGradient(0,-camY,0,H-camY);
+  grd.addColorStop(0,'#26331f'); grd.addColorStop(.45,'#33402a'); grd.addColorStop(1,'#4a4a33');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  ctx.save(); ctx.translate(-camX,-camY);
+
+  // dirt path from village to forest
+  ctx.strokeStyle='#5c4d33'; ctx.lineWidth=46; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(800,1340); ctx.quadraticCurveTo(780,900,830,420); ctx.stroke();
+  ctx.strokeStyle='#6b5a3d'; ctx.lineWidth=34; ctx.beginPath(); ctx.moveTo(800,1340); ctx.quadraticCurveTo(780,900,830,420); ctx.stroke();
+
+  // village ground patch
+  ctx.fillStyle='rgba(120,100,60,.25)'; ctx.beginPath(); ctx.ellipse(800,1230,330,210,0,0,7); ctx.fill();
+
+  // bushes
+  for(const b of bushes){ if(b.taken) continue;
+    ctx.fillStyle='#2c4a22'; ctx.beginPath(); ctx.arc(b.x,b.y,16,0,7); ctx.arc(b.x-12,b.y+6,12,0,7); ctx.arc(b.x+12,b.y+6,12,0,7); ctx.fill();
+    ctx.fillStyle = b.type==='blue' ? '#5b8fd4' : '#d43a3a';
+    for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(b.x-10+i*5,b.y-4+((i%2)*8),3.2,0,7); ctx.fill(); }
+  }
+
+  // houses
+  for(const h of houses){
+    ctx.fillStyle='#57452c'; ctx.fillRect(h.x-52,h.y-30,104,66);
+    ctx.fillStyle='#3f331f'; ctx.fillRect(h.x-52,h.y-30,104,8);
+    ctx.fillStyle='#7d2f22'; ctx.beginPath(); ctx.moveTo(h.x-62,h.y-28); ctx.lineTo(h.x,h.y-72); ctx.lineTo(h.x+62,h.y-28); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#2c2214'; ctx.fillRect(h.x-11,h.y+8,22,28);
+    ctx.fillStyle='#ffd977'; ctx.fillRect(h.x-34,h.y-12,14,14); ctx.fillRect(h.x+20,h.y-12,14,14);
+  }
+  // Erik's stall
+  ctx.fillStyle='#6b4a26'; ctx.fillRect(905,1210,56,10);
+  ctx.fillStyle='#8a2f2f'; ctx.fillRect(900,1178,66,10); ctx.fillStyle='#c9c2ac'; ctx.fillRect(900,1168,66,10);
+
+  // training dummies
+  for(const d of dummies){
+    if(d.hp>0){
+      ctx.save(); if(d.hurtT>0 && d.hurtT%4<2) ctx.globalAlpha=.5;
+      ctx.fillStyle='#6b4a26'; ctx.fillRect(d.x-3,d.y-14,6,30);           // post
+      ctx.fillRect(d.x-16,d.y-8,32,5);                                     // arms
+      ctx.fillStyle='#c9b06a'; ctx.beginPath(); ctx.arc(d.x,d.y-20,8,0,7); ctx.fill(); // straw head
+      ctx.strokeStyle='#8a6d38'; ctx.lineWidth=1.5; ctx.strokeRect(d.x-8,d.y-2,16,12); // body sack
+      ctx.restore();
+      if(d.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(d.x-16,d.y-36,32,5); ctx.fillStyle='#d4a23a'; ctx.fillRect(d.x-15,d.y-35,30*(d.hp/d.maxhp),3); }
+    } else { ctx.fillStyle='#4a3a22'; ctx.beginPath(); ctx.ellipse(d.x,d.y,14,6,0,0,7); ctx.fill(); }
+  }
+
+  // arrows in flight
+  for(const a of arrows){
+    ctx.strokeStyle='#d8c090'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(a.x-Math.cos(a.ang)*10,a.y-Math.sin(a.ang)*10); ctx.lineTo(a.x,a.y); ctx.stroke();
+    ctx.fillStyle='#efe6d0'; ctx.beginPath(); ctx.arc(a.x,a.y,2.2,0,7); ctx.fill();
+  }
+
+  // NPCs
+  for(const n of NPCS) drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70);
+
+  // goblins
+  for(const g of goblins){ if(!g.alive) continue;
+    ctx.save(); if(g.hurtT>0 && g.hurtT%4<2) ctx.globalAlpha=.4;
+    ctx.fillStyle='#4a6d2c'; ctx.beginPath(); ctx.ellipse(g.x,g.y+6,11,13,0,0,7); ctx.fill();
+    ctx.fillStyle='#5d8438'; ctx.beginPath(); ctx.arc(g.x,g.y-8,9,0,7); ctx.fill();
+    ctx.fillStyle='#5d8438'; ctx.beginPath(); ctx.moveTo(g.x-8,g.y-12); ctx.lineTo(g.x-15,g.y-19); ctx.lineTo(g.x-5,g.y-15); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(g.x+8,g.y-12); ctx.lineTo(g.x+15,g.y-19); ctx.lineTo(g.x+5,g.y-15); ctx.fill();
+    ctx.fillStyle='#ffd42a'; ctx.fillRect(g.x-4,g.y-11,2.6,2.6); ctx.fillRect(g.x+2,g.y-11,2.6,2.6);
+    ctx.restore();
+    if(g.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(g.x-16,g.y-28,32,5); ctx.fillStyle='#d43a3a'; ctx.fillRect(g.x-15,g.y-27,30*(g.hp/g.maxhp),3); }
+  }
+
+  // dropped coins
+  for(const c of drops){
+    ctx.fillStyle='#8a6d1e'; ctx.beginPath(); ctx.arc(c.x,c.y+1.5,6,0,7); ctx.fill();
+    ctx.fillStyle='#ffd53e'; ctx.beginPath(); ctx.arc(c.x,c.y,6,0,7); ctx.fill();
+    ctx.strokeStyle='#8a6d1e'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(c.x,c.y,3.4,0,7); ctx.stroke();
+  }
+
+  // player
+  const av=AVATARS[chosen<0?0:chosen];
+  // potion aura — you can SEE the power on you
+  if(pot.t>0 && pot.type){
+    const col = pot.type==='str'? '255,140,60' : pot.type==='spd'? '90,220,255' : '200,200,215';
+    const pulse=.28+.16*Math.sin(performance.now()/160);
+    ctx.fillStyle='rgba('+col+','+(pulse*.5)+')'; ctx.beginPath(); ctx.arc(P.x,P.y,30,0,7); ctx.fill();
+    ctx.strokeStyle='rgba('+col+','+(.5+pulse)+')'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(P.x,P.y,26+3*Math.sin(performance.now()/200),0,7); ctx.stroke();
+  }
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
+  drawPerson(P.x,P.y,P.dir,av,false,false);
+  ctx.restore();
+  // slash arc
+  if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke();
+    ctx.strokeStyle='rgba(255,215,120,'+(P.slashT/14*.6)+')'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,52,P.dir-.65,P.dir+.65); ctx.stroke(); }
+  // smash shockwave
+  if(P.smashT>0){ const pr=(16-P.smashT)/16;
+    ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=7-pr*5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*75,0,7); ctx.stroke(); }
+  // bow aim (pull back and release)
+  if(P.weapon==='bow' && swp.active && !dialogOpen){
+    const ddx=swp.cx-swp.sx, ddy=swp.cy-swp.sy, dd=Math.hypot(ddx,ddy);
+    if(dd>25){ const ang=Math.atan2(-ddy,-ddx), pw=Math.min(dd,130)/130;
+      ctx.setLineDash([6,7]); ctx.strokeStyle='rgba(255,230,160,.75)'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(P.x+Math.cos(ang)*(60+pw*110), P.y+Math.sin(ang)*(60+pw*110)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(255,190,90,'+(.4+pw*.5)+')'; ctx.beginPath(); ctx.arc(P.x,P.y,10+pw*10,0,7); ctx.fill();
+    }
+  }
+
+  // floating damage / pickup numbers
+  for(const f of floats){
+    ctx.globalAlpha=Math.min(1,f.t/22);
+    ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y);
+    ctx.globalAlpha=1;
+  }
+
+  // trees (drawn after entities so canopies overlap)
+  for(const t of trees){
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(t.x+4,t.y+6,t.r*.9,t.r*.5,0,0,7); ctx.fill();
+    ctx.fillStyle='#1d2e18'; ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,7); ctx.fill();
+    ctx.fillStyle='#2a4020'; ctx.beginPath(); ctx.arc(t.x-t.r*.25,t.y-t.r*.25,t.r*.72,0,7); ctx.fill();
+  }
+  ctx.restore();
+
+  // ---------- HUD ----------
+  const top = 12 + (window.visualViewport? 0:0);
+  // hearts
+  for(let i=0;i<P.maxhp/2;i++){ drawHeart(20+i*26, top+18, (P.hp>=(i+1)*2)?1:(P.hp===i*2+1?.5:0)); }
+  // coins
+  ctx.font='bold 17px Georgia'; ctx.textAlign='right';
+  ctx.fillStyle='rgba(20,16,10,.75)'; rr(ctx, vw-124, top+2, 112, 30, 9);
+  ctx.fillStyle='#ffd977'; ctx.fillText('🪙 '+P.coins, vw-22, top+24);
+  // quest
+  ctx.textAlign='left'; ctx.font='13.5px Georgia';
+  let qt='💬 Talk to Chief Bonbottom (tap near him)';
+  if(questStage==='active') qt = questIdx===0? '⚔️ Goblins driven off: '+P.kills+'/3' : '🫐 Blueberries: '+berriesGot+'/4';
+  else if(questStage==='complete') qt='🏆 Return to Chief Bonbottom!';
+  else if(questStage==='rewarded') qt = questIdx>=1? '✅ All quests done — explore Losthorne!' : '🌿 Explore! The Chief will call on you again…';
+  ctx.fillStyle='rgba(20,16,10,.72)'; rr(ctx, 14, top+38, ctx.measureText(qt).width+22, 26, 8);
+  ctx.fillStyle='#e8d9a8'; ctx.fillText(qt, 25, top+56);
+
+  // joystick — invisible until you press & drag; appears under your finger, anywhere
+  if(joy.active){
+    const jx=joy.sx, jy=joy.sy;
+    ctx.strokeStyle='rgba(240,230,200,.4)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.stroke();
+    ctx.fillStyle='rgba(240,230,200,.08)'; ctx.beginPath(); ctx.arc(jx,jy,50,0,7); ctx.fill();
+    const m=Math.hypot(joy.dx,joy.dy)||1, cl=Math.min(m,50);
+    ctx.fillStyle='rgba(240,230,200,.5)'; ctx.beginPath(); ctx.arc(jx+(joy.dx/m)*cl, jy+(joy.dy/m)*cl, 22,0,7); ctx.fill();
+  }
+  // attack button — always visible
+  const ab=atkBtn();
+  ctx.fillStyle='rgba(90,69,38,.55)'; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(240,220,170,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(ab.x,ab.y,ab.r,0,7); ctx.stroke();
+  ctx.font=(ab.r*0.9)+'px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(P.weapon==='sword'?'⚔️':'🏹', ab.x, ab.y+2);
+  // weapon switch button
+  const wb=wpnBtn();
+  ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(wb.x,wb.y,wb.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(wb.x,wb.y,wb.r,0,7); ctx.stroke();
+  ctx.font=(wb.r*0.85)+'px Georgia'; ctx.fillText(P.weapon==='sword'?'🏹':'🗡️', wb.x, wb.y+2);
+  ctx.textBaseline='alphabetic';
+  ctx.fillStyle='rgba(240,230,200,.35)'; ctx.font='10.5px Georgia'; ctx.fillText('switch', wb.x, wb.y+wb.r+13);
+  // smash "skill" button (dims only after a SMASH, not a slice)
+  const sb=smashBtn();
+  ctx.globalAlpha = P.smashT>0? .35 : 1;
+  ctx.fillStyle='rgba(122,63,26,.6)'; ctx.beginPath(); ctx.arc(sb.x,sb.y,sb.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(255,190,110,.55)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(sb.x,sb.y,sb.r,0,7); ctx.stroke();
+  ctx.font=(sb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💥', sb.x, sb.y+2); ctx.textBaseline='alphabetic';
+  ctx.globalAlpha=1;
+  // satchel button
+  const bb=bagBtn();
+  ctx.fillStyle='rgba(51,48,42,.6)'; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(200,180,130,.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bb.x,bb.y,bb.r,0,7); ctx.stroke();
+  ctx.font=(bb.r*0.85)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('🎒', bb.x, bb.y+2); ctx.textBaseline='alphabetic';
+  const nItems=P.inv.bread+P.inv.potion;
+  if(nItems>0){ ctx.fillStyle='#ffd977'; ctx.beginPath(); ctx.arc(bb.x+17,bb.y-17,9,0,7); ctx.fill();
+    ctx.fillStyle='#241d10'; ctx.font='bold 12px Georgia'; ctx.textBaseline='middle'; ctx.fillText(nItems, bb.x+17, bb.y-16); ctx.textBaseline='alphabetic'; }
+  // contextual TALK button — appears only when near someone (Genshin-style interaction prompt)
+  const nearN=npcNearby();
+  if(nearN && !dialogOpen){
+    const tb=talkBtn(), gl=.5+.25*Math.sin(performance.now()/240);
+    ctx.fillStyle='rgba(58,48,26,.85)'; ctx.beginPath(); ctx.arc(tb.x,tb.y,tb.r,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(255,217,119,'+gl+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(tb.x,tb.y,tb.r,0,7); ctx.stroke();
+    ctx.font=(tb.r*0.9)+'px Georgia'; ctx.textBaseline='middle'; ctx.fillText('💬', tb.x, tb.y+2); ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.fillText(nearN.nm.split(' ')[0], tb.x, tb.y-tb.r-8);
+  }
+  ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
+  if(!joy.active) ctx.fillText('press & drag anywhere to move', 18, vh-20);
+  ctx.textAlign='center';
+  ctx.fillText(P.weapon==='sword'? 'drag from ⚔️: aimed slice • hold: SMASH':'drag from 🏹 & release to shoot!', ab.x-24, ab.y+ab.r+18);
+  // active potion status — lives under the coin counter (right side), away from notifications
+  if(pot.t>0 && pot.type){
+    const pp=POTIONS[pot.type], secs=Math.ceil(pot.t/1000);
+    ctx.font='bold 14px Georgia'; ctx.textAlign='right';
+    const txt=pp.ic+' '+pp.nm+' — '+secs+'s', tw=ctx.measureText(txt).width;
+    ctx.fillStyle='rgba(46,26,66,.8)'; rr(ctx, vw-tw-36, top+38, tw+26, 26, 8);
+    ctx.fillStyle='#d9b8ff'; ctx.fillText(txt, vw-22, top+56);
+    ctx.textAlign='center';
+  }
+}
+function drawPerson(x,y,dir,av,hat,highlight){
+  if(highlight){ ctx.strokeStyle='rgba(255,217,119,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,26,0,7); ctx.stroke();
+    ctx.fillStyle='#ffd977'; ctx.font='16px Georgia'; ctx.textAlign='center'; ctx.fillText('💬', x, y-34); }
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x,y+16,12,5,0,0,7); ctx.fill();
+  ctx.fillStyle=av.outfit; ctx.beginPath(); ctx.ellipse(x,y+4,11,14,0,0,7); ctx.fill();
+  ctx.fillStyle=av.skin; ctx.beginPath(); ctx.arc(x,y-12,9,0,7); ctx.fill();
+  ctx.fillStyle=av.hair; ctx.beginPath(); ctx.arc(x,y-14.5,9,Math.PI,0); ctx.fill();
+  if(hat){ ctx.fillStyle='#3d2c14'; ctx.beginPath(); ctx.ellipse(x,y-18,11,4,0,0,7); ctx.fill(); ctx.fillRect(x-5,y-27,10,9); }
+  if(av.item==='lute'){ ctx.fillStyle='#8a5a28'; ctx.beginPath(); ctx.ellipse(x+12,y+2,5,7,-.4,0,7); ctx.fill(); }
+}
+function drawHeart(x,y,fill){
+  ctx.save(); ctx.translate(x,y); ctx.scale(1.05,1.05);
+  const path=()=>{ ctx.beginPath(); ctx.moveTo(0,4); ctx.bezierCurveTo(-11,-6,-5,-15,0,-8); ctx.bezierCurveTo(5,-15,11,-6,0,4); ctx.closePath(); };
+  path(); ctx.fillStyle='rgba(15,10,8,.75)'; ctx.fill();
+  if(fill>0){ path(); ctx.save(); ctx.clip(); ctx.fillStyle='#e04545'; ctx.fillRect(-12,-16,(fill===1?24:12),24); ctx.restore(); }
+  path(); ctx.strokeStyle='#f0d8b0'; ctx.lineWidth=1.4; ctx.stroke();
+  ctx.restore();
+}
+
+// ============================================================
+// LOOP
+// ============================================================
+function loop(ts){
+  if(!running) return;
+  const dt=Math.min(50,(ts-last)||16); last=ts;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); requestAnimationFrame(loop); }
+
+// dev shortcuts for self-testing: #game jumps straight in
+if(location.hash==='#game'){ chosen=0; startGame(); }
+if(location.hash==='#select'){ show('select'); }
+if(location.hash==='#lobby'){ show('lobby'); }
+if(location.hash==='#inv'){ chosen=0; P.inv.bread=2; P.inv.potion=1; startGame(); openInv(); }

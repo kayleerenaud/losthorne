@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Losthorne: Last Light</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#12100e; font-family:Georgia,'Times New Roman',serif; touch-action:none; }
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:20; padding:24px; text-align:center; }
+  .hidden { display:none !important; }
+  /* ---------- TITLE ---------- */
+  #title { background: radial-gradient(ellipse at 50% 30%, #3d3324 0%, #241d14 45%, #0e0c09 100%); }
+  #title h1 { color:#e8d9a8; font-size:44px; letter-spacing:2px; text-shadow:0 0 24px rgba(255,190,80,.35), 0 2px 0 #000; line-height:1.05; }
+  #title .sub { color:#c9a85c; font-size:20px; font-style:italic; margin-top:6px; text-shadow:0 1px 0 #000; }
+  .lantern { font-size:52px; margin-bottom:14px; filter:drop-shadow(0 0 18px rgba(255,180,60,.8)); animation:flicker 2.6s infinite; }
+  @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:.82} 72%{opacity:.95} }
+  .btn { display:block; width:min(320px,84vw); margin:9px auto; padding:15px 18px; font-family:inherit; font-size:17px; color:#f1e4bb; background:linear-gradient(#5a4526,#3a2c17); border:2px solid #8a6d38; border-radius:12px; cursor:pointer; box-shadow:0 3px 0 #241a0d, inset 0 1px 0 rgba(255,230,160,.25); }
+  .btn:active { transform:translateY(2px); box-shadow:0 1px 0 #241a0d; }
+  .btn.ghost { background:linear-gradient(#33302a,#242220); border-color:#57534a; color:#cfc7b2; font-size:15px; }
+  .note { color:#8d7f60; font-size:12.5px; margin-top:14px; max-width:300px; line-height:1.45; }
+  /* ---------- LOBBY ---------- */
+  #lobby, #select { background: radial-gradient(ellipse at 50% 20%, #33301f 0%, #1c1912 55%, #0e0c09 100%); }
+  h2 { color:#e8d9a8; font-size:26px; margin-bottom:4px; text-shadow:0 2px 0 #000; }
+  .code-box { font-size:34px; letter-spacing:6px; color:#ffd977; background:#241d10; border:2px dashed #8a6d38; padding:12px 22px; border-radius:12px; margin:14px 0 6px; }
+  input.code { font-family:inherit; font-size:24px; letter-spacing:5px; text-align:center; text-transform:uppercase; width:min(280px,80vw); padding:12px; border-radius:10px; border:2px solid #8a6d38; background:#1c1710; color:#f1e4bb; margin:12px 0; }
+  /* ---------- CHARACTER SELECT ---------- */
+  .avatars { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:min(360px,92vw); margin:16px 0; }
+  .card { background:linear-gradient(#3a3226,#26201660); border:2px solid #6b5730; border-radius:14px; padding:12px 8px 10px; cursor:pointer; color:#e8d9a8; }
+  .card.sel { border-color:#ffd977; box-shadow:0 0 16px rgba(255,215,120,.45); background:linear-gradient(#4d4230,#2c2518); }
+  .card canvas { width:72px; height:72px; }
+  .card .nm { font-size:15px; margin-top:4px; }
+  .card .ds { font-size:11px; color:#a89870; margin-top:2px; line-height:1.35; }
+  /* ---------- GAME ---------- */
+  #gameWrap { position:fixed; inset:0; z-index:5; }
+  #game { position:absolute; inset:0; width:100%; height:100%; }
+  /* ---------- DIALOGUE ---------- */
+  #dialog { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(150px + env(safe-area-inset-bottom)); width:min(420px,92vw); background:rgba(20,16,10,.94); border:2px solid #8a6d38; border-radius:14px; padding:14px 16px; color:#f1e4bb; z-index:30; box-shadow:0 6px 24px rgba(0,0,0,.6); }
+  @media (orientation: landscape) { #dialog { bottom:calc(14px + env(safe-area-inset-bottom)); width:min(460px,56vw); } }
+  /* ---------- INVENTORY ---------- */
+  #inv { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(400px,86%); max-height:88%; overflow-y:auto; background:rgba(20,16,10,.96); border:2px solid #8a6d38; border-radius:16px; padding:16px; color:#f1e4bb; z-index:35; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.7); }
+  #inv h3 { color:#ffd977; margin-bottom:10px; }
+  #invGrid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:12px; min-height:64px; }
+  .invItem { width:74px; padding:8px 4px; background:#2c2518; border:1.5px solid #6b5730; border-radius:11px; cursor:pointer; }
+  .invItem .ic { font-size:28px; }
+  .invItem .ct { font-size:12px; color:#c9a85c; margin-top:2px; }
+  .invEmpty { color:#8d7f60; font-size:13.5px; padding:14px 6px; line-height:1.5; }
+  #invDetail .bigIc { font-size:54px; margin:6px 0; }
+  #invDetail .inm { font-size:19px; color:#ffd977; margin-bottom:6px; }
+  #invDetail .ist { font-size:13.5px; color:#cfc0a0; line-height:1.5; margin-bottom:10px; }
+  #inv .btn { width:100%; margin:6px 0 0; padding:11px; font-size:15px; }
+  #dialog .who { color:#ffd977; font-size:14px; margin-bottom:5px; font-weight:bold; }
+  #dialog .txt { font-size:15.5px; line-height:1.45; min-height:44px; }
+  #dialog .next { text-align:right; color:#c9a85c; font-size:12.5px; margin-top:6px; font-style:italic; }
+  #dialog .shopBtn { margin-top:8px; width:100%; padding:10px; font-size:15px; }
+  /* ---------- OVERLAY MESSAGES ---------- */
+  /* notifications live TOP-CENTER only — dialogue lives bottom-center, quest tracker top-left */
+  #banner { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(20,16,10,.92); border:1.5px solid #8a6d38; color:#ffd977; padding:8px 16px; border-radius:10px; font-size:14px; z-index:40; transition:opacity .5s; opacity:0; pointer-events:none; max-width:330px; text-align:center; }
+  #deathScr { background:rgba(10,5,5,.93); z-index:50; }
+  #deathScr h2 { color:#e05545; font-size:30px; }
+  #deathScr p { color:#d8c8a8; margin:12px 0 18px; font-size:16px; max-width:300px; line-height:1.5; }
+  /* ---------- FORCED LANDSCAPE ----------
+     The app always renders horizontally. If the viewport is portrait,
+     we rotate the whole app 90° so it stays landscape-shaped. */
+  #app { position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; }
+  body.forceLand #app { width:100vh; height:100vw; transform:rotate(90deg) translateY(-100%); transform-origin:top left; }
+  #app .screen, #app #gameWrap, #app #dialog, #app #banner { position:absolute; }
+  .screen { overflow-y:auto; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TITLE / LOGIN -->
+<div id="title" class="screen">
+  <div class="lantern">🏮</div>
+  <h1>LOSTHORNE</h1>
+  <div class="sub">Last Light</div>
+  <div style="height:34px"></div>
+  <button class="btn" id="btnGuest">⚔️ &nbsp;Begin the Quest</button>
+  <button class="btn ghost" id="btnGoogle">Sign in with Google — coming soon</button>
+  <button class="btn ghost" id="btnSupa">Village account (Supabase) — coming soon</button>
+  <div class="note">The last free village needs you.<br>Prototype v0.1 — logins are pretend for now.</div>
+</div>
+
+<!-- LOBBY / ROOM CODE -->
+<div id="lobby" class="screen hidden">
+  <h2>Gather your party</h2>
+  <div class="note" style="margin:0 0 10px">Two warriors defend better than one.</div>
+  <button class="btn" id="btnHost">🔥 Start a fire (host a game)</button>
+  <div id="hostCode" class="hidden">
+    <div class="code-box" id="codeText">LOST-????</div>
+    <div class="note" style="margin-top:2px">Send this code to your friend.<br><b>(Real multiplayer coming soon — you'll scout ahead solo for now.)</b></div>
+    <button class="btn" id="btnGo">Enter Losthorne →</button>
+  </div>
+  <div id="joinBox">
+    <input class="code" id="joinInput" placeholder="LOST-CODE" maxlength="9">
+    <button class="btn ghost" id="btnJoin">Join a friend's fire</button>
+  </div>
+</div>
+
+<!-- CHARACTER SELECT -->
+<div id="select" class="screen hidden">
+  <h2>Choose your villager</h2>
+  <div class="avatars" id="avatarGrid"></div>
+  <button class="btn" id="btnStart" disabled style="opacity:.5">Step into the village</button>
+</div>
+
+<!-- GAME -->
+<div id="gameWrap" class="hidden"><canvas id="game"></canvas></div>
+<div id="dialog" class="hidden">
+  <div class="who"></div><div class="txt"></div>
+  <button class="btn shopBtn hidden" id="shopBtn"></button>
+  <div class="next">tap to continue ▸</div>
+</div>
+<div id="banner"></div>
+
+<!-- INVENTORY / SATCHEL -->
+<div id="inv" class="hidden">
+  <h3>🎒 Satchel</h3>
+  <div id="invGrid"></div>
+  <div id="invDetail" class="hidden">
+    <div class="bigIc"></div>
+    <div class="inm"></div>
+    <div class="ist"></div>
+    <button class="btn" id="invUse">Use it</button>
+    <button class="btn ghost" id="invBack">← Back</button>
+  </div>
+  <button class="btn ghost" id="invClose">Close satchel</button>
+</div>
+
+<!-- DEATH -->
+<div id="deathScr" class="screen hidden">
+  <h2 id="deathTitle">You have fallen</h2>
+  <p id="deathMsg">The light of Losthorne dims… but is not out.</p>
+  <button class="btn" id="btnRespawn">Rise again at the village edge</button>
+</div>
+
+</div><!-- /#app -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
