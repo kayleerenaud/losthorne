@@ -6,7 +6,8 @@ export default {
   turnIn:'npc_modo',
   objective:{ type:'block', target:'training_modo', count:3 },
   dialogue:{
-    offer:["So. You beat a champion and walked off with his shield. Do you know how to USE it, or is it a very large dinner plate?",
+    offer:["HOLD, warrior! Modo saw the whole fight from the forge — and Modo saw you WIN that shield.",
+           "Do you know how to USE it, or is it a very large dinner plate?",
            "Modo teaches. Listen once, listen well: PRESS AND HOLD your attack button — the big one, bottom right — and DO NOT let go.",
            "While you hold, you are planted and the shield is UP — you will see a ring around you. Blows bounce off. Release, and the shield drops.",
            "Meet me outside the forge. Wooden sword. When I swing, you HOLD. Block 3 and Modo calls you shield-trained."],
@@ -19,7 +20,7 @@ export default {
     offer:'🔨 Modo wants to spar!',
     active:'🛡️ Blocks: {n}/3',
     complete:'🏆 Talk to Modo',
-    afterReward:'✅ All quests done — explore Losthorne!',
+    afterReward:'⛰️ The Chief has news…',
   },
   banners:{
     start:'📜 Training: when Modo swings, PRESS & HOLD the attack button — holding = shield UP! Block 3 swings.',
@@ -27,6 +28,8 @@ export default {
     reward:'🎉 Shield training complete!',
     progress:'🛡️ Block! {n}/3',
   },
+  choice:{ go:"Let's do it!", later:"I'll come back later",
+    laterBanner:'🔨 Modo: “Fine. But you\u2019ll NEED this skill… don\u2019t forget about Modo.” (Find him when ready)' },
   reward:{},
-  next:null,
+  next:{ quest:'quest_main_06_find_bog', delayMs:4000, banner:'📯 Chief Bonbottom is asking for you — something about the mountains…' },
 };

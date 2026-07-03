@@ -8,7 +8,7 @@ export default {
   linesNoGear:["Mmh. Pond's full of fish, warrior. But I don't row for free-loaders.",
                "Get yourself a ROD and a HOOK — Erik sells both, the 🪙 shop — then come see Bog."],
   lines:["Ah — rod AND hook! Now you look like company worth rowing.",
-         "My terms: half the catch is mine. Odd fish? Mine too. The pond gives, Bog keeps.",
+         "My terms: half the catch is mine. Odd number? The LARGER half is mine. The pond gives, Bog keeps.",
          "Well? Shall we?"],
   actions:[
     { id:'fish_trip',   label:'🛶 Row out fishing with Bog (he keeps half)', needsGear:true },

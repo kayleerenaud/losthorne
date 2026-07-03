@@ -38,6 +38,11 @@ export const Quests = {
         questState.progress = 0;
         if(p.banner) hooks.banner(p.banner);
       } }
+    // 'flag' objectives complete when a story flag is raised (e.g. Bog rescued)
+    const qf = defs[questState.currentId];
+    if(qf && qf.objective.type==='flag' && questState.stage==='active' && questState.flags[qf.objective.flag]){
+      questState.stage='complete'; hooks.banner(qf.banners.objectiveDone);
+    }
     // 'deliver' objectives track live inventory: eat a quest berry and progress drops back.
     // Supports one item ({item,count}) or several ({items:[{item,count},...]}).
     const q = defs[questState.currentId];
@@ -85,18 +90,29 @@ export const Quests = {
     return (lines && lines.length) ? lines : null;
   },
 
+  // Does the current offer end in a yes/later CHOICE instead of auto-accepting?
+  pendingChoice(npcId){
+    const q = defs[questState.currentId];
+    if(!q || questState.stage!=='offer' || this._stageNpc(q)!==npcId) return null;
+    return q.choice || null;
+  },
+  acceptOffer(npcId){ const q=defs[questState.currentId]; if(!q) return; this._activate(q); },
+  _activate(q){
+    questState.stage='active';
+    questState.progress = (q.retroactive && hooks.retroCount) ? Math.min(hooks.retroCount(q.objective), q.objective.count) : 0;
+    hooks.banner(q.banners.start);
+    if(q.objective.count && questState.progress >= q.objective.count && q.objective.type!=='deliver'){
+      questState.stage='complete'; hooks.banner(q.banners.objectiveDone);
+    }
+  },
+
   // Called when a dialogue with this NPC finishes — drives stage transitions.
   onDialogueEnd(npcId){
     const q = defs[questState.currentId];
     if(!q || this._stageNpc(q)!==npcId) return;
+    if(questState.stage==='offer' && q.choice) return;   // choice quests wait for the button
     if(questState.stage==='offer'){
-      questState.stage='active';
-      // retroactive quests credit things you already did while exploring
-      questState.progress = (q.retroactive && hooks.retroCount) ? Math.min(hooks.retroCount(q.objective), q.objective.count) : 0;
-      hooks.banner(q.banners.start);
-      if(questState.progress >= q.objective.count && q.objective.type!=='deliver'){
-        questState.stage='complete'; hooks.banner(q.banners.objectiveDone);
-      }
+      this._activate(q);
     } else if(questState.stage==='complete'){
       if(q.objective.type==='deliver' && hooks.takeItems){
         for(const pt of (q.objective.items || [q.objective])) hooks.takeItems(pt.item, pt.count);

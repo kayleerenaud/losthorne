@@ -50,11 +50,10 @@
 
 *Updated at every checkpoint.*
 
-- **Version:** v0.15 — Modo shield school + UI fixes (reorg steps 6–10 still queued)
+- **Version:** v0.17 — THE TROLL ARC (reorg steps 6–10 still queued; the mountains were built pre-reorg by necessity — territory extraction now has two real maps to generalize from)
 - **Phase:** playtest-driven feature work, auto-deploy rhythm
-- **This checkpoint:** shield training reassigned Erik→MODO (forge sparring, explicit press-and-HOLD teaching) · 🛡️ SHIELD UP silver bubble distinct from the gold smash-charge ring (no shield timer — holds as long as you hold) · permanent gear shows no ×counts and doesn't inflate the bag badge · shop lists scroll (Erik's 8-item stock was overflowing off-screen — that's why fishing supplies seemed unbuyable). 42-assertion smoke test green.
-- **Guesses flagged:** rod 25 / hooks 10 & 40 / fish 8 & 20 prices · fine hook = 50% big · reel green band tuning · pond location
-- **Recorded for later:** own boat purchase · shipwreck rescue quest (Kraken foreshadow) · crossbow goblin · pacing pass · hotbar REJECTED
+- **This checkpoint:** full mountain territory + troll boss arc per Kaylee's voice spec: shop-exit fix · per-cast hook choice (fine = tiny green window) · Modo walk-out shield offer w/ Let's-do-it/later choice buttons · Bog captured (shack CLOSED, fishing gated until rescue) · Chief's Find-Bog quest (hook-on-the-trail story, accept/prepare choice) · southern trail → mountains map: 5-wolf packs with 5s howl-resurrect, mountain berries, Strax + spark-timing fire lesson, grip-bar cliff climb (fall = 2 hearts), summit guard pack, snack-birds, pitch-dark outline cave, dawn-survival troll (invulnerable hide) → sunlight lure → climb-his-back → one smash → STONE statue · dark-search materials → fire → 400-coin hoard + Troll's Hammer (weapon, dmg 5) · Modo hammer school · Bog's thank-you first-catch quest · territory respawns (mountain deaths → trailhead) + respawn birds during troll attempts. 58-assertion smoke test green end-to-end.
+- **Guesses flagged:** wolf stats (12hp/1-heart bite) · climb drain/refill rates · dawn timer 75s · hoard 400 · hammer dmg 5 · bird heal +1❤️ · southern-trail goblin ambush NOT built (goblins currently roam only the north forest — flag if wanted on the trail itself)
 - **Known issues:** dead code + dev hashes pending reorg step 9
 - **Placeholders:** all art, mock logins, mock room codes
 - **Untested:** phone feel of the reel minigame

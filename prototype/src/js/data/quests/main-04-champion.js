@@ -27,5 +27,5 @@ export default {
   },
   reward:{ item:'item_shield' },
   setFlagOnReward:'flag_champion_defeated',
-  next:{ quest:'quest_main_05_shield_training', delayMs:8000, banner:'🔨 Modo calls from the forge: “Bring that shield here — Modo will show you how it’s USED!”' },
+  next:{ quest:'quest_main_05_shield_training', delayMs:2500, banner:null },
 };

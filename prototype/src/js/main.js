@@ -14,6 +14,10 @@ import questBlueberries from './data/quests/main-02-blueberries.js';
 import questTurkeys from './data/quests/main-03-turkeys.js';
 import questChampion from './data/quests/main-04-champion.js';
 import questShieldTraining from './data/quests/main-05-shield-training.js';
+import questFindBog from './data/quests/main-06-find-bog.js';
+import questHammer from './data/quests/main-07-hammer.js';
+import questFirstCatch from './data/quests/main-08-first-catch.js';
+import npcStrax from './data/npcs/strax.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -83,11 +87,11 @@ addEventListener('resize',resize); addEventListener('orientationchange',()=>setT
 function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
-  weapon:'fists', weapons:{fists:true, sword:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0}, hasShield:false, dashT:0, dashCd:0 };
+  weapon:'fists', weapons:{fists:true, sword:false, hammer:false, bow:false}, arrows:0, potionRolls:[],
+  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, dashT:0, dashCd:0 };
 // combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
-const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, bow:{icon:'🏹'} };
-function ownedWeapons(){ return ['fists','sword','bow'].filter(w=>P.weapons[w]); }
+const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, hammer:{icon:'🔨',dmg:5,range:82}, bow:{icon:'🏹'} };
+function ownedWeapons(){ return ['fists','sword','hammer','bow'].filter(w=>P.weapons[w]); }
 const floats=[];   // floating damage/pickup numbers
 const drops=[];    // coins dropped by creatures — walk over to collect
 function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
@@ -113,13 +117,14 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
 // NPCs are built from data files; dialogue & shops resolved at talk-time from raw data.
-const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog].map(d=>({
+const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog, npcStrax].map(d=>({
   id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat, raw:d,
 }));
 function hasFishingGear(){ return (P.inv.item_rod||0)>0 && ((P.inv.item_hook_basic||0)>0 || (P.inv.item_hook_fine||0)>0); }
 function npcLines(n){ const d=n.raw;
   if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
   if(d.linesNoGear && !hasFishingGear()) return d.linesNoGear;
+  if(d.id==='npc_strax' && MTN.fire.learned && d.linesAfter) return d.linesAfter;
   return d.lines || d.idleLines;
 }
 // generic buy flow — behavior comes from the item's effect kind (data-driven)
@@ -138,6 +143,19 @@ function buyItem(entry){
     P.coins-=price; P.inv[entry.item]=(P.inv[entry.item]||0)+1; banner(entry.banner);
   }
   renderShop();
+}
+function appendQuestChoice(){
+  // quest offers with a real CHOICE (Let's do it! / I'll come back later)
+  if(!dNpc) return;
+  const ch=Quests.pendingChoice(dNpc.id);
+  if(ch && dIdx===dLines.length-1){
+    const box=$('shopBox');
+    const y=document.createElement('button'); y.className='btn shopBtn'; y.textContent=ch.go;
+    y.onclick=(ev)=>{ ev.stopPropagation(); Quests.acceptOffer(dNpc.id); closeDialog(); };
+    const l=document.createElement('button'); l.className='btn shopBtn ghost'; l.textContent=ch.later;
+    l.onclick=(ev)=>{ ev.stopPropagation(); closeDialog(); if(ch.laterBanner) banner(ch.laterBanner); };
+    box.appendChild(y); box.appendChild(l);
+  }
 }
 function renderShop(){
   const box=$('shopBox'); box.innerHTML='';
@@ -213,7 +231,7 @@ function enterShop(d){
 function leaveShop(){
   const d=SHOP_NPCS.find(n=>n.id===scene);
   scene='village';
-  if(d){ P.x=d.building.x; P.y=d.building.y+52; }
+  if(d){ P.x=d.building.x; P.y=d.building.y+72; }   // clear of the house collision box — walk straight out
 }
 function interiorDoorNear(){
   if(scene==='village') return false;
@@ -245,7 +263,7 @@ function catchTurkey(){
 }
 
 // Quest state lives in engine/quests.js (single questState object).
-Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining], 'quest_main_01_goblins', {
+Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining, questFindBog, questHammer, questFirstCatch], 'quest_main_01_goblins', {
   banner: (t)=>{ if(t) banner(t); },
   addCoins: (n)=>{ P.coins+=n; },
   itemCount: (id)=>P.inv[id]||0,
@@ -277,8 +295,12 @@ function npcNearby(){
     if(d && n && Math.hypot(d.pos.x-P.x, d.pos.y-P.y)<86) return n;
     return null;
   }
-  for(const n of NPCS){ if(n.raw.building) continue;   // outdoor folk: the Chief, Bog
+  for(const n of NPCS){ if(n.raw.building) continue;   // outdoor folk: the Chief, Bog (once rescued)
+    if(n.raw.scene==='mountains') continue;
+    if(n.id==='npc_bog' && !questState.flags.flag_bog_rescued) continue;
     if(Math.hypot(n.x-P.x,n.y-P.y)<70) return n; }
+  if(modoWalk && questState.currentId==='quest_main_05_shield_training' && questState.stage==='offer'
+     && Math.hypot(modoWalk.x-P.x,modoWalk.y-P.y)<70) return NPCS.find(n=>n.id==='npc_modo');
   return null;
 }
 function enemyNearby(){
@@ -289,8 +311,45 @@ function enemyNearby(){
   return false;
 }
 // THE CONTEXT BUTTON: one slot that morphs to what you need right now
+function straxNear(){ if(scene!=='mountains'||!MTN.packs[0]||!MTN.packs[0].cleared) return null;
+  const n=NPCS.find(x=>x.id==='npc_strax'); return (n && Math.hypot(n.x-P.x,n.y-P.y)<70)? n : null; }
+function mtnEnemyNear(){ if(scene!=='mountains') return false;
+  for(const pk of MTN.packs) for(const w of pk.wolves){ if(w.alive && Math.hypot(w.x-P.x,w.y-P.y)<220) return true; }
+  return false; }
+const CAVE_MATS=[{x:130,y:130,found:false},{x:770,y:130,found:false},{x:130,y:430,found:false}];
+function matSpotNear(){ return CAVE_MATS.find(m=>!m.found && Math.hypot(m.x-P.x,m.y-P.y)<56); }
+function firePitNear(){ return Math.hypot(450-P.x,300-P.y)<64; }
+function caveDoorNear(){ return P.y>440 && Math.abs(P.x-430)<90; }
 function contextAction(){
   if(dialogOpen||invOpen) return null;
+  if(scene==='mountains'){
+    const T=MTN.troll;
+    if(MTN.climbing) return {icon:'🧗', label:'HOLD to climb!', kind:'reel'};
+    if(MTN.fire.game) return {icon:'🔥', label:'STRIKE!', kind:'firetap'};
+    if(T.outside && T.stunned && !T.stone){
+      if(!T.mounted && Math.hypot(P.x-T.x,P.y-T.y)<80) return {icon:'🧗', label:'CLIMB HIS BACK!', kind:'trollclimb'};
+      if(T.mounted) return {icon:'💥', label:'SMASH THE HEAD!', kind:'trollsmash'};
+    }
+    const sx=straxNear(); if(sx) return {icon:'💬', label:'Strax', kind:'talk_strax'};
+    if(birdNearby()) return {icon:'🤲', label:'grab & eat', kind:'bird'};
+    if(cliffBaseNear()) return {icon:'🧗', label:'climb the cliff', kind:'climb'};
+    if(MTN.climbed && plateauEdgeNear()) return {icon:'🧗', label:'climb down', kind:'climbdown'};
+    if(caveMouthNear()) return {icon:'🚪', label:'the cave…', kind:'cave'};
+    if(mtnEnemyNear()) return {icon:'💥', label:'smash', kind:'smash'};
+    const av=AVATARS[chosen<0?0:chosen];
+    return (av.item==='flute'||av.item==='lute')? {icon:'🎵', label:'play '+av.item, kind:'music'} : {icon:'💤', label:'rest', kind:'rest'};
+  }
+  if(scene==='cave'){
+    const T=MTN.troll;
+    if(MTN.fire.game) return {icon:'🔥', label:'STRIKE!', kind:'firetap'};
+    if(T.stone && !MTN.cave.fireLit){
+      if(MTN.cave.inMats<3 && matSpotNear()) return {icon:'🔍', label:'search the dark', kind:'searchmat'};
+      if(MTN.cave.inMats>=3 && firePitNear()) return {icon:'🔥', label:'make a fire', kind:'firestart'};
+    }
+    if(MTN.cave.fireLit && !MTN.cave.treasure) return {icon:'💰', label:'the hoard!', kind:'treasure'};
+    if(caveDoorNear()) return {icon:'🚪', label: T.dawn&&T.alive? 'OUT — into the light!':'leave', kind:'cavedoor'};
+    return {icon:'🕳', label: T.alive? (T.dawn? 'RUN for the exit!' : 'outlast it… dawn comes') : 'dark…', kind:'none'};
+  }
   if(scene==='fishing'){
     if(fish.state==='idle') return {icon:'🎣', label:'cast', kind:'cast'};
     if(fish.state==='waiting') return {icon:'👀', label:'watch…', kind:'none'};
@@ -376,6 +435,18 @@ function pressButton(kind){
   else if(kind==='ctx'){
     const a=contextAction(); if(!a) return;
     if(a.kind==='cast'){ fishingCast(); }
+    else if(a.kind==='talk_strax'){ const n=straxNear(); if(n) openDialog(n); }
+    else if(a.kind==='bird'){ eatBird(); }
+    else if(a.kind==='climb'){ startClimb(); }
+    else if(a.kind==='climbdown'){ climbDown(); }
+    else if(a.kind==='cave'){ enterCave(); }
+    else if(a.kind==='cavedoor'){ leaveCave(); }
+    else if(a.kind==='trollclimb'){ MTN.troll.mounted=true; MTN.troll.t=0; banner('🧗 You haul yourself up the stone-hard back — hold on… NOW!'); }
+    else if(a.kind==='trollsmash'){ trollSmashFinish(); }
+    else if(a.kind==='firetap'){ fireGameTap(); }
+    else if(a.kind==='searchmat'){ const m=matSpotNear(); if(m){ m.found=true; MTN.cave.inMats++; banner('🔍 Driftwood… flint… tinder. ('+MTN.cave.inMats+'/3)'); } }
+    else if(a.kind==='firestart'){ fireGameStart(MTN.fire.learned? 'cave' : 'cave_untaught'); if(!MTN.fire.learned){ MTN.fire.game=null; banner('🔥 You fumble in the dark… you don’t know HOW. Someone in the mountain woods might teach you.'); } }
+    else if(a.kind==='treasure'){ gatherTreasure(); }
     else if(a.kind==='talk'){ const n=npcNearby(); if(n) openDialog(n); }
     else if(a.kind==='enter'){ enterShop(a.npc); }
     else if(a.kind==='leave'){ leaveShop(); }
@@ -431,6 +502,12 @@ function tapAction(){ // talk to nearby NPC, or attack forward
 // COMBAT
 // ============================================================
 function eachTarget(cb){
+  if(scene==='mountains'){
+    for(const pk of MTN.packs) for(const w of pk.wolves){ if(w.alive) cb(w,'wolf'); }
+    if(MTN.troll.outside && MTN.troll.alive) cb(MTN.troll,'troll');
+    return;
+  }
+  if(scene==='cave'){ if(MTN.troll.alive) cb(MTN.troll,'troll'); return; }
   if(scene!=='village') return;
   for(const g of goblins){ if(g.alive) cb(g,'gob'); }
   for(const d of dummies){ if(d.hp>0) cb(d,'dum'); }
@@ -447,6 +524,12 @@ function hitTarget(t,kind,dmg,ang){
       const r=Quests.emit('kill',{target:'enemy_goblin'});
       banner('Goblin driven off!'+(r.counted?'  ('+r.progress+'/'+r.count+')':''));
       if(r.banner && r.progress===r.count) banner(r.banner); }
+  } else if(kind==='wolf'){
+    const kb=dmg>=5? 40 : 24; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
+    if(t.hp<=0){ t.alive=false; banner('🐺 Wolf down!'+(MTN.packs.some(pk=>pk.wolves.includes(t)&&packAlive(pk)===1)?' ONE LEFT — kill it before it HOWLS!':'')); }
+  } else if(kind==='troll'){
+    t.hp=999; // his hide shrugs off everything — only dawn ends this
+    addFloat(t.x,t.y-70,'🪨 his hide shrugs it off','#cfc7b2',14);
   } else if(kind==='champ'){
     if(t.state==='shield'){ t.hp+=dmg; addFloat(t.x,t.y-40,'🛡️ BLOCKED','#cfd4da',15); return; } // no damage through his shield
     const kb=14; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
@@ -476,10 +559,15 @@ function fullSmash(){ doSmash(8,130,22); }
 function doSmash(dmg,radius,fx){
   if(P.slashT>0 || blocked()) return;
   P.slashT=22; P.smashT=fx; P.smashT0=fx; P.smashR=radius;
+  let hitDummy=false;
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y);
-    if(d<radius) hitTarget(t,kind,dmg+dmgBonus(),Math.atan2(t.y-P.y,t.x-P.x));
+    if(d<radius){ hitTarget(t,kind,dmg+dmgBonus(),Math.atan2(t.y-P.y,t.x-P.x)); if(kind==='dum') hitDummy=true; }
   });
+  if(hitDummy && P.weapon==='hammer'){
+    const r=Quests.emit('train_hammer',{target:'dummy'});
+    if(r.banner) banner(r.banner);
+  }
 }
 // derived: is the current right-side hold a smash charge?
 function chargeInfo(){
@@ -557,14 +645,22 @@ function hurtPlayer(n,why){
   P.hp-=n; P.hurtT=45;
   if(P.hp<=0) die(why||'A goblin got the better of you.');
 }
+let deathScene='village';
 function die(msg,title){
+  deathScene=scene;
   pot.type=null; pot.t=0;   // you don't keep a potion through death
   $('deathTitle').textContent = title||'You have fallen';
   $('deathMsg').textContent = msg+' You wake at the edge of the territory.';
   show('deathScr');
   running=false;
 }
-$('btnRespawn').onclick=()=>{ P.x=800; P.y=1210; P.hp=5; hungerT=0; P.hurtT=60; scene='village'; show('gameWrap'); running=true; loop(); };  // 2½ hearts — food still matters
+$('btnRespawn').onclick=()=>{
+  P.hp=5; hungerT=0; P.hurtT=60;   // 2½ hearts — food still matters
+  if(deathScene==='mountains'||deathScene==='cave'){
+    scene='mountains'; P.x=750; P.y=70; MTN.climbing=false;
+    if(MTN.troll.alive && MTN.packs[1] && MTN.packs[1].cleared){ birdsSpawn(3); banner('🐦 Fresh birds flutter over the plateau — eat before facing the troll again.'); }
+  } else { scene='village'; P.x=800; P.y=1210; }
+  show('gameWrap'); running=true; loop(); };
 
 // ============================================================
 // DIALOGUE
@@ -577,6 +673,7 @@ function renderDialog(){
   $('dialog').querySelector('.who').textContent=dNpc.nm;
   $('dialog').querySelector('.txt').textContent=dLines[dIdx];
   renderShop();
+  appendQuestChoice();
 }
 function advanceDialog(){
   dIdx++;
@@ -585,7 +682,8 @@ function advanceDialog(){
     closeDialog();
   } else renderDialog();
 }
-function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden'); }
+function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden');
+  if(dNpc && dNpc.id==='npc_strax' && !MTN.fire.learned && !MTN.fire.game) fireGameStart('strax'); }
 $('dialog').onclick=advanceDialog;
 
 // ============================================================
@@ -608,14 +706,25 @@ function update(dt){
   if(P.dashCd>0) P.dashCd--;
   const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1);
   const charging = chargeInfo();
-  if((mx||my) && !blocked() && !charging && scene!=='fishing'){
+  if((mx||my) && !blocked() && !charging && scene!=='fishing' && !MTN.climbing){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
+    if(scene==='mountains'){
+      P.x=Math.max(30,Math.min(MW-30,P.x)); P.y=Math.max(20,Math.min(MH-30,P.y));
+      for(const t of MTN.mtrees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
+      for(const r0 of MTN.rocks){ const d=Math.hypot(r0.x-P.x,r0.y-P.y); if(d<r0.r+11){ const a=Math.atan2(P.y-r0.y,P.x-r0.x); P.x=r0.x+Math.cos(a)*(r0.r+11); P.y=r0.y+Math.sin(a)*(r0.r+11);} }
+      // the cliff wall: only the climb crosses it (either direction)
+      if(!MTN.climbed && P.y>700 && P.y<965) P.y=700;
+      if(MTN.climbed && P.y>700 && P.y<965) P.y = (P.y<832)? 700 : 965;
+    } else if(scene==='cave'){
+      P.x=Math.max(60,Math.min(840,P.x)); P.y=Math.max(70,Math.min(500,P.y));
+    } else {
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
     for(const h of houses){ if(Math.abs(P.x-h.x)<62 && Math.abs(P.y-h.y)<56){ if(Math.abs(P.x-h.x)/62>Math.abs(P.y-h.y)/56) P.x=h.x+Math.sign(P.x-h.x)*62; else P.y=h.y+Math.sign(P.y-h.y)*56; } }
     // the pond is water — you can't walk on it (yet…)
     { const ex=(P.x-POND.x)/(POND.rx+14), ey=(P.y-POND.y)/(POND.ry+14), d2=ex*ex+ey*ey;
       if(d2<1){ const a=Math.atan2(P.y-POND.y,(P.x-POND.x)); P.x=POND.x+Math.cos(a)*(POND.rx+15); P.y=POND.y+Math.sin(a)*(POND.ry+15); } }
+    }
   }
   if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; if(P.hurtT>0)P.hurtT--;
   if(pot.t>0){ pot.t-=dt; if(pot.t<=0){ pot.type=null; banner('The potion wears off…'); } }
@@ -662,6 +771,16 @@ function update(dt){
 
   sparUpdate(dt);
   fishingUpdate(dt);
+  modoWalkUpdate(dt);
+  mountainsUpdate(dt);
+
+  // travel: the southern trail (village ⇄ mountains)
+  if(scene==='village' && P.y>H-46 && P.x>640 && P.x<960){
+    const unlocked = questState.completed.includes('quest_main_05_shield_training') || questState.currentId==='quest_main_06_find_bog' || questState.completed.includes('quest_main_06_find_bog');
+    if(unlocked){ scene='mountains'; mtnInit(); P.x=750; P.y=70; banner('⛰️ The trail climbs. Pines thin. Somewhere ahead: the mountains.'); }
+    else { P.y=H-48; banner('🌲 The southern trail winds toward the mountains. No reason to go… yet.'); }
+  }
+  if(scene==='mountains' && P.y<36){ scene='village'; P.x=800; P.y=H-80; banner('🏘 Home again. The village fires never looked so warm.'); }
 
   // turkeys: flee when you get close — chase them down!
   if(scene==='village') for(const tk of turkeys){
@@ -735,6 +854,8 @@ function update(dt){
 // ============================================================
 function draw(){
   if(scene==='fishing'){ drawFishing(); }
+  else if(scene==='mountains'){ drawMountains(); }
+  else if(scene==='cave'){ drawCave(); }
   else if(scene!=='village'){ drawInterior(); }
   else {
   const camX=Math.max(0,Math.min(W-vw,P.x-vw/2)), camY=Math.max(0,Math.min(H-vh,P.y-vh/2));
@@ -817,9 +938,20 @@ function draw(){
     ctx.fillStyle='#ffd42a'; ctx.beginPath(); ctx.moveTo(hx+3,hy); ctx.lineTo(hx+8,hy+1); ctx.lineTo(hx+3,hy+3); ctx.fill(); // beak
   }
 
-  // NPCs outdoors (the Chief in the square, Bog by his pond) — shopkeepers are inside
-  for(const n of NPCS){ if(n.raw.building) continue;
+  // NPCs outdoors (the Chief in the square, Bog once rescued) — shopkeepers are inside
+  for(const n of NPCS){ if(n.raw.building || n.raw.scene==='mountains') continue;
+    if(n.id==='npc_bog' && !questState.flags.flag_bog_rescued) continue;
     drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70); }
+  // Bog's shack sits CLOSED while he's missing
+  if(!questState.flags.flag_bog_rescued){
+    ctx.fillStyle='#2c2214'; ctx.fillRect(1170,1056,54,16);
+    ctx.fillStyle='#c9b06a'; ctx.font='bold 10px Georgia'; ctx.textAlign='center'; ctx.fillText('CLOSED', 1197, 1068);
+  }
+
+  // Modo, out of his forge, coming to find YOU (quest 5 offer)
+  if(modoWalk && questState.currentId==='quest_main_05_shield_training' && questState.stage==='offer'){
+    drawPerson(modoWalk.x,modoWalk.y,0,{hair:'#555',outfit:'#4f4a45',skin:'#e0b088'},false, Math.hypot(modoWalk.x-P.x,modoWalk.y-P.y)<70);
+  }
 
   // sparring Modo (quest 5) — wooden sword, zero malice
   if(spar && questState.currentId==='quest_main_05_shield_training' && questState.stage==='active'){
@@ -1044,7 +1176,8 @@ function startGame(){ show('gameWrap'); running=true; last=performance.now(); ba
 
 // ---------- FISHING WITH BOG ----------
 const POND={x:1380,y:930,rx:175,ry:120};
-const fish={ state:'idle', t:0, biteT:0, tension:50, inZone:0, catches:[] };
+const fish={ state:'idle', t:0, biteT:0, tension:50, inZone:0, catches:[], hook:'basic' };
+const HOOKS={ basic:{lo:34,hi:66,big:0}, fine:{lo:44,hi:56,big:0.5} };  // fine hook: big fish, TINY green window
 const NPC_ACTIONS={
   fish_trip(){ closeDialog();
     scene='fishing'; fish.state='idle'; fish.catches.length=0;
@@ -1058,13 +1191,29 @@ const NPC_ACTIONS={
 };
 function fishingCast(){
   if(fish.state!=='idle') return;
+  // choose your hook first (if you own both)
+  const hasB=(P.inv.item_hook_basic||0)>0, hasF=(P.inv.item_hook_fine||0)>0;
+  if(hasB && hasF && !fish.hookChosen){ openHookChoice(); return; }
+  fish.hook = hasF && !hasB ? 'fine' : (fish.hookChosen? fish.hook : 'basic');
   fish.state='waiting'; fish.t=1500+Math.random()*2500;
-  banner('🎣 Cast… watch the water.');
+  banner('🎣 Cast with the '+(fish.hook==='fine'?'✨ fine':'🪝 basic')+' hook… watch the water.');
+}
+function openHookChoice(){
+  dialogOpen=true; dNpc=null; dLines=['Which hook, warrior?'];
+  $('dialog').querySelector('.who').textContent='Bog';
+  $('dialog').querySelector('.txt').textContent='Which hook? The fine one hooks the BIG fish… but they fight harder — a much smaller sweet spot on the reel.';
+  const box=$('shopBox'); box.innerHTML='';
+  const mk=(label,hk)=>{ const b=document.createElement('button'); b.className='btn shopBtn'; b.textContent=label;
+    b.onclick=(ev)=>{ ev.stopPropagation(); fish.hook=hk; fish.hookChosen=true; closeDialog(); fishingCast(); };
+    box.appendChild(b); };
+  mk('🪝 Basic hook — small fish, forgiving reel','basic');
+  mk('✨ Fine hook — BIG fish, tiny green window','fine');
+  $('dialog').classList.remove('hidden');
 }
 function fishingHolding(){ return swp.active && swp.reelHold; }
 function fishingLose(tip){ fish.state='idle'; banner(tip); }
 function fishingCatch(){
-  const big = (P.inv.item_hook_fine||0)>0 && Math.random()<0.5;
+  const big = Math.random() < (HOOKS[fish.hook]||HOOKS.basic).big;
   fish.catches.push(big?'item_fish_big':'item_fish_small');
   fish.state='idle';
   banner((big?'🐠 A BIG one!':'🐟 Caught one!')+'  ('+fish.catches.length+' aboard) — cast again or ⛵ row back');
@@ -1090,7 +1239,186 @@ function fishingUpdate(dt){
     fish.tension += fishingHolding()? dt*0.048 : -dt*0.058;
     if(fish.tension>=100) fishingLose('💨 SNAP! Bog: Too HARD — ease off when the line strains!');
     else if(fish.tension<=0) fishingLose('💨 It jumped away! Bog: Too timid — REEL, warrior!');
-    else { if(fish.tension>34 && fish.tension<66) fish.inZone+=dt; if(fish.inZone>2600) fishingCatch(); }
+    else { const z=HOOKS[fish.hook]||HOOKS.basic; if(fish.tension>z.lo && fish.tension<z.hi) fish.inZone+=dt; if(fish.inZone>2600) fishingCatch(); }
+  }
+}
+
+// ---------- THE MOUNTAINS (second territory) + THE TROLL ARC ----------
+const MW=1500, MH=1240;
+const MTN={
+  entered:false, climbed:false,
+  climbing:false, climbGrip:100, climbProg:0,
+  packs:[], birds:[], mbushes:[], rocks:[], mtrees:[],
+  fire:{learned:false, game:null},           // fire-making minigame state
+  cave:{ inMats:0, fireLit:false, treasure:false },
+  troll:{ alive:true, x:450, y:250, dir:0, state:'lurk', t:0, outside:false, stunned:false, mounted:false, stone:false, dawn:false, dawnT:75000 },
+};
+function mtnInit(){
+  if(MTN.entered) return; MTN.entered=true;
+  MTN.packs=[ mkPack(750,520), mkPack(750,1010) ];
+  MTN.mbushes=[ {x:250,y:250,type:'blue',taken:false,respawn:0},{x:1180,y:300,type:'blue',taken:false,respawn:0},{x:600,y:180,type:'blue',taken:false,respawn:0},
+                {x:950,y:230,type:'red',taken:false,respawn:0},{x:340,y:520,type:'red',taken:false,respawn:0} ];
+  for(let i=0;i<26;i++) MTN.mtrees.push({x:80+Math.random()*(MW-160), y:80+Math.random()*300, r:20+Math.random()*12});
+  for(let i=0;i<14;i++) MTN.rocks.push({x:100+Math.random()*(MW-200), y:430+Math.random()*230, r:14+Math.random()*16});
+}
+function mkPack(cx,cy){
+  const wolves=[]; for(let i=0;i<5;i++){ const a=i/5*6.283;
+    wolves.push({x:cx+Math.cos(a)*70, y:cy+Math.sin(a)*70, hp:12, maxhp:12, dir:Math.random()*7, t:0, hurtT:0, atkT:0, alive:true, showBar:false}); }
+  return {wolves, lastOneT:0, cleared:false};
+}
+function packAlive(pk){ return pk.wolves.filter(w=>w.alive).length; }
+function birdsSpawn(n){ for(let i=0;i<n;i++) MTN.birds.push({x:600+Math.random()*300, y:980+Math.random()*120, dir:Math.random()*7, t:0}); }
+function birdNearby(){ if(scene!=='mountains') return null;
+  let b=null,bd=56; for(const bd2 of MTN.birds){ const d=Math.hypot(bd2.x-P.x,bd2.y-P.y); if(d<bd){bd=d;b=bd2;} } return b; }
+function eatBird(){ const b=birdNearby(); if(!b) return;
+  MTN.birds.splice(MTN.birds.indexOf(b),1);
+  P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0;
+  addFloat(P.x,P.y-34,'🐦 +1 ❤️','#7ed67e',18); banner('🐦 You grab the plump little bird and eat on the spot. +1 ❤️');
+}
+function cliffBaseNear(){ return scene==='mountains' && !MTN.climbing && P.y>620 && P.y<700 && Math.abs(P.x-750)<90; }
+function plateauEdgeNear(){ return scene==='mountains' && P.y>960 && P.y<1000 && Math.abs(P.x-750)<90; }
+function caveMouthNear(){ return scene==='mountains' && Math.hypot(P.x-750,P.y-1130)<62; }
+function startClimb(){ MTN.climbing=true; MTN.climbGrip=100; MTN.climbProg=0; banner('🧗 GRIP: hold to climb, RELEASE to rest on a ledge. Empty grip = a long fall!'); }
+function climbDown(){ P.y=690; banner('🧗 You pick your way back down the ledges.'); }
+function strollGoblins(){ // a couple of goblins harass the southern woods trail
+  return; }
+function mountainsUpdate(dt){
+  if(scene!=='mountains' && scene!=='cave') return;
+  mtnInit();
+  const T=MTN.troll;
+  if(scene==='mountains'){
+    if(MTN.climbing){
+      const holding=swp.active && swp.reelHold;
+      if(holding){ MTN.climbProg+=dt*0.028; MTN.climbGrip-=dt*0.035; }
+      else MTN.climbGrip=Math.min(100, MTN.climbGrip+dt*0.022);
+      if(MTN.climbGrip<=0){ MTN.climbing=false; P.y=690; hurtPlayer(4,'You fell from the cliff!'); hurtPlayer(0); banner('💥 Your grip gave out! The mountain is patient — rest on the ledges.'); }
+      else if(MTN.climbProg>=100){ MTN.climbing=false; MTN.climbed=true; P.x=750; P.y=975; banner('🏔 The summit! Wind, stone… and wolves at a cave mouth.'); }
+      return; // no walking while climbing
+    }
+    // wolves
+    for(const pk of MTN.packs){
+      const alive=packAlive(pk);
+      if(alive===0){ if(!pk.cleared){ pk.cleared=true;
+          if(pk===MTN.packs[0]){ banner('🐺 The pack is down! Someone is watching from the trees…'); }
+          else { banner('🐺 The cave guard-pack falls! Small birds flutter down to the plateau…'); birdsSpawn(3); } }
+        continue; }
+      if(alive===1 && !pk.cleared){
+        pk.lastOneT+=dt;
+        if(pk.lastOneT>5000){
+          for(const w of pk.wolves){ w.alive=true; w.hp=w.maxhp; w.showBar=true; }
+          pk.lastOneT=0;
+          banner('🐺 AWOOOO! The last wolf HOWLS — the pack rises again! Kill them ALL, fast!');
+        }
+      } else pk.lastOneT=0;
+      for(const w of pk.wolves){ if(!w.alive) continue;
+        if(w.hurtT>0){ w.hurtT--; continue; }
+        const d=Math.hypot(P.x-w.x,P.y-w.y);
+        if(d<240 && !blocked()){ const a=Math.atan2(P.y-w.y,P.x-w.x); w.x+=Math.cos(a)*1.75; w.y+=Math.sin(a)*1.75; w.dir=a;
+          if(d<34 && w.atkT<=0){ hurtPlayer(2,'Wolf fangs find you.'); w.atkT=60; } }
+        else { w.t+=dt; if(w.t>1900){ w.t=0; w.dir=Math.random()*7; } w.x+=Math.cos(w.dir)*.5; w.y+=Math.sin(w.dir)*.5; }
+        if(w.atkT>0) w.atkT--;
+      }
+    }
+    // birds wander
+    for(const b of MTN.birds){ b.t+=dt; if(b.t>1500){ b.t=0; b.dir=Math.random()*7; } b.x+=Math.cos(b.dir)*.4; b.y+=Math.sin(b.dir)*.4; }
+    // mountain berries
+    for(const b of MTN.mbushes){
+      if(b.taken){ b.respawn-=dt; if(b.respawn<=0) b.taken=false; continue; }
+      if(Math.hypot(b.x-P.x,b.y-P.y)<30){ b.taken=true; b.respawn=25000;
+        const id=b.type==='blue'?'item_blueberry':'item_red_berry';
+        P.inv[id]=(P.inv[id]||0)+1;
+        addFloat(P.x,P.y-34,b.type==='blue'?'+🫐':'+🔴',b.type==='blue'?'#7ea8d6':'#e05545',17);
+        banner(b.type==='blue'?'🫐 Blueberry into the satchel':'🔴 Red berries into the satchel. You know the rule.'); }
+    }
+    // the troll OUTSIDE (the dawn lure)
+    if(T.outside && !T.stone){
+      T.t+=dt;
+      if(!T.stunned){
+        const a=Math.atan2(P.y-T.y,P.x-T.x); T.dir=a;
+        const d=Math.hypot(P.x-T.x,P.y-T.y);
+        if(d>60){ T.x+=Math.cos(a)*0.8; T.y+=Math.sin(a)*0.8; }
+        if(T.t>3000){ T.stunned=true; T.t=0; banner('☀️ The sunlight! The troll staggers, shielding its eyes — CLIMB ITS BACK!'); }
+      } else if(T.mounted && T.t>1200){
+        // waiting for the SMASH tap (context button)
+      }
+    }
+  }
+  if(scene==='cave'){
+    if(T.alive && !T.dawn){
+      T.dawnT-=dt;
+      if(T.dawnT<=0){ T.dawn=true; banner('🌅 DAWN spills through the cave mouth! LURE HIM OUT — run for the entrance!'); }
+      // troll hunts by sound in the dark
+      T.t+=dt;
+      const a=Math.atan2(P.y-T.y,P.x-T.x); T.dir=a;
+      const d=Math.hypot(P.x-T.x,P.y-T.y);
+      if(T.state==='lurk'){ if(d<420){ T.state='chase'; } }
+      else if(T.state==='chase'){
+        if(d>70){ T.x+=Math.cos(a)*0.95; T.y+=Math.sin(a)*0.95; }
+        if(d<95 && T.t>2400){ T.t=0; T.state='windup'; }
+      } else if(T.state==='windup'){
+        if(T.t>700){ T.t=0; T.state='chase';
+          if(Math.hypot(P.x-T.x,P.y-T.y)<95) hurtPlayer(3,'The troll’s fist falls like a cellar door.');
+        }
+      }
+    }
+    if(T.dawn && T.alive && !T.outside){
+      // follows you out — leaving the cave brings him with you (handled on exit)
+      const a=Math.atan2(P.y-T.y,P.x-T.x); T.dir=a;
+      const d=Math.hypot(P.x-T.x,P.y-T.y);
+      if(d>70){ T.x+=Math.cos(a)*1.05; T.y+=Math.sin(a)*1.05; }
+    }
+  }
+}
+function enterCave(){
+  scene='cave'; P.x=430; P.y=430;
+  if(MTN.troll.alive && !MTN.troll.dawn) banner('🕳 Pitch dark. Something ENORMOUS breathes in here. Outlast it until dawn…');
+  else if(MTN.troll.stone && !MTN.cave.fireLit) banner('🕳 Too dark to see much. You feel driftwood, flint… materials. If only you had fire.');
+}
+function leaveCave(){
+  const T=MTN.troll;
+  scene='mountains'; P.x=750; P.y=1105;
+  if(T.alive && T.dawn && !T.outside){ T.outside=true; T.stunned=false; T.t=0; T.x=750; T.y=1160; banner('🌅 The troll bursts out after you — into the RISING SUN!'); }
+}
+function trollSmashFinish(){
+  const T=MTN.troll;
+  T.stone=true; T.alive=false;
+  addFloat(T.x,T.y-60,'💥 CRACK!','#ffd75a',26);
+  banner('🗿 One thunderous blow — the troll turns to STONE in the morning light!');
+  setTimeout(()=>{ banner('🛶 A ragged figure stumbles from the cave — BOG! “…Bog owes you EVERYTHING. Come to the pond. Fishing’s on Bog.”'); },2600);
+  setTimeout(()=>{ questState.flags.flag_bog_rescued=true; },2700);
+}
+function fireGameStart(where){
+  MTN.fire.game={ t:0, hits:0, where };
+  banner('🔥 Watch the spark meter — tap 🔥 when it glows in the HOT zone! 3 good strikes.');
+}
+function fireGameTap(){
+  const g=MTN.fire.game; if(!g) return;
+  const pos=(Math.sin(performance.now()/300)+1)/2;   // 0..1 ping-pong
+  if(pos>0.38 && pos<0.62){
+    g.hits++; addFloat(P.x,P.y-34,'✨ '+g.hits+'/3','#ffb347',18);
+    if(g.hits>=3){
+      if(g.where==='strax'){ MTN.fire.learned=true; MTN.fire.game=null; banner('🔥 FIRE! Strax nods once. “Now you carry warmth in your hands, small one.” (Fire-making learned!)'); }
+      else { MTN.cave.fireLit=true; MTN.fire.game=null; banner('🔥 The fire catches — and the WHOLE CAVE glitters. TREASURE, floor to ceiling!'); }
+    }
+  } else banner(MTN.fire.learned||g.where==='strax' ? '🔥 Too cold — strike when the spark glows HOT!' : '🔥 Strax: “Patience. HOT means hot.”');
+}
+function gatherTreasure(){
+  if(MTN.cave.treasure) return;
+  MTN.cave.treasure=true;
+  P.coins+=400; addFloat(P.x,P.y-36,'+400 🪙','#ffd977',24);
+  P.weapons.hammer=true; P.inv.item_hammer=1;
+  banner('💰 The troll’s hoard: +400 coins… and a HAMMER of troll-forged star-iron! (Show Modo!)');
+}
+
+// ---------- MODO WALKS OUT TO OFFER TRAINING ----------
+let modoWalk=null;   // {x,y} while approaching
+function modoWalkUpdate(dt){
+  if(scene!=='village') return;
+  if(questState.currentId==='quest_main_05_shield_training' && questState.stage==='offer' && !dialogOpen){
+    if(!modoWalk) modoWalk={x:1030,y:1370};
+    const d=Math.hypot(P.x-modoWalk.x,P.y-modoWalk.y);
+    if(d>64){ const a=Math.atan2(P.y-modoWalk.y,P.x-modoWalk.x); modoWalk.x+=Math.cos(a)*1.7; modoWalk.y+=Math.sin(a)*1.7; }
+    else if(!modoWalk.spoke){ modoWalk.spoke=true; openDialog(NPCS.find(n=>n.id==='npc_modo')); }
   }
 }
 
@@ -1154,8 +1482,9 @@ function drawFishing(){
     const w=Math.min(340,vw*.5), x=vw/2-w/2, y=44;
     ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-8,y-8,w+16,34,10);
     ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y,w,18,6);
-    ctx.fillStyle='rgba(120,230,140,.35)'; rr(ctx,x+w*0.34,y,w*0.32,18,6);   // the green band
-    ctx.fillStyle= fish.tension>34&&fish.tension<66 ? '#7ed67e' : '#e0b34a';
+    { const z=HOOKS[fish.hook]||HOOKS.basic;
+      ctx.fillStyle='rgba(120,230,140,.35)'; rr(ctx,x+w*(z.lo/100),y,w*((z.hi-z.lo)/100),18,6); }   // the green band (tiny with the fine hook!)
+    { const z=HOOKS[fish.hook]||HOOKS.basic; ctx.fillStyle= fish.tension>z.lo&&fish.tension<z.hi ? '#7ed67e' : '#e0b34a'; }
     ctx.beginPath(); ctx.arc(x+w*(fish.tension/100), y+9, 10, 0, 7); ctx.fill();
     ctx.font='11.5px Georgia'; ctx.textAlign='center'; ctx.fillStyle='rgba(240,230,200,.75)';
     ctx.fillText('keep the marker in the green — HOLD to reel, release to ease', vw/2, y+42);
@@ -1166,6 +1495,164 @@ function drawFishing(){
   for(const f of floats){ ctx.globalAlpha=Math.min(1,f.t/22); ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
     ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,bx,by-70);
     ctx.fillStyle=f.col; ctx.fillText(f.txt,bx,by-70); ctx.globalAlpha=1; }
+}
+
+// ---------- MOUNTAINS RENDERER ----------
+function drawMountains(){
+  const camX=Math.max(0,Math.min(MW-vw,P.x-vw/2)), camY=Math.max(0,Math.min(MH-vh,P.y-vh/2));
+  const grd=ctx.createLinearGradient(0,-camY,0,MH-camY);
+  grd.addColorStop(0,'#3a4234'); grd.addColorStop(.55,'#4a4a44'); grd.addColorStop(1,'#565258');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  ctx.save(); ctx.translate(-camX,-camY);
+  // trail from the north entrance
+  ctx.strokeStyle='#5c5546'; ctx.lineWidth=40; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(750,20); ctx.quadraticCurveTo(760,380,750,690); ctx.stroke();
+  // rocks
+  for(const r0 of MTN.rocks){ ctx.fillStyle='#5e5a52'; ctx.beginPath(); ctx.arc(r0.x,r0.y,r0.r,0,7); ctx.fill();
+    ctx.fillStyle='#6e6a62'; ctx.beginPath(); ctx.arc(r0.x-r0.r*.25,r0.y-r0.r*.3,r0.r*.55,0,7); ctx.fill(); }
+  // berry bushes
+  for(const b of MTN.mbushes){ if(b.taken) continue;
+    ctx.fillStyle='#2c4a22'; ctx.beginPath(); ctx.arc(b.x,b.y,15,0,7); ctx.arc(b.x-11,b.y+5,11,0,7); ctx.arc(b.x+11,b.y+5,11,0,7); ctx.fill();
+    ctx.fillStyle=b.type==='blue'?'#5b8fd4':'#d43a3a';
+    for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(b.x-9+i*4.5,b.y-3+((i%2)*7),3,0,7); ctx.fill(); } }
+  // Strax's camp (after the first pack)
+  if(MTN.packs[0] && MTN.packs[0].cleared){
+    const n=NPCS.find(x=>x.id==='npc_strax');
+    ctx.fillStyle='#6b5537'; ctx.beginPath(); ctx.moveTo(352,346); ctx.lineTo(392,296); ctx.lineTo(432,346); ctx.closePath(); ctx.fill();
+    if(MTN.fire.learned){ ctx.fillStyle='#ff9b3b'; ctx.beginPath(); ctx.arc(444,344,7+2*Math.sin(performance.now()/120),0,7); ctx.fill(); }
+    drawPerson(n.x,n.y,0,{hair:'#777',outfit:n.col,skin:'#dba777'},true, Math.hypot(n.x-P.x,n.y-P.y)<70);
+  }
+  // the CLIFF band
+  ctx.fillStyle='#3f3b38'; ctx.fillRect(0,700,MW,260);
+  ctx.fillStyle='#4c4744'; for(let i=0;i<30;i++){ ctx.fillRect((i*61)%MW, 706+(i*37)%236, 34, 12); }
+  ctx.strokeStyle='rgba(255,217,119,.5)'; ctx.lineWidth=2; ctx.strokeRect(690,700,120,260);
+  ctx.fillStyle='#e8d9a8'; ctx.font='13px Georgia'; ctx.textAlign='center'; ctx.fillText('🧗', 750, 736);
+  // cave mouth on the summit plateau
+  ctx.fillStyle='#191512'; ctx.beginPath(); ctx.ellipse(750,1130,84,58,0,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#26201a'; ctx.beginPath(); ctx.ellipse(750,1132,60,40,0,Math.PI,0); ctx.fill();
+  // wolves
+  for(const pk of MTN.packs) for(const w of pk.wolves){ if(!w.alive) continue;
+    ctx.save(); if(w.hurtT>0 && w.hurtT%4<2) ctx.globalAlpha=.5;
+    ctx.fillStyle='#565d66'; ctx.beginPath(); ctx.ellipse(w.x,w.y,15,9,Math.atan2(Math.sin(w.dir),Math.cos(w.dir)),0,7); ctx.fill();
+    const hx=w.x+Math.cos(w.dir)*14, hy=w.y+Math.sin(w.dir)*14;
+    ctx.beginPath(); ctx.arc(hx,hy,6.5,0,7); ctx.fill();
+    ctx.fillStyle='#3a4048'; ctx.beginPath(); ctx.moveTo(hx-3,hy-5); ctx.lineTo(hx-1,hy-11); ctx.lineTo(hx+2,hy-5); ctx.fill();
+    ctx.fillStyle='#ffd42a'; ctx.fillRect(hx+2,hy-2,2.4,2.4);
+    ctx.restore();
+    if(w.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(w.x-16,w.y-24,32,5); ctx.fillStyle='#d43a3a'; ctx.fillRect(w.x-15,w.y-23,30*(w.hp/w.maxhp),3); } }
+  // snack birds
+  for(const b of MTN.birds){ ctx.fillStyle='#a8743f'; ctx.beginPath(); ctx.ellipse(b.x,b.y,7,5,0,0,7); ctx.fill();
+    ctx.fillStyle='#c98f52'; ctx.beginPath(); ctx.arc(b.x+5,b.y-3,3,0,7); ctx.fill(); }
+  // the troll, outside — or his statue, forever
+  const T=MTN.troll;
+  if(T.outside || T.stone){
+    ctx.save();
+    if(T.stone) ctx.filter='grayscale(1)';
+    ctx.fillStyle= T.stone? '#8a8populate' : '#5c6b4a';
+    ctx.fillStyle= T.stone? '#8a877f' : '#5c6b4a';
+    ctx.beginPath(); ctx.ellipse(T.x,T.y+8,34,44,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(T.x,T.y-42,22,0,7); ctx.fill();
+    ctx.fillStyle= T.stone? '#75726b' : '#4a583c';
+    ctx.beginPath(); ctx.arc(T.x-26,T.y-6,13,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(T.x+26,T.y-6,13,0,7); ctx.fill();
+    if(!T.stone){ ctx.fillStyle='#ffd42a'; ctx.fillRect(T.x-8,T.y-46,5,5); ctx.fillRect(T.x+4,T.y-46,5,5); }
+    if(T.stunned && !T.stone){ ctx.fillStyle='#ffd75a'; ctx.font='bold 13px Georgia'; ctx.textAlign='center'; ctx.fillText(T.mounted?'💥 SMASH!':'🧗 CLIMB!', T.x, T.y-76); }
+    ctx.restore();
+  }
+  // player + effects
+  if(pot.t>0 && pot.type){ const col = pot.type==='potion_strength'? '255,140,60' : pot.type==='potion_speed'? '90,220,255' : '200,200,215';
+    ctx.strokeStyle='rgba('+col+',.6)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,26,0,7); ctx.stroke(); }
+  { const ch=chargeInfo();
+    if(ch && P.hasShield){ ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke(); } }
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
+  drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false);
+  ctx.restore();
+  if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke(); }
+  if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0;
+    ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=7-pr*5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*(P.smashR-20),0,7); ctx.stroke(); }
+  for(const f of floats){ ctx.globalAlpha=Math.min(1,f.t/22); ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); ctx.globalAlpha=1; }
+  ctx.restore();
+  // climbing overlay
+  if(MTN.climbing){
+    ctx.fillStyle='rgba(10,8,5,.55)'; ctx.fillRect(0,0,vw,vh);
+    ctx.fillStyle='#e8d9a8'; ctx.font='bold 15px Georgia'; ctx.textAlign='center';
+    ctx.fillText('🧗 THE CLIMB — hold to climb, release to rest on a ledge', vw/2, 46);
+    const w=Math.min(360,vw*.55), x=vw/2-w/2;
+    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,70,w,14,5);
+    ctx.fillStyle='#9fd6e8'; rr(ctx,x,70,Math.max(4,w*(MTN.climbProg/100)),14,5);
+    ctx.fillStyle='rgba(240,230,200,.6)'; ctx.font='11px Georgia'; ctx.fillText('height', vw/2, 98);
+    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,112,w,14,5);
+    ctx.fillStyle= MTN.climbGrip>30? '#7ed67e' : '#e05545'; rr(ctx,x,112,Math.max(4,w*(MTN.climbGrip/100)),14,5);
+    ctx.fillText('grip — empty means FALL', vw/2, 140);
+  }
+  // fire minigame overlay (Strax's lesson happens outdoors)
+  if(MTN.fire.game){ drawFireGame(); }
+}
+function drawFireGame(){
+  const w=Math.min(360,vw*.55), x=vw/2-w/2, y=56;
+  ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-10,y-26,w+20,74,10);
+  ctx.fillStyle='#e8d9a8'; ctx.font='bold 13px Georgia'; ctx.textAlign='center';
+  ctx.fillText('🔥 strike when the spark is in the HOT zone — '+MTN.fire.game.hits+'/3', vw/2, y-6);
+  ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y+4,w,16,6);
+  ctx.fillStyle='rgba(255,120,40,.4)'; rr(ctx,x+w*0.38,y+4,w*0.24,16,6);
+  const pos=(Math.sin(performance.now()/300)+1)/2;
+  ctx.fillStyle='#ffb347'; ctx.beginPath(); ctx.arc(x+w*pos,y+12,9,0,7); ctx.fill();
+}
+// ---------- CAVE RENDERER ----------
+function drawCave(){
+  const T=MTN.troll;
+  const lit=MTN.cave.fireLit;
+  const ox=(vw-880)/2, oy=Math.max(24,(vh-520)/2);
+  ctx.fillStyle= lit? '#241a10' : '#060505'; ctx.fillRect(0,0,vw,vh);
+  ctx.save(); ctx.translate(ox,oy);
+  if(lit){
+    ctx.fillStyle='#3a2c1c'; ctx.fillRect(0,0,880,520);
+    ctx.fillStyle='#ff9b3b'; ctx.beginPath(); ctx.arc(450,300,10+3*Math.sin(performance.now()/120),0,7); ctx.fill();
+    // TREASURE everywhere
+    ctx.font='22px Georgia'; ctx.textAlign='center';
+    const piles=[[120,340],[220,120],[700,380],[780,220],[560,120],[340,420],[640,470]];
+    for(const q of piles){ ctx.fillText('💰', q[0], q[1]); }
+    ctx.font='26px Georgia'; if(!MTN.cave.treasure) ctx.fillText('🔨', 470, 260);
+    ctx.fillStyle='rgba(255,190,90,.12)'; ctx.beginPath(); ctx.arc(450,300,240,0,7); ctx.fill();
+  } else {
+    ctx.strokeStyle='rgba(120,130,140,.35)'; ctx.lineWidth=2; ctx.strokeRect(4,4,872,512);   // walls, barely
+    if(T.dawn){ ctx.fillStyle='rgba(255,220,140,.25)'; ctx.beginPath(); ctx.ellipse(430,510,120,50,0,Math.PI,0); ctx.fill(); }
+    // material spots shimmer faintly once he's stone
+    if(T.stone){ ctx.font='15px Georgia'; ctx.textAlign='center'; ctx.fillStyle='rgba(190,190,200,.4)';
+      for(const m of CAVE_MATS){ if(!m.found) ctx.fillText('✦', m.x, m.y); } }
+  }
+  // door glow
+  ctx.fillStyle= T.dawn&&!lit? 'rgba(255,220,140,.5)' : 'rgba(150,160,175,.25)';
+  ctx.fillRect(350,506,160,10);
+  // the TROLL in the dark: an outline with terrible eyes
+  if(T.alive){
+    ctx.strokeStyle= T.state==='windup'? 'rgba(255,90,70,.9)' : 'rgba(170,180,190,.55)';
+    ctx.lineWidth=3;
+    ctx.beginPath(); ctx.ellipse(T.x,T.y+8,34,44,0,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(T.x,T.y-42,22,0,7); ctx.stroke();
+    ctx.fillStyle='#ffd42a'; ctx.fillRect(T.x-8,T.y-46,5,5); ctx.fillRect(T.x+4,T.y-46,5,5);
+  }
+  // the player: an outline in the dark, real by firelight
+  if(lit){ drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false); }
+  else { ctx.strokeStyle='rgba(232,217,168,.8)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(P.x,P.y+4,11,14,0,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(P.x,P.y-12,9,0,7); ctx.stroke(); }
+  if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0;
+    ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=6-pr*4;
+    ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*(P.smashR-20),0,7); ctx.stroke(); }
+  for(const f of floats){ ctx.globalAlpha=Math.min(1,f.t/22); ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); ctx.globalAlpha=1; }
+  ctx.restore();
+  // dawn countdown
+  if(T.alive && !T.dawn){
+    ctx.fillStyle='#cfd6e8'; ctx.font='bold 13px Georgia'; ctx.textAlign='center';
+    ctx.fillText('🌙 until dawn: '+Math.ceil(T.dawnT/1000)+'s — SURVIVE', vw/2, 26);
+  }
+  if(MTN.fire.game) drawFireGame();
 }
 
 // ---------- INTERIOR RENDERER ----------
@@ -1203,7 +1690,9 @@ if(location.hash==='#game'){ chosen=0; startGame(); }
 if(location.hash==='#select'){ show('select'); }
 if(location.hash==='#lobby'){ show('lobby'); }
 if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; startGame(); openInv(); }
-if(location.hash==='#fish'){ chosen=0; P.inv.item_rod=1; P.inv.item_hook_basic=1; P.inv.item_hook_fine=1; startGame(); NPC_ACTIONS.fish_trip(); }
+if(location.hash==='#fish'){ chosen=0; P.inv.item_rod=1; P.inv.item_hook_basic=1; P.inv.item_hook_fine=1; questState.flags.flag_bog_rescued=true; startGame(); NPC_ACTIONS.fish_trip(); }
+if(location.hash==='#mtn'){ chosen=0; startGame(); questState.completed.push('quest_main_05_shield_training'); Quests.debugJump('quest_main_06_find_bog','active'); scene='mountains'; mtnInit(); P.x=750; P.y=470; }
+if(location.hash==='#cave'){ chosen=0; startGame(); scene='cave'; mtnInit(); MTN.troll.dawnT=60000; P.x=430; P.y=430; }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
 let devBuilt=false;
@@ -1223,6 +1712,9 @@ function buildDevMenu(){
   mk('▶ Q2: berries', ()=>Quests.debugJump('quest_main_02_blueberries'));
   mk('▶ Q3: turkeys', ()=>Quests.debugJump('quest_main_03_turkeys'));
   mk('▶ Q4: CHAMPION', ()=>Quests.debugJump('quest_main_04_champion'));
+  mk('▶ Q6: TROLL ARC', ()=>{ questState.completed.push('quest_main_05_shield_training'); Quests.debugJump('quest_main_06_find_bog'); });
+  mk('jump: mountains', ()=>{ questState.completed.push('quest_main_05_shield_training'); Quests.debugJump('quest_main_06_find_bog','active'); scene='mountains'; mtnInit(); P.x=750; P.y=90; });
+  mk('jump: cave (dawn 10s)', ()=>{ scene='cave'; mtnInit(); MTN.troll.alive=true; MTN.troll.stone=false; MTN.troll.dawn=false; MTN.troll.dawnT=10000; P.x=430; P.y=430; });
   mk('+200 coins', ()=>{ P.coins+=200; });
   mk('give sword/bow/shield', ()=>{ P.weapons.sword=true; P.weapons.bow=true; P.arrows+=10; P.hasShield=true; });
   mk('open both shops', ()=>{ questState.flags.flag_dorgan_shop_open=true; questState.flags.flag_erik_turkey_stock=true; });
@@ -1241,6 +1733,10 @@ $('btnDev').onclick=()=>{ devArmed=!devArmed;
 if(location.hash==='#test-quests'){
   chosen=0; startGame();
   const R=[], ok=(c,m)=>R.push((c?'✅ PASS':'❌ FAIL')+' — '+m);
+  window.onerror=(m,src,l)=>{ const dv=document.createElement('div');
+    dv.style.cssText='position:fixed;inset:8px;z-index:99;background:#2a0f0f;color:#ffd9d0;font:11.5px/1.5 monospace;padding:12px;border-radius:8px;overflow:auto;white-space:pre-wrap;';
+    dv.textContent='TEST CRASH: '+m+'  @line '+l+'\n\nprogress so far:\n'+R.join('\n');
+    document.getElementById('app').appendChild(dv); };
   const chief=NPCS.find(n=>n.id==='npc_chief_bonbottom');
   const dorgan=NPCS.find(n=>n.id==='npc_dorgan');
   const erik=NPCS.find(n=>n.id==='npc_erik');
@@ -1313,7 +1809,9 @@ if(location.hash==='#test-quests'){
   // Q5 — MODO's shield training
   Quests.update(9000);
   ok(questState.currentId==='quest_main_05_shield_training', 'Modo calls you to train');
-  openDialog(modo); ok(dLines[1].includes('PRESS AND HOLD'), 'Modo gives usable HOLD instructions'); while(dialogOpen) advanceDialog();
+  openDialog(modo); ok(dLines[2].includes('PRESS AND HOLD'), 'Modo gives usable HOLD instructions');
+  while(dIdx<dLines.length-1) advanceDialog();
+  { const go=[...$('shopBox').children].find(x=>x.textContent.includes("Let's do it")); ok(!!go, 'Modo offers Let’s-do-it / come-back-later'); go.click(); }
   ok(questState.stage==='active', 'sparring begins');
   for(let i=0;i<3;i++) Quests.emit('block',{target:'training_modo'});
   ok(questState.stage==='complete', '3 blocks → trained');
@@ -1324,52 +1822,92 @@ if(location.hash==='#test-quests'){
     ok(txts.includes('Fishing rod') && txts.includes('Basic hook') && txts.includes('Fine hook'), 'Erik stocks rod + both hooks');
     ok(txts.includes('Turkey meat'), 'Erik sells turkey meat too'); }
   while(dialogOpen) advanceDialog();
-  ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'chain complete');
-  // red berries: satchel item, deadly only if EATEN
-  P.inv.item_red_berry=1;
-  invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
+  ok(Quests.trackerText()==='⛰️ The Chief has news…', 'shield school now leads to the mountains');
+  // Q6 — find Bog (a real CHOICE at the chief)
+  Quests.update(4100);
+  ok(questState.currentId==='quest_main_06_find_bog' && questState.stage==='offer', 'the Chief has a quest: Bog is missing');
+  openDialog(chief);
+  while(dIdx<dLines.length-1) advanceDialog();
+  const later=[...$('shopBox').children].find(b=>b.textContent.includes('prepare'));
+  ok(!!later, 'offer ends in a real choice'); later.click();
+  ok(questState.stage==='offer', '“come back later” leaves the quest waiting');
+  openDialog(chief); while(dIdx<dLines.length-1) advanceDialog();
+  [...$('shopBox').children].find(b=>b.textContent.includes('find him')).click();
+  ok(questState.stage==='active', 'accepted — south to the mountains');
+  // the mountains
+  scene='mountains'; mtnInit();
+  ok(MTN.packs.length===2 && packAlive(MTN.packs[0])===5, 'two wolf packs of five roam the mountains');
+  const pk=MTN.packs[0];
+  pk.wolves.slice(0,4).forEach(w=>hitTarget(w,'wolf',99,0));
+  ok(packAlive(pk)===1, 'four down, one left…');
+  mountainsUpdate(5100);
+  ok(packAlive(pk)===5, 'the last wolf HOWLS after 5s — the whole pack rises again!');
+  pk.wolves.forEach(w=>hitTarget(w,'wolf',99,0));
+  mountainsUpdate(16);
+  ok(packAlive(pk)===0 && pk.cleared, 'kill them ALL fast and the pack stays down');
+  // the troll cannot be hurt by steel
+  scene='cave'; MTN.troll.alive=true;
+  const th0=999; hitTarget(MTN.troll,'troll',50,0);
+  ok(MTN.troll.alive && MTN.troll.hp===th0, 'the troll’s hide shrugs off every blow — only dawn wins');
+  // dawn → lure out → climb his back → SMASH
+  MTN.troll.dawn=true; leaveCave();
+  ok(scene==='mountains' && MTN.troll.outside, 'he follows you out into the rising sun');
+  MTN.troll.stunned=true; MTN.troll.mounted=true;
+  trollSmashFinish(); questState.flags.flag_bog_rescued=true;
+  ok(MTN.troll.stone, 'one blow to the head — the troll is STONE');
+  // fire + treasure + hammer
+  MTN.fire.learned=true; MTN.cave.fireLit=true;
+  const ct0=P.coins; gatherTreasure();
+  ok(P.coins===ct0+400 && P.weapons.hammer===true, 'the hoard: +400 coins and the Troll’s Hammer');
+  // report to the chief
+  Quests.update(16);
+  ok(questState.stage==='complete', 'Bog rescued → quest complete');
+  scene='village';
+  openDialog(chief); while(dialogOpen) advanceDialog();
+  // Q7 — Modo teaches the hammer
+  Quests.update(2100);
+  ok(questState.currentId==='quest_main_07_hammer', 'Modo wants to see that hammer');
+  openDialog(modo); while(dialogOpen) advanceDialog();
+  P.weapon='hammer'; P.x=660; P.y=1265;
+  for(let i=0;i<3;i++){ P.slashT=0; dummies[0].hp=5; doSmash(4,80,16); }
+  ok(questState.stage==='complete', 'three hammer-smashes on the dummies');
+  openDialog(modo); while(dialogOpen) advanceDialog();
+  // Q8 — Bog's thank-you trip (fishing unlocks only now)
+  Quests.update(3500);
+  ok(questState.currentId==='quest_main_08_first_catch', 'Bog owes you a boat ride');
+  const bog=NPCS.find(n=>n.id==='npc_bog');
+  ok(questState.flags.flag_bog_rescued===true, 'Bog is home — shack open');
+  openDialog(bog); while(dialogOpen) advanceDialog();
+  ok(questState.stage==='active', 'gear up and catch one');
+  P.inv.item_rod=1; P.inv.item_hook_basic=1;
+  NPC_ACTIONS.fish_trip();
+  ok(scene==='fishing', 'out on the pond at last');
+  fishingCast(); ok(fish.state==='waiting', 'line cast (basic hook auto-picked)');
+  fish.state='reeling'; fish.inZone=2601; fishingUpdate(16);
+  fish.catches.push('item_fish_small','item_fish_small');
+  fishingEnd();
+  ok(questState.flags.flag_fished_once===true, 'first catch logged');
+  Quests.update(16);
+  ok(questState.stage==='complete', 'Bog’s quest complete');
+  openDialog(bog); while(dialogOpen) advanceDialog();
+  ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'THE WHOLE CHAIN: goblins→berries→turkeys→champion→shield→TROLL→hammer→fishing');
+  // red berries + the cursed stone (moved with the arc)
+  P.inv.item_red_berry=1; invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
   ok($('deathTitle').textContent==='The red berries', 'eating red berries from the satchel = death');
   $('btnRespawn').click();
-  // the cursed stone kills on touch
-  P.x=CURSED_STONE.x; P.y=CURSED_STONE.y; update(16);
+  scene='village'; P.x=CURSED_STONE.x; P.y=CURSED_STONE.y; update(16);
   ok($('deathTitle').textContent==='The cursed stone', 'the cursed stone kills on touch');
-  $('btnRespawn').click();
-  // fishing with Bog
-  const bog=NPCS.find(n=>n.id==='npc_bog');
-  openDialog(bog); ok(dLines===bog.raw.linesNoGear, 'Bog refuses freeloaders without rod & hook');
-  ok([...$('shopBox').children].length===0, 'no trip offered without gear');
-  while(dialogOpen) advanceDialog();
-  P.inv.item_rod=1; P.inv.item_hook_basic=1;
-  openDialog(bog); ok(dLines===bog.raw.lines, 'with gear, Bog offers his terms');
-  ok([...$('shopBox').children].some(b=>b.textContent.includes('Row out fishing')), 'fishing trip button appears');
-  while(dialogOpen) advanceDialog();
-  NPC_ACTIONS.fish_trip();
-  ok(scene==='fishing', 'out on the boat');
-  fishingCast(); ok(fish.state==='waiting', 'line cast');
-  fish.state='reeling'; fish.inZone=2601; fishingUpdate(16);
-  ok(fish.catches.length===1, 'steady reeling lands a fish');
-  fish.catches.push('item_fish_small','item_fish_small');   // 3 total
-  const f0=(P.inv.item_fish_small||0)+(P.inv.item_fish_big||0);
-  fishingEnd();
-  const f1=(P.inv.item_fish_small||0)+(P.inv.item_fish_big||0);
-  ok(f1-f0===1 && scene==='village', '3 caught → Bog keeps 2 (odd one his), you keep 1');
-  ok(questState.flags.flag_fished_once===true, 'first trip unlocks the boat lesson');
-  openDialog(bog); ok([...$('shopBox').children].some(b=>b.textContent.includes('boat-driving')), 'boat lesson now offered');
-  while(dialogOpen) advanceDialog();
-  NPC_ACTIONS.boat_lesson();
-  ok(questState.flags.flag_boat_skill===true, 'boat-driving skill learned (for later villages)');
-  // Erik buys fish
-  P.inv.item_fish_big=1; const ce=P.coins;
-  openDialog(erik);
-  const fb=[...$('shopBox').children].find(b=>b.textContent.includes('Sell BIG fish'));
-  ok(!!fb, 'Erik buys fish'); fb.click();
-  ok(P.coins===ce+20, 'big fish sells for 20');
-  while(dialogOpen) advanceDialog();
-  // death → 2.5 hearts, quest state intact
+  $('btnRespawn').click(); scene='village'; P.x=800; P.y=1210;
+  // hook windows: fine hook is much tighter
+  ok(HOOKS.fine.hi-HOOKS.fine.lo < (HOOKS.basic.hi-HOOKS.basic.lo)/2, 'fine hook green window is less than half the basic one');
+  // territory respawn: die in the mountains → wake at the mountain entry
+  scene='mountains';
+  die('test'); $('btnRespawn').click();
+  ok(scene==='mountains' && P.y===70 && P.hp===5, 'mountain deaths respawn at the mountain entry with 2½ hearts');
+  scene='village'; P.x=800; P.y=1210;
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();
-  ok(P.hp===5, 'respawn with 2½ hearts — food still matters');
-  ok(questState.currentId===cq, 'death never resets quest progress');
+  ok(scene==='village' && questState.currentId===cq, 'village deaths respawn home; quests never reset');
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;
