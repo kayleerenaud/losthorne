@@ -1565,6 +1565,19 @@
       swp.cy = p.y;
     }
   }
+  function pointerCancel(id) {
+    if (joy.active && id === joy.id) {
+      joy.active = false;
+      joy.dx = joy.dy = 0;
+    }
+    if (btnTouch.active && id === btnTouch.id) {
+      btnTouch.active = false;
+    }
+    if (swp.active && id === swp.id) {
+      swp.active = false;
+      swp.reelHold = false;
+    }
+  }
   function pointerUp(p, id) {
     if (joy.active && id === joy.id) {
       const dist = Math.hypot(p.x - joy.sx, p.y - joy.sy), dur = performance.now() - (joy.t0 || 0);
@@ -1722,9 +1735,9 @@
     const dx = x - swp.sx, dy = y - swp.sy, dist = Math.hypot(dx, dy);
     const dur = performance.now() - swp.t0;
     if (swp.smashOnly) {
-      if (dur >= 3e3) fullSmash();
+      if (dur >= SMASH_FULL_MS) fullSmash();
       else if (dur >= 350) miniSmash();
-      else banner("💥 HOLD to charge a smash — 3 full seconds for the big one!");
+      else banner("💥 HOLD the button to charge a smash — keep holding for the BIG one!");
       return;
     }
     if (P.weapon === "bow") {
@@ -1742,7 +1755,7 @@
       if (dur < 350) slash(P.dir);
       return;
     }
-    if (dur >= 3e3) fullSmash();
+    if (dur >= SMASH_FULL_MS) fullSmash();
     else if (dur >= 350) miniSmash();
     else slash(P.dir);
   }
@@ -1758,6 +1771,14 @@
     for (const t of e.changedTouches) pointerUp(pt(t), t.identifier);
     e.preventDefault();
   }, { passive: false });
+  cvs.addEventListener("touchcancel", (e) => {
+    for (const t of e.changedTouches) pointerCancel(t.identifier);
+  }, { passive: false });
+  window.addEventListener("blur", () => {
+    pointerCancel(swp.id);
+    pointerCancel(joy.id);
+    pointerCancel(btnTouch.id);
+  });
   cvs.addEventListener("mousedown", (e) => pointerDown(pt(e), "m"));
   cvs.addEventListener("mousemove", (e) => pointerMove(pt(e), "m"));
   cvs.addEventListener("mouseup", (e) => pointerUp(pt(e), "m"));
@@ -1879,11 +1900,12 @@
     if (dist > 18 && !swp.smashOnly) return null;
     const dur = performance.now() - swp.t0;
     if (dur < 350) return null;
-    return { p: Math.min(1, (dur - 350) / 2650), full: dur >= 3e3 };
+    return { p: Math.min(1, (dur - 350) / 2050), full: dur >= SMASH_FULL_MS };
   }
+  var SMASH_FULL_MS = 2400;
   function shieldHoldRaw() {
     if (!P.hasShield || !swp.active || swp.smashOnly || swp.reelHold) return false;
-    if (Math.hypot(swp.cx - swp.sx, swp.cy - swp.sy) > 18) return false;
+    if (!P.shieldUp && Math.hypot(swp.cx - swp.sx, swp.cy - swp.sy) > 34) return false;
     return performance.now() - swp.t0 >= 250;
   }
   function fireArrow(ang, power) {
@@ -5175,6 +5197,33 @@
     attackRelease(0, 0);
     ok(P.slashT === 0, "releasing a long shield-hold deals NO damage — smash lives on 💥 only");
     swp.active = false;
+    swp.active = true;
+    swp.id = 77;
+    pointerCancel(77);
+    ok(!swp.active, "a cancelled touch releases the hold (no stuck shield/smash lockout)");
+    P.shieldUp = true;
+    swp.active = true;
+    swp.smashOnly = false;
+    swp.reelHold = false;
+    swp.sx = swp.sy = 0;
+    swp.cx = 22;
+    swp.cy = 22;
+    swp.t0 = performance.now() - 500;
+    ok(shieldHoldRaw() === true, "shield stays up through a small thumb drift");
+    P.shieldUp = false;
+    swp.active = false;
+    swp.active = true;
+    swp.smashOnly = true;
+    swp.reelHold = false;
+    swp.sx = swp.sy = swp.cx = swp.cy = 0;
+    swp.t0 = performance.now() - SMASH_FULL_MS - 40;
+    ok(chargeInfo() && chargeInfo().full === true, "a 2.4s hold on 💥 reads as a FULL charge");
+    P.slashT = 0;
+    attackRelease(0, 0);
+    ok(P.smashR === 130, "releasing that hold fires the FULL smash (radius 130)");
+    swp.active = false;
+    P.slashT = 0;
+    P.smashT = 0;
     openDialog(modo);
     ok($("shopBox").children.length === 3, "bow & arrows unlocked after the champion");
     while (dialogOpen) advanceDialog();

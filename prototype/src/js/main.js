@@ -451,6 +451,14 @@ function pointerMove(p,id){
   if(joy.active && id===joy.id){ joy.dx=p.x-joy.sx; joy.dy=p.y-joy.sy; }
   if(swp.active && id===swp.id){ swp.cx=p.x; swp.cy=p.y; }
 }
+// a touch the browser CANCELS (palm rejection, a notification, a scroll conflict) must ABORT the
+// gesture — never leave swp/joy/btnTouch stuck 'active', which would silently block every future
+// shield-hold and smash-charge. Abort quietly: do NOT fire an attack on a cancel.
+function pointerCancel(id){
+  if(joy.active && id===joy.id){ joy.active=false; joy.dx=joy.dy=0; }
+  if(btnTouch.active && id===btnTouch.id){ btnTouch.active=false; }
+  if(swp.active && id===swp.id){ swp.active=false; swp.reelHold=false; }
+}
 function pointerUp(p,id){
   if(joy.active && id===joy.id){
     const dist=Math.hypot(p.x-joy.sx,p.y-joy.sy), dur=performance.now()-(joy.t0||0);
@@ -531,9 +539,9 @@ function attackRelease(x,y){
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
   const dur=performance.now()-swp.t0;
   if(swp.smashOnly){                       // the 💥 button: hold to charge
-    if(dur>=3000) fullSmash();
+    if(dur>=SMASH_FULL_MS) fullSmash();
     else if(dur>=350) miniSmash();
-    else banner('💥 HOLD to charge a smash — 3 full seconds for the big one!');
+    else banner('💥 HOLD the button to charge a smash — keep holding for the BIG one!');
     return;
   }
   if(P.weapon==='bow'){
@@ -546,13 +554,15 @@ function attackRelease(x,y){
     if(dur<350) slash(P.dir);                         // a quick tap still attacks
     return;
   }
-  if(dur>=3000) fullSmash();               // pre-shield: hold = charge smash
-  else if(dur>=350) miniSmash();           // partial charge = mini smash
-  else slash(P.dir);                       // tap = quick attack
+  if(dur>=SMASH_FULL_MS) fullSmash();       // pre-shield: hold = charge smash
+  else if(dur>=350) miniSmash();            // partial charge = mini smash
+  else slash(P.dir);                        // tap = quick attack
 }
 cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches) pointerDown(pt(t),t.identifier); e.preventDefault(); },{passive:false});
 cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) pointerMove(pt(t),t.identifier); e.preventDefault(); },{passive:false});
 cvs.addEventListener('touchend',e=>{ for(const t of e.changedTouches) pointerUp(pt(t),t.identifier); e.preventDefault(); },{passive:false});
+cvs.addEventListener('touchcancel',e=>{ for(const t of e.changedTouches) pointerCancel(t.identifier); },{passive:false});
+window.addEventListener('blur',()=>{ pointerCancel(swp.id); pointerCancel(joy.id); pointerCancel(btnTouch.id); });   // tab/app switch mid-hold shouldn't strand a gesture
 // mouse fallback (desktop testing)
 cvs.addEventListener('mousedown',e=>pointerDown(pt(e),'m'));
 cvs.addEventListener('mousemove',e=>pointerMove(pt(e),'m'));
@@ -613,7 +623,7 @@ function slash(ang){
     if(d<w.range && diff<1.15) hitTarget(t,kind,w.dmg+dmgBonus(),a);
   });
 }
-// SMASH is charged now: hold 0.35–3s = mini smash, hold 3s+ = FULL smash.
+// SMASH is charged: hold 0.35s–2.4s = mini smash, hold 2.4s+ = FULL smash.
 // While charging you are rooted — that's the risk. (DESIGN.md §7)
 function miniSmash(){ doSmash(4,80,16); }
 function fullSmash(){ doSmash(8,130,22); }
@@ -639,12 +649,15 @@ function chargeInfo(){
   if(dist>18 && !swp.smashOnly) return null;   // it's a slice-aim drag
   const dur=performance.now()-swp.t0;
   if(dur<350) return null;
-  return { p:Math.min(1,(dur-350)/2650), full:dur>=3000 };
+  return { p:Math.min(1,(dur-350)/2050), full:dur>=SMASH_FULL_MS };
 }
+const SMASH_FULL_MS=2400;   // hold this long on 💥 = a FULL smash (was 3000 — too strict under fire)
 // shield owners: a steady HOLD on the attack button = shield up (engine gives it ~3s, then the arm must rest)
 function shieldHoldRaw(){
   if(!P.hasShield || !swp.active || swp.smashOnly || swp.reelHold) return false;
-  if(Math.hypot(swp.cx-swp.sx,swp.cy-swp.sy)>18) return false;   // that's a slice-aim drag
+  // Only a BIG opening drag counts as an aimed slice. Once the shield is up, keep it up even if
+  // the thumb drifts a little in a hectic fight — a tiny wiggle should never drop your guard.
+  if(!P.shieldUp && Math.hypot(swp.cx-swp.sx,swp.cy-swp.sy)>34) return false;
   return (performance.now()-swp.t0)>=250;
 }
 function fireArrow(ang,power){
@@ -2302,6 +2315,19 @@ if(location.hash==='#test-quests'){
   P.slashT=0; attackRelease(0,0);
   ok(P.slashT===0, 'releasing a long shield-hold deals NO damage — smash lives on 💥 only');
   swp.active=false;
+  // v0.22 combat robustness — a CANCELLED touch must never strand the hold gesture
+  swp.active=true; swp.id=77; pointerCancel(77);
+  ok(!swp.active, 'a cancelled touch releases the hold (no stuck shield/smash lockout)');
+  // the shield stays UP through a small thumb drift once it's raised
+  P.shieldUp=true; swp.active=true; swp.smashOnly=false; swp.reelHold=false; swp.sx=swp.sy=0; swp.cx=22; swp.cy=22; swp.t0=performance.now()-500;
+  ok(shieldHoldRaw()===true, 'shield stays up through a small thumb drift');
+  P.shieldUp=false; swp.active=false;
+  // a FULL smash is reachable at 2.4s (eased from 3s) and the meter agrees
+  swp.active=true; swp.smashOnly=true; swp.reelHold=false; swp.sx=swp.sy=swp.cx=swp.cy=0; swp.t0=performance.now()-SMASH_FULL_MS-40;
+  ok(chargeInfo() && chargeInfo().full===true, 'a 2.4s hold on 💥 reads as a FULL charge');
+  P.slashT=0; attackRelease(0,0);
+  ok(P.smashR===130, 'releasing that hold fires the FULL smash (radius 130)');
+  swp.active=false; P.slashT=0; P.smashT=0;
   // Modo now sells everything
   openDialog(modo); ok($('shopBox').children.length===3, 'bow & arrows unlocked after the champion'); while(dialogOpen) advanceDialog();
   // permanent gear never vanishes

@@ -50,6 +50,14 @@
 
 *Updated at every checkpoint.*
 
+- **Version:** v0.22 — COMBAT INPUT FIXES (shield + smash reliability) (reorg steps 6–8,10 still queued)
+- **v0.22 checkpoint (2026-07-04, Kaylee bug reports):** "shield doesn't always work vs wolves" + "smash isn't always letting me hold for a bigger smash."
+  - **Root cause (both):** the hold-gesture (`swp`) had NO `touchcancel` handler. A browser-cancelled touch (palm rejection, a notification, a scroll/tab switch) left `swp.active=true` stuck, and `pointerDown` only starts a hold `if(!swp.active)` — so every later shield-hold and smash-charge was silently ignored. FIX: added `pointerCancel()` + a `touchcancel` listener (and a `window blur` safety) that ABORT the gesture without firing an attack.
+  - **Shield reliability:** `shieldHoldRaw()` used to drop the shield the instant your thumb drifted >18px (read as an aim-slice). Now the drift check only gates the INITIAL raise (and at a roomier 34px); once the shield is UP a small wiggle can't drop it.
+  - **Smash reachability:** full smash eased 3000ms → **2400ms** (`SMASH_FULL_MS`), and the charge meter's "full" flag now uses the same constant, so the gold "SMASH READY!" ring matches exactly when a release gives the big one. Applies to both the pre-shield attack-hold and the post-shield 💥 button.
+  - **Files:** all main.js (pointerCancel + touchcancel/blur listeners, shieldHoldRaw drift-latch, SMASH_FULL_MS + chargeInfo + attackRelease ×2, comment). DESIGN §7 smash timing updated (3s→2.4s).
+  - **Verified:** builds clean; smoke test green (~86 assertions) with NEW regression guards — cancelled-touch releases the hold, shield survives a small drift, a 2.4s hold reads FULL and fires radius-130. Screenshot ❌-scan: none.
+  - **Guess (confirm w/ Kaylee):** full-smash at 2.4s · shield raise-drift tolerance 34px. Left the shield's ~3s arm-tire + ~2.5s rest AS-IS (intentional per DESIGN §5/§7) — if the shield still feels unreliable in a pack after this, that tire window is the next lever.
 - **Version:** v0.21 — GENERAL SELL FLOW + PEARL ITEM (reorg steps 6–8,10 still queued)
 - **v0.21 checkpoint (2026-07-04, Kaylee):** reworked selling + made the pearl a real item.
   - **Selling:** Erik's per-item sell buttons → ONE general **"Sell items…"** button that opens the satchel in a new **sell mode**. Tap an item → its detail shows Erik's offer ("Erik offers N 🪙… Sell — or ← Back to keep it") with a green **Sell** button (Use is hidden); ← Back / Close = reject. Non-sellable items show a disabled "Erik won't buy this." What's sellable + the price is the single source of truth in `economy.js SELL_PRICES` (turkey 15, fish 8/20, pearl 18) — Erik's data is now just `buys:true`.
