@@ -34,7 +34,7 @@ export const ITEM_DEFS = {
     st:'Troll-forged star-iron from the mountain hoard. The heaviest thing you will ever swing.<br>Switch weapons to wield it — Modo can teach you the way of it.',
     effect:{ kind:'unlock_weapon', weapon:'hammer' } },
   item_shield: { id:'item_shield', ic:'🛡️', nm:"Champion's Shield",
-    st:'Won from the visiting champion. While you HOLD to charge a smash, this shield is raised and blocks blows.',
+    st:'Won from the visiting champion. HOLD the attack button to raise it — blows bounce off. The arm tires after ~3 seconds and needs a breath to recover. Releasing deals NO damage: the smash lives on the 💥 button.',
     effect:{ kind:'passive' } },
   item_sword:  { id:'item_sword', ic:'🗡️', nm:'Forged Sword',
     st:'Modo steel. Goblins fall in 3 good hits instead of 8 punches.',

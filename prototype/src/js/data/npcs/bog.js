@@ -12,6 +12,6 @@ export default {
          "Well? Shall we?"],
   actions:[
     { id:'fish_trip',   label:'🛶 Row out fishing with Bog (he keeps half)', needsGear:true },
-    { id:'boat_lesson', label:'⛵ Ask Bog to teach boat-driving', requiresFlag:'flag_fished_once' },
+    { id:'boat_lesson', label:'⛵ Take the oars — Bog teaches boat-driving (YOU drive)', requiresFlag:'flag_fished_once' },
   ],
 };

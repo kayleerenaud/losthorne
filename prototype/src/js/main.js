@@ -18,6 +18,7 @@ import questFindBog from './data/quests/main-06-find-bog.js';
 import questHammer from './data/quests/main-07-hammer.js';
 import questFirstCatch from './data/quests/main-08-first-catch.js';
 import npcStrax from './data/npcs/strax.js';
+import npcReba from './data/npcs/reba.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -88,13 +89,14 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, hammer:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, dashT:0, dashCd:0 };
+  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, shieldUp:false, shieldT:0, shieldCd:0, dashT:0, dashCd:0 };
 // combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, hammer:{icon:'🔨',dmg:5,range:82}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','hammer','bow'].filter(w=>P.weapons[w]); }
 const floats=[];   // floating damage/pickup numbers
 const drops=[];    // coins dropped by creatures — walk over to collect
 function addFloat(x,y,txt,col,size){ floats.push({x,y,txt,col,size:size||16,t:44}); }
+function updFloats(){ for(let i=floats.length-1;i>=0;i--){ const f=floats[i]; f.t--; f.y-=.8; if(f.t<=0) floats.splice(i,1); } }
 function dropCoins(x,y){
   const piles=2+Math.floor(Math.random()*2);
   for(let i=0;i<piles;i++) drops.push({x:x+(Math.random()*36-18), y:y+(Math.random()*36-18), amt:2+Math.floor(Math.random()*3)});
@@ -103,7 +105,9 @@ const pot = { type:null, t:0 };  // Dorgan's random-power potion (powers in data
 const arrows = [];
 const dummies = [ {x:660,y:1265,hp:5,maxhp:5,hurtT:0,respawnT:0,showBar:false}, {x:945,y:1265,hp:5,maxhp:5,hurtT:0,respawnT:0,showBar:false} ];
 let hungerT = 0;
-const HUNGER_EVERY = 75000; // ms until you lose half a heart (Kaylee: "give me longer!")
+const HUNGER_EVERY = 140000; // ms of IDLE time per half-heart — hard WORK multiplies it (Kaylee: strolling the village shouldn't starve you)
+function tickHunger(dt,f){ hungerT+=dt*f;
+  if(hungerT>HUNGER_EVERY){ hungerT=0; P.hp--; banner('Your stomach growls… find food! -½ ❤️'); if(P.hp<=0) die('You starved in the wilds.','Hunger wins'); } }
 
 const trees=[], houses=[], bushes=[];
 // forest (north)
@@ -117,7 +121,7 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
 // NPCs are built from data files; dialogue & shops resolved at talk-time from raw data.
-const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog, npcStrax].map(d=>({
+const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog, npcStrax, npcReba].map(d=>({
   id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat, raw:d,
 }));
 function hasFishingGear(){ return (P.inv.item_rod||0)>0 && ((P.inv.item_hook_basic||0)>0 || (P.inv.item_hook_fine||0)>0); }
@@ -212,12 +216,13 @@ function spawnTurkeys(){
   [[500,860],[900,930],[1250,880],[700,1010]].forEach(t=>turkeys.push({x:t[0],y:t[1],dir:Math.random()*7,t:0}));
 }
 const CURSED_STONE={x:840,y:170};
+const RUINS={x:400,y:1210};   // the STONE-TROLL RUINS — village lore: trolls that met the dawn froze forever
 const VILLAGE={x:800,y:1230,rx:365,ry:245};   // goblins can't cross this line
 spawnTurkeys();
 
 // ---------- SCENES: the village + shop interiors ----------
 let scene='village';               // 'village' or an npc id (inside their shop)
-const SHOP_NPCS = [npcErik, npcDorgan, npcModo];
+const SHOP_NPCS = [npcErik, npcDorgan, npcModo, npcReba];
 function shopDoorNearby(){          // in the village, near a shop's door?
   if(scene!=='village') return null;
   for(const d of SHOP_NPCS){ const b=d.building;
@@ -299,8 +304,7 @@ function npcNearby(){
     if(n.raw.scene==='mountains') continue;
     if(n.id==='npc_bog' && !questState.flags.flag_bog_rescued) continue;
     if(Math.hypot(n.x-P.x,n.y-P.y)<70) return n; }
-  if(modoWalk && questState.currentId==='quest_main_05_shield_training' && questState.stage==='offer'
-     && Math.hypot(modoWalk.x-P.x,modoWalk.y-P.y)<70) return NPCS.find(n=>n.id==='npc_modo');
+  if(giverWalk && !giverWalk.returning && Math.hypot(giverWalk.x-P.x,giverWalk.y-P.y)<70) return NPCS.find(n=>n.id===giverWalk.npcId);
   return null;
 }
 function enemyNearby(){
@@ -317,14 +321,16 @@ function mtnEnemyNear(){ if(scene!=='mountains') return false;
   for(const pk of MTN.packs) for(const w of pk.wolves){ if(w.alive && Math.hypot(w.x-P.x,w.y-P.y)<220) return true; }
   return false; }
 const CAVE_MATS=[{x:130,y:130,found:false},{x:770,y:130,found:false},{x:130,y:430,found:false}];
+const CHEST={x:470,y:210};   // the hoard chest — you WALK to it and OPEN it; nothing collects itself
 function matSpotNear(){ return CAVE_MATS.find(m=>!m.found && Math.hypot(m.x-P.x,m.y-P.y)<56); }
 function firePitNear(){ return Math.hypot(450-P.x,300-P.y)<64; }
 function caveDoorNear(){ return P.y>440 && Math.abs(P.x-430)<90; }
 function contextAction(){
   if(dialogOpen||invOpen) return null;
+  if(scene==='climb') return {icon:'🧗', label:'HOLD to climb!', kind:'reel'};
+  if(scene==='boat') return {icon:'⛵', label:'drag to steer', kind:'none'};
   if(scene==='mountains'){
     const T=MTN.troll;
-    if(MTN.climbing) return {icon:'🧗', label:'HOLD to climb!', kind:'reel'};
     if(MTN.fire.game) return {icon:'🔥', label:'STRIKE!', kind:'firetap'};
     if(T.outside && T.stunned && !T.stone){
       if(!T.mounted && Math.hypot(P.x-T.x,P.y-T.y)<80) return {icon:'🧗', label:'CLIMB HIS BACK!', kind:'trollclimb'};
@@ -347,7 +353,7 @@ function contextAction(){
       if(MTN.cave.inMats>=3 && firePitNear()) return {icon:'🔥', label:'make a fire', kind:'firestart'};
     }
     if(MTN.cave.fireLit && MTN.bog.found && !MTN.bog.escort && Math.hypot(P.x-MTN.bog.x,P.y-MTN.bog.y)<70) return {icon:'🪢', label:'FREE BOG!', kind:'freebog'};
-    if(MTN.cave.fireLit && !MTN.cave.treasure) return {icon:'💰', label:'the hoard!', kind:'treasure'};
+    if(MTN.cave.fireLit && !MTN.cave.treasure && Math.hypot(P.x-CHEST.x,P.y-CHEST.y)<70) return {icon:'💰', label:'open the chest', kind:'treasure'};
     if(caveDoorNear()) return {icon:'🚪', label: T.dawn&&T.alive? 'OUT — into the light!':'leave', kind:'cavedoor'};
     return {icon:'🕳', label: T.alive? (T.dawn? 'RUN for the exit!' : 'outlast it… dawn comes') : 'dark…', kind:'none'};
   }
@@ -363,6 +369,7 @@ function contextAction(){
   }
   const n=npcNearby(); if(n) return {icon:'💬', label:n.nm.split(' ')[0], kind:'talk'};
   const d=shopDoorNearby(); if(d) return {icon:'🚪', label:'enter '+d.building.sign, kind:'enter', npc:d};
+  if(Math.hypot(RUINS.x-P.x,RUINS.y-P.y)<70) return {icon:'🔍', label:'the old ruins', kind:'ruins'};
   if(turkeyNearby()) return {icon:'🤲', label:'GRAB!', kind:'grab'};
   if(enemyNearby()) return {icon:'💥', label:'smash', kind:'smash'};
   const av=AVATARS[chosen<0?0:chosen];
@@ -390,6 +397,7 @@ function pointerDown(p,id){
   if(invOpen) return;
   const b=buttonAt(p.x,p.y);
   const ctxKind = b==='ctx' ? contextAction()?.kind : null;
+  if(ctxKind==='firetap'){ fireGameTap(); return; }   // fire-striking fires on PRESS — no release lag, taps land when you tap
   const ctxIsSmash = ctxKind==='smash', ctxIsReel = ctxKind==='reel' || (ctxKind==='none'&&scene==='fishing');
   if((b==='atk'||ctxIsSmash||ctxIsReel) && !swp.active){ swp.active=true; swp.smashOnly=ctxIsSmash; swp.reelHold=ctxIsReel; swp.id=id; swp.sx=p.x; swp.sy=p.y; swp.cx=p.x; swp.cy=p.y; swp.t0=performance.now(); }
   else if(b && !btnTouch.active){ btnTouch.active=true; btnTouch.id=id; btnTouch.kind=b; btnTouch.sx=p.x; btnTouch.sy=p.y; }
@@ -453,6 +461,7 @@ function pressButton(kind){
     else if(a.kind==='enter'){ enterShop(a.npc); }
     else if(a.kind==='leave'){ leaveShop(); }
     else if(a.kind==='grab'){ catchTurkey(); }
+    else if(a.kind==='ruins'){ banner('🗿 Stone trolls, frozen mid-stride. The elders say they wandered into the sunrise… and never walked home.'); }
     else if(a.kind==='music'){ banner('🎵 You play a gentle tune… the village hums along.'); for(let i=0;i<3;i++) addFloat(P.x+(i-1)*16, P.y-30-i*8, '♪', '#ffd977', 15+i*2); }
     else if(a.kind==='rest'){ banner('💤 You rest a moment, watching the clouds.'); addFloat(P.x,P.y-34,'💤','#cfc7b2',18); }
   }
@@ -467,6 +476,7 @@ function pressButton(kind){
 function attackRelease(x,y){
   if(invOpen) return;
   if(swp.reelHold){ swp.reelHold=false; return; }     // reel hold released — the minigame reads the hold, nothing fires
+  if(scene==='boat'||scene==='climb') return;         // those scenes read holds themselves
   if(scene==='fishing'){ if(fish.state==='idle') fishingEnd(); return; }  // ⛵ attack button = row back
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
   const dur=performance.now()-swp.t0;
@@ -481,8 +491,12 @@ function attackRelease(x,y){
     else fireArrow(P.dir,75);
     return;
   }
-  if(dist>18) slash(Math.atan2(dy,dx));    // aimed slice
-  else if(dur>=3000) fullSmash();          // charged 3s+ = FULL smash
+  if(dist>18){ slash(Math.atan2(dy,dx)); return; }   // aimed slice
+  if(P.hasShield){                                    // SHIELD OWNERS: holding = shield ONLY. Release = NOTHING. (smash lives on 💥)
+    if(dur<350) slash(P.dir);                         // a quick tap still attacks
+    return;
+  }
+  if(dur>=3000) fullSmash();               // pre-shield: hold = charge smash
   else if(dur>=350) miniSmash();           // partial charge = mini smash
   else slash(P.dir);                       // tap = quick attack
 }
@@ -575,11 +589,18 @@ function doSmash(dmg,radius,fx){
 function chargeInfo(){
   if(!swp.active) return null;
   if(P.weapon==='bow' && !swp.smashOnly) return null;
+  if(P.hasShield && !swp.smashOnly) return null;   // shield owners charge smashes ONLY on the 💥 button
   const dist=Math.hypot(swp.cx-swp.sx,swp.cy-swp.sy);
   if(dist>18 && !swp.smashOnly) return null;   // it's a slice-aim drag
   const dur=performance.now()-swp.t0;
   if(dur<350) return null;
   return { p:Math.min(1,(dur-350)/2650), full:dur>=3000 };
+}
+// shield owners: a steady HOLD on the attack button = shield up (engine gives it ~3s, then the arm must rest)
+function shieldHoldRaw(){
+  if(!P.hasShield || !swp.active || swp.smashOnly || swp.reelHold) return false;
+  if(Math.hypot(swp.cx-swp.sx,swp.cy-swp.sy)>18) return false;   // that's a slice-aim drag
+  return (performance.now()-swp.t0)>=250;
 }
 function fireArrow(ang,power){
   if(blocked()) return;
@@ -642,7 +663,7 @@ $('invUse').onclick=()=>{ if(!invSel || P.inv[invSel]<1) return;
   P.inv[invSel]--; useItem(invSel); closeInv(); };
 function hurtPlayer(n,why){
   if(P.hurtT>0) return;
-  if(P.hasShield && chargeInfo()){ banner('🛡️ Blocked with the Champion’s Shield!'); addFloat(P.x,P.y-36,'🛡️','#cfd4da',20); P.hurtT=25; return; }
+  if(P.shieldUp){ banner('🛡️ Blocked with the Champion’s Shield!'); addFloat(P.x,P.y-36,'🛡️','#cfd4da',20); P.hurtT=25; return; }
   if(pot.t>0 && POTION_POWERS[pot.type]?.blocksDamage){ banner('🛡️ Stoneskin absorbs the blow!'); P.hurtT=30; return; }
   P.hp-=n; P.hurtT=45;
   if(P.hp<=0) die(why||'A goblin got the better of you.');
@@ -658,8 +679,8 @@ function die(msg,title){
 }
 $('btnRespawn').onclick=()=>{
   P.hp=5; hungerT=0; P.hurtT=60;   // 2½ hearts — food still matters
-  if(deathScene==='mountains'||deathScene==='cave'){
-    scene='mountains'; P.x=750; P.y=70; MTN.climbing=false;
+  if(deathScene==='mountains'||deathScene==='cave'||deathScene==='climb'){
+    scene='mountains'; P.x=750; P.y=70;
     if(MTN.troll.alive && MTN.packs[1] && MTN.packs[1].cleared){ birdsSpawn(3); banner('🐦 Fresh birds flutter over the plateau — eat before facing the troll again.'); }
   } else { scene='village'; P.x=800; P.y=1210; }
   show('gameWrap'); running=true; loop(); };
@@ -704,11 +725,24 @@ function update(dt){
   if(joy.active){ const m=Math.hypot(joy.dx,joy.dy); if(m>6){ const cl=Math.min(m,52)/52; mx=joy.dx/m*cl; my=joy.dy/m*cl; } }
   if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
   if(keys[' ']){ slash(P.dir); }
+  // scenes with their own physics: the boat crossing & THE CLIMB
+  if(scene==='boat'){ boatUpdate(dt,mx,my); updFloats(); return; }
+  if(scene==='climb'){ climbUpdate(dt); updFloats(); if(P.hurtT>0)P.hurtT--; return; }
+  // THE SHIELD: hold = up, but a shield arm TIRES (~3s), then it must rest — no more spam-and-hold
+  if(P.shieldCd>0) P.shieldCd-=dt;
+  { const want=shieldHoldRaw();
+    if(want && P.shieldCd<=0){
+      P.shieldUp=true; P.shieldT+=dt;
+      if(P.shieldT>=3000){ P.shieldUp=false; P.shieldT=0; P.shieldCd=2500; banner('🛡️ Your shield arm tires! It needs a moment…'); }
+    } else {
+      if(P.shieldUp) P.shieldCd=Math.max(P.shieldCd,1200);   // it rests briefly after every use
+      P.shieldUp=false; if(!want) P.shieldT=0;
+    } }
   if(P.dashT>0){ P.dashT--; P.x+=Math.cos(P.dir)*7.5; P.y+=Math.sin(P.dir)*7.5; }
   if(P.dashCd>0) P.dashCd--;
   const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1);
   const charging = chargeInfo();
-  if((mx||my) && !blocked() && !charging && scene!=='fishing' && !MTN.climbing){
+  if((mx||my) && !blocked() && !charging && !P.shieldUp && scene!=='fishing'){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
     if(scene==='mountains'){
       P.x=Math.max(30,Math.min(MW-30,P.x)); P.y=Math.max(20,Math.min(MH-30,P.y));
@@ -773,7 +807,7 @@ function update(dt){
 
   sparUpdate(dt);
   fishingUpdate(dt);
-  modoWalkUpdate(dt);
+  giverWalkUpdate(dt);
   mountainsUpdate(dt);
 
   // travel: the southern trail (village ⇄ mountains)
@@ -799,7 +833,7 @@ function update(dt){
   if(scene==='village') for(const d of dummies){ if(d.hp<=0){ d.respawnT-=dt; if(d.respawnT<=0){ d.hp=d.maxhp; d.showBar=false; } } if(d.hurtT>0)d.hurtT--; }
 
   // floating numbers
-  for(let i=floats.length-1;i>=0;i--){ const f=floats[i]; f.t--; f.y-=.8; if(f.t<=0) floats.splice(i,1); }
+  updFloats();
 
   // dropped coins — walk over to collect
   if(scene==='village') for(let i=drops.length-1;i>=0;i--){ const c=drops[i];
@@ -810,9 +844,8 @@ function update(dt){
     if(gobRespawnT>30000){ gobRespawnT=0; spawnGoblins(); banner('🌲 More goblins prowl the north forest…'); } }
   else gobRespawnT=0;
 
-  // hunger
-  hungerT+=dt;
-  if(hungerT>HUNGER_EVERY){ hungerT=0; P.hp--; banner('Your stomach growls… find food! -½ ❤️'); if(P.hp<=0) die('You starved in the wilds.','Hunger wins'); }
+  // hunger — a stroll barely counts; fighting and dashing burn hot (climbing is handled in its scene)
+  tickHunger(dt, (P.slashT>0||P.dashT>0)? 2.2 : (mx||my)? 1.3 : 1);
 
   // berries (blue bushes regrow after ~25s). Blueberries go INTO THE SATCHEL —
   // eat them from there by choice, or deliver them. Red berries are still death.
@@ -859,6 +892,8 @@ function update(dt){
 // ============================================================
 function draw(){
   if(scene==='fishing'){ drawFishing(); }
+  else if(scene==='boat'){ drawBoatScene(); }
+  else if(scene==='climb'){ drawClimb(); }
   else if(scene==='mountains'){ drawMountains(); }
   else if(scene==='cave'){ drawCave(); }
   else if(scene!=='village'){ drawInterior(); }
@@ -912,6 +947,16 @@ function draw(){
     if(shopDoorNearby()===d){ ctx.strokeStyle='rgba(255,217,119,.8)'; ctx.strokeRect(b.x-13,b.y+30,26,34); }
   }
 
+  // the STONE-TROLL RUINS — mossy shapes frozen mid-stride, village lore about the dawn
+  { const R0=RUINS;
+    ctx.fillStyle='#57534a'; ctx.beginPath(); ctx.ellipse(R0.x+2,R0.y+22,36,9,0,0,7); ctx.fill();          // rubble base
+    ctx.fillStyle='#6f6b62'; ctx.beginPath(); ctx.ellipse(R0.x-24,R0.y+2,16,22,-0.25,0,7); ctx.fill();     // big one
+    ctx.beginPath(); ctx.arc(R0.x-27,R0.y-24,10,0,7); ctx.fill();
+    ctx.fillStyle='#7a766c'; ctx.beginPath(); ctx.ellipse(R0.x+18,R0.y+6,13,17,0.35,0,7); ctx.fill();      // smaller, mid-stride
+    ctx.beginPath(); ctx.arc(R0.x+23,R0.y-13,8,0,7); ctx.fill();
+    ctx.fillStyle='#3f4a35'; ctx.beginPath(); ctx.arc(R0.x-34,R0.y-8,6,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(R0.x+10,R0.y+13,5,0,7); ctx.fill();  // moss
+    if(Math.hypot(RUINS.x-P.x,RUINS.y-P.y)<70){ ctx.fillStyle='#cbbc90'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('🔍 old ruins', R0.x, R0.y-44); } }
+
   // training dummies
   for(const d of dummies){
     if(d.hp>0){
@@ -946,16 +991,16 @@ function draw(){
   // NPCs outdoors (the Chief in the square, Bog once rescued) — shopkeepers are inside
   for(const n of NPCS){ if(n.raw.building || n.raw.scene==='mountains') continue;
     if(n.id==='npc_bog' && !questState.flags.flag_bog_rescued) continue;
-    drawPerson(n.x,n.y,0,{hair:'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70); }
+    if(giverWalk && giverWalk.npcId===n.id) continue;    // they're out walking — to YOU
+    drawPerson(n.x,n.y,0,{hair:n.raw.look.hair||'#555',outfit:n.col,skin:'#e0b088'},n.hat, Math.hypot(n.x-P.x,n.y-P.y)<70); }
+  // a quest-giver crossing the village to find you (quests come from PEOPLE, not banners)
+  if(giverWalk){ const gn=NPCS.find(n=>n.id===giverWalk.npcId);
+    if(gn){ drawPerson(giverWalk.x,giverWalk.y,0,{hair:gn.raw.look.hair||'#555',outfit:gn.col,skin:'#e0b088'},gn.hat, !giverWalk.returning && Math.hypot(giverWalk.x-P.x,giverWalk.y-P.y)<70);
+      if(!giverWalk.returning){ ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText(gn.nm.split(' ')[0]+' is coming to you…', giverWalk.x, giverWalk.y-40); } } }
   // Bog's shack sits CLOSED while he's missing
   if(!questState.flags.flag_bog_rescued){
     ctx.fillStyle='#2c2214'; ctx.fillRect(1170,1056,54,16);
     ctx.fillStyle='#c9b06a'; ctx.font='bold 10px Georgia'; ctx.textAlign='center'; ctx.fillText('CLOSED', 1197, 1068);
-  }
-
-  // Modo, out of his forge, coming to find YOU (quest 5 offer)
-  if(modoWalk && questState.currentId==='quest_main_05_shield_training' && questState.stage==='offer'){
-    drawPerson(modoWalk.x,modoWalk.y,0,{hair:'#555',outfit:'#4f4a45',skin:'#e0b088'},false, Math.hypot(modoWalk.x-P.x,modoWalk.y-P.y)<70);
   }
 
   // sparring Modo (quest 5) — wooden sword, zero malice
@@ -1025,16 +1070,20 @@ function draw(){
   if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0;
     ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=7-pr*5;
     ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*(P.smashR-20),0,7); ctx.stroke(); }
-  // while holding: the FILLING ring = your smash charging up (gold when ready).
-  // If you own the Champion's Shield, a steady silver BUBBLE also appears — that's
-  // the shield, UP for as long as you hold. No timer: hold = protected.
+  // the SHIELD BUBBLE — up while you HOLD the attack button (max ~3s, then the arm rests)
+  if(P.shieldUp){
+    ctx.fillStyle='rgba(170,190,215,.16)'; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke();
+    const left=Math.max(0,1-P.shieldT/3000);   // the gold ring DRAINS as your shield arm tires
+    ctx.strokeStyle='rgba(255,217,119,.9)'; ctx.lineWidth=3.5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,40,-Math.PI/2,-Math.PI/2+Math.PI*2*left); ctx.stroke();
+    ctx.fillStyle='#cfe0f2'; ctx.font='bold 12px Georgia'; ctx.textAlign='center'; ctx.fillText('🛡️ SHIELD UP', P.x, P.y-58);
+  } else if(P.hasShield && P.shieldCd>0){
+    ctx.fillStyle='rgba(200,215,235,.55)'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('🛡️ arm resting…', P.x, P.y-50);
+  }
+  // charging a SMASH — the 💥 button (or the attack button, before you own a shield)
   { const ch=chargeInfo();
     if(ch){
-      if(P.hasShield){
-        ctx.fillStyle='rgba(170,190,215,.16)'; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.fill();
-        ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke();
-        ctx.fillStyle='#cfe0f2'; ctx.font='bold 12px Georgia'; ctx.textAlign='center'; ctx.fillText('🛡️ SHIELD UP', P.x, P.y-58);
-      }
       ctx.strokeStyle = ch.full? 'rgba(255,215,90,.95)' : 'rgba(255,190,110,'+(0.4+ch.p*0.5)+')';
       ctx.lineWidth = 4+ch.p*3;
       ctx.beginPath(); ctx.arc(P.x,P.y,22+ch.p*18, -Math.PI/2, -Math.PI/2 + Math.PI*2*ch.p); ctx.stroke();
@@ -1136,7 +1185,12 @@ function draw(){
   ctx.fillStyle='rgba(240,230,200,.3)'; ctx.font='11.5px Georgia'; ctx.textAlign='left';
   if(!joy.active) ctx.fillText('press & drag anywhere to move', 18, vh-20);
   ctx.textAlign='center';
-  ctx.fillText(scene==='fishing' ? '⛵ tap: row back to shore' : P.weapon==='fists'? 'tap: punch • hold: charge SMASH' : P.weapon==='sword'? 'drag from the button: aimed slice • hold: charge SMASH' : 'pull back & release • arrows: '+P.arrows, ab.x-24, ab.y+ab.r+18);
+  ctx.fillText(scene==='fishing' ? '⛵ tap: row back to shore'
+    : scene==='boat' ? '⛵ drag anywhere to steer'
+    : P.weapon==='bow' ? 'pull back & release • arrows: '+P.arrows
+    : P.hasShield ? 'tap: attack • HOLD: 🛡️ shield (3s max) • 💥: smash'
+    : P.weapon==='fists'? 'tap: punch • hold: charge SMASH'
+    : 'drag from the button: aimed slice • hold: charge SMASH', ab.x-24, ab.y+ab.r+18);
   // active potion — a DEPLETING BAR under the coin counter so you can see time draining
   if(pot.t>0 && pot.type){
     const pp=POTION_POWERS[pot.type], frac=Math.max(0,Math.min(1,pot.t/POTION_DURATION_MS));
@@ -1182,18 +1236,73 @@ function startGame(){ show('gameWrap'); running=true; last=performance.now(); ba
 // ---------- FISHING WITH BOG ----------
 const POND={x:1380,y:930,rx:175,ry:120};
 const fish={ state:'idle', t:0, biteT:0, tension:50, inZone:0, catches:[], hook:'basic' };
-const HOOKS={ basic:{lo:34,hi:66,big:0}, fine:{lo:44,hi:56,big:0.5} };  // fine hook: big fish, TINY green window
+const HOOKS={ basic:{lo:34,hi:66,big:0,reelMs:2600}, fine:{lo:46,hi:54,big:0.5,reelMs:3600} };  // fine hook: BIG fish, TINY window, longer fight
 const NPC_ACTIONS={
   fish_trip(){ closeDialog();
     scene='fishing'; fish.state='idle'; fish.catches.length=0;
     banner('🛶 Bog rows you to the middle of the pond. Tap 🎣 to cast!');
   },
-  boat_lesson(){ closeDialog();
-    questState.flags.flag_boat_skill=true;
-    banner('⛵ Bog shows you oars, current, and balance. BOAT-DRIVING learned — you’ll need it beyond this village!');
-    addFloat(P.x,P.y-40,'⛵ skill learned!','#9fd6e8',20);
-  },
+  boat_lesson(){ closeDialog(); startBoatLesson(); },
 };
+
+// ---------- BOG'S BOAT-DRIVING LESSON: YOU take the oars ----------
+// A real crossing: steer with the joystick, dodge the rocks, reach the far jetty.
+const BW=1700, BH=700;
+const BOAT={x:90,y:350,bumps:0,coachT:0,done:false};
+const BOAT_ROCKS=[[380,190],[520,450],[700,130],[830,340],[1000,540],[1120,240],[1310,420],[940,150],[1210,600]].map(r=>({x:r[0],y:r[1],r:26}));
+const BOG_COACH=['Bog: ROCK! Small strokes — go AROUND, not THROUGH!',
+                 'Bog: My poor boat! Steer EARLY — the water gives you time!',
+                 'Bog: You row like a turkey swims. AROUND the rocks, warrior!'];
+function startBoatLesson(){
+  scene='boat'; BOAT.x=90; BOAT.y=BH/2; BOAT.bumps=0; BOAT.coachT=0; BOAT.done=false;
+  banner('⛵ Bog hands YOU the oars: “Press & drag anywhere to steer — same as your feet. Take us to the FAR JETTY. Mind the ROCKS!”');
+}
+function boatUpdate(dt,mx,my){
+  if(BOAT.done) return;
+  tickHunger(dt,1);
+  if(BOAT.coachT>0) BOAT.coachT-=dt;
+  BOAT.x+=mx*2.7; BOAT.y+=my*2.7;
+  BOAT.x=Math.max(50,Math.min(BW-40,BOAT.x)); BOAT.y=Math.max(60,Math.min(BH-60,BOAT.y));
+  for(const r0 of BOAT_ROCKS){ const d=Math.hypot(r0.x-BOAT.x,r0.y-BOAT.y);
+    if(d<r0.r+30){ const a=Math.atan2(BOAT.y-r0.y,BOAT.x-r0.x);
+      BOAT.x=r0.x+Math.cos(a)*(r0.r+31); BOAT.y=r0.y+Math.sin(a)*(r0.r+31);
+      if(BOAT.coachT<=0){ BOAT.bumps++; BOAT.coachT=1600; banner('💢 '+BOG_COACH[BOAT.bumps%BOG_COACH.length]); } } }
+  if(BOAT.x>BW-90){
+    BOAT.done=true; questState.flags.flag_boat_skill=true;
+    scene='village'; P.x=1195; P.y=1100;
+    addFloat(P.x,P.y-40,'⛵ skill learned!','#9fd6e8',20);
+    banner(BOAT.bumps===0 ? '⛵ THE JETTY — not one scratch! Bog: “Born on water! BOAT-DRIVING learned.”'
+                          : '⛵ The jetty! '+BOAT.bumps+' bump'+(BOAT.bumps>1?'s':'')+', but YOU drove. Bog: “Boat-driving learned… the rocks will heal.”');
+  }
+}
+function drawBoatScene(){
+  const camX=Math.max(0,Math.min(BW-vw,BOAT.x-vw/2)), camY=Math.max(0,Math.min(Math.max(0,BH-vh),BOAT.y-vh/2));
+  const grd=ctx.createLinearGradient(0,0,0,vh);
+  grd.addColorStop(0,'#2b5561'); grd.addColorStop(1,'#1d3b45');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  ctx.save(); ctx.translate(-camX,-camY);
+  ctx.strokeStyle='rgba(210,230,240,.14)'; ctx.lineWidth=2;
+  for(let i=0;i<10;i++){ ctx.beginPath(); ctx.ellipse((i*233+((performance.now()/50)%233))%BW, 60+(i*97)%(BH-80), 30,7,0,0,7); ctx.stroke(); }
+  // start dock & the FAR JETTY
+  ctx.fillStyle='#5a462c'; ctx.fillRect(0,BH/2-70,70,140);
+  ctx.fillStyle='#6b552f'; ctx.fillRect(BW-70,0,70,BH);
+  ctx.font='26px Georgia'; ctx.textAlign='center'; ctx.fillText('🚩', BW-34, 90);
+  ctx.fillStyle='#ffd977'; ctx.font='bold 13px Georgia'; ctx.fillText('THE JETTY →', BW-150, BH/2);
+  // rocks with warning foam
+  for(const r0 of BOAT_ROCKS){
+    ctx.strokeStyle='rgba(220,235,240,.35)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(r0.x,r0.y,r0.r+8+2*Math.sin(performance.now()/300+r0.x),0,7); ctx.stroke();
+    ctx.fillStyle='#4e4a44'; ctx.beginPath(); ctx.arc(r0.x,r0.y,r0.r,0,7); ctx.fill();
+    ctx.fillStyle='#5e5a52'; ctx.beginPath(); ctx.arc(r0.x-7,r0.y-8,r0.r*.5,0,7); ctx.fill();
+  }
+  // the boat — YOU at the oars, Bog coaching from the stern
+  ctx.fillStyle='#6b4a26'; ctx.beginPath(); ctx.moveTo(BOAT.x-52,BOAT.y); ctx.quadraticCurveTo(BOAT.x,BOAT.y+30,BOAT.x+52,BOAT.y); ctx.lineTo(BOAT.x+38,BOAT.y-12); ctx.lineTo(BOAT.x-38,BOAT.y-12); ctx.closePath(); ctx.fill();
+  drawPerson(BOAT.x+16,BOAT.y-22,0,AVATARS[chosen<0?0:chosen],false,false);
+  drawPerson(BOAT.x-22,BOAT.y-22,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false,false);
+  ctx.fillStyle='#9fd6e8'; ctx.font='10.5px Georgia'; ctx.textAlign='center'; ctx.fillText('Bog', BOAT.x-22, BOAT.y-46);
+  ctx.restore();
+  ctx.fillStyle='#e8d9a8'; ctx.font='bold 14px Georgia'; ctx.textAlign='left';
+  ctx.fillText('⛵ bumps: '+BOAT.bumps, 18, vh-18);
+}
 function fishingCast(){
   if(fish.state!=='idle') return;
   // choose your hook first (if you own both)
@@ -1244,7 +1353,7 @@ function fishingUpdate(dt){
     fish.tension += fishingHolding()? dt*0.048 : -dt*0.058;
     if(fish.tension>=100) fishingLose('💨 SNAP! Bog: Too HARD — ease off when the line strains!');
     else if(fish.tension<=0) fishingLose('💨 It jumped away! Bog: Too timid — REEL, warrior!');
-    else { const z=HOOKS[fish.hook]||HOOKS.basic; if(fish.tension>z.lo && fish.tension<z.hi) fish.inZone+=dt; if(fish.inZone>2600) fishingCatch(); }
+    else { const z=HOOKS[fish.hook]||HOOKS.basic; if(fish.tension>z.lo && fish.tension<z.hi) fish.inZone+=dt; if(fish.inZone>(z.reelMs||2600)) fishingCatch(); }
   }
 }
 
@@ -1252,7 +1361,6 @@ function fishingUpdate(dt){
 const MW=1500, MH=1240;
 const MTN={
   entered:false, climbed:false,
-  climbing:false, climbGrip:100, climbProg:0,
   packs:[], birds:[], mbushes:[], rocks:[], mtrees:[],
   fire:{learned:false, game:null},           // fire-making minigame state
   cave:{ inMats:0, fireLit:false, treasure:false },
@@ -1269,8 +1377,8 @@ function mtnInit(){
 }
 function mkPack(cx,cy){
   const wolves=[]; for(let i=0;i<5;i++){ const a=i/5*6.283;
-    wolves.push({x:cx+Math.cos(a)*70, y:cy+Math.sin(a)*70, hp:12, maxhp:12, dir:Math.random()*7, t:0, hurtT:0, atkT:0, alive:true, showBar:false}); }
-  return {wolves, lastOneT:0, cleared:false};
+    wolves.push({x:cx+Math.cos(a)*95, y:cy+Math.sin(a)*95, hp:18, maxhp:18, dir:Math.random()*7, t:0, hurtT:0, atkT:0, alive:true, showBar:false}); }
+  return {wolves, lastOneT:0, cleared:false, rotT:0, shift:0};
 }
 function packAlive(pk){ return pk.wolves.filter(w=>w.alive).length; }
 function birdsSpawn(n){ for(let i=0;i<n;i++) MTN.birds.push({x:600+Math.random()*300, y:980+Math.random()*120, dir:Math.random()*7, t:0}); }
@@ -1281,11 +1389,31 @@ function eatBird(){ const b=birdNearby(); if(!b) return;
   P.hp=Math.min(P.maxhp,P.hp+2); hungerT=0;
   addFloat(P.x,P.y-34,'🐦 +1 ❤️','#7ed67e',18); banner('🐦 You grab the plump little bird and eat on the spot. +1 ❤️');
 }
-function cliffBaseNear(){ return scene==='mountains' && !MTN.climbing && P.y>620 && P.y<700 && Math.abs(P.x-750)<90; }
+function cliffBaseNear(){ return scene==='mountains' && P.y>620 && P.y<700 && Math.abs(P.x-750)<90; }
 function plateauEdgeNear(){ return scene==='mountains' && P.y>960 && P.y<1000 && Math.abs(P.x-750)<90; }
 function caveMouthNear(){ return scene==='mountains' && Math.hypot(P.x-750,P.y-1130)<62; }
-function startClimb(){ MTN.climbing=true; MTN.climbGrip=100; MTN.climbProg=0; banner('🧗 GRIP: hold to climb, RELEASE to rest on a ledge. Empty grip = a long fall!'); }
+// THE CLIMB — a full-screen scene: you SEE yourself hauling up the cliff face, ledge to ledge
+const CLIMB={prog:0, grip:100, fall:false};
+const LEDGES=[25,50,75];   // resting shelves up the wall
+function startClimb(){ scene='climb'; CLIMB.prog=0; CLIMB.grip=100; CLIMB.fall=false;
+  banner('🧗 THE CLIMB: HOLD 🧗 to haul upward. RELEASE to settle onto a LEDGE and rest — grip refills there. Empty grip = FALL!'); }
 function climbDown(){ P.y=690; banner('🧗 You pick your way back down the ledges.'); }
+function nearestLedgeBelow(p){ let l=0; for(const L of LEDGES){ if(L<=p) l=L; } return l; }
+function climbUpdate(dt){
+  tickHunger(dt,3);   // climbing is HUNGRY work
+  if(CLIMB.prog>=100){ scene='mountains'; MTN.climbed=true; P.x=750; P.y=975; banner('🏔 The summit! Wind, stone… and wolves at a cave mouth.'); return; }
+  if(CLIMB.fall){ CLIMB.prog-=dt*0.14;
+    if(CLIMB.prog<=0){ scene='mountains'; P.x=750; P.y=690; hurtPlayer(4,'You fell from the cliff!');
+      banner('💥 THUD. The mountain is patient — climb ledge to ledge and REST on the shelves.'); }
+    return; }
+  const holding=swp.active && swp.reelHold;
+  if(holding){ CLIMB.prog+=dt*0.018; CLIMB.grip-=dt*0.03;
+    if(CLIMB.grip<=0){ CLIMB.fall=true; banner('🫳 Your grip GIVES OUT—'); } }
+  else { const ledge=nearestLedgeBelow(CLIMB.prog);
+    if(CLIMB.prog>ledge+0.5) CLIMB.prog=Math.max(ledge, CLIMB.prog-dt*0.05);   // ease back down to the shelf
+    else CLIMB.grip=Math.min(100, CLIMB.grip+dt*0.05); }                        // resting on a ledge: grip refills
+  if(CLIMB.prog>=100){ scene='mountains'; MTN.climbed=true; P.x=750; P.y=975; banner('🏔 The summit! Wind, stone… and wolves at a cave mouth.'); }
+}
 function strollGoblins(){ // a couple of goblins harass the southern woods trail
   return; }
 function mountainsUpdate(dt){
@@ -1293,14 +1421,6 @@ function mountainsUpdate(dt){
   mtnInit();
   const T=MTN.troll;
   if(scene==='mountains'){
-    if(MTN.climbing){
-      const holding=swp.active && swp.reelHold;
-      if(holding){ MTN.climbProg+=dt*0.028; MTN.climbGrip-=dt*0.035; }
-      else MTN.climbGrip=Math.min(100, MTN.climbGrip+dt*0.022);
-      if(MTN.climbGrip<=0){ MTN.climbing=false; P.y=690; hurtPlayer(4,'You fell from the cliff!'); hurtPlayer(0); banner('💥 Your grip gave out! The mountain is patient — rest on the ledges.'); }
-      else if(MTN.climbProg>=100){ MTN.climbing=false; MTN.climbed=true; P.x=750; P.y=975; banner('🏔 The summit! Wind, stone… and wolves at a cave mouth.'); }
-      return; // no walking while climbing
-    }
     // wolves
     for(const pk of MTN.packs){
       const alive=packAlive(pk);
@@ -1316,11 +1436,30 @@ function mountainsUpdate(dt){
           banner('🐺 AWOOOO! The last wolf HOWLS — the pack rises again! Kill them ALL, fast!');
         }
       } else pk.lastOneT=0;
+      // PACK TACTICS: only a couple lunge at once — the rest FLANK, circling just out of reach,
+      // and the attackers rotate. No more standing in one spot and smashing the whole clump.
+      const hunters=pk.wolves.filter(w=>w.alive && w.hurtT<=0);
+      const engaged=hunters.some(w=>Math.hypot(P.x-w.x,P.y-w.y)<260);
+      pk.rotT+=dt; if(pk.rotT>2600){ pk.rotT=0; pk.shift++; }
+      const byDist=hunters.slice().sort((a,b)=>Math.hypot(P.x-a.x,P.y-a.y)-Math.hypot(P.x-b.x,P.y-b.y));
+      const n=Math.max(1,byDist.length);
+      const attackers=new Set([byDist[pk.shift%n], byDist[(pk.shift+1)%n]]);
+      let ci=0;
       for(const w of pk.wolves){ if(!w.alive) continue;
         if(w.hurtT>0){ w.hurtT--; continue; }
         const d=Math.hypot(P.x-w.x,P.y-w.y);
-        if(d<240 && !blocked()){ const a=Math.atan2(P.y-w.y,P.x-w.x); w.x+=Math.cos(a)*1.75; w.y+=Math.sin(a)*1.75; w.dir=a;
-          if(d<34 && w.atkT<=0){ hurtPlayer(2,'Wolf fangs find you.'); w.atkT=60; } }
+        if(d<260 && engaged && !blocked()){
+          const a=Math.atan2(P.y-w.y,P.x-w.x);
+          if(attackers.has(w)){ w.x+=Math.cos(a)*1.85; w.y+=Math.sin(a)*1.85; w.dir=a;
+            if(d<34 && w.atkT<=0){ hurtPlayer(2,'Wolf fangs find you.'); w.atkT=60; } }
+          else {   // flankers: slide around a wide circle, waiting for their turn
+            const ring=Math.atan2(w.y-P.y,w.x-P.x)+0.02*(ci%2?1:-1)*dt/16;
+            const tx=P.x+Math.cos(ring)*135, ty=P.y+Math.sin(ring)*135;
+            const da=Math.atan2(ty-w.y,tx-w.x);
+            if(Math.hypot(tx-w.x,ty-w.y)>6){ w.x+=Math.cos(da)*1.3; w.y+=Math.sin(da)*1.3; }
+            w.dir=a; ci++;
+          }
+        }
         else { w.t+=dt; if(w.t>1900){ w.t=0; w.dir=Math.random()*7; } w.x+=Math.cos(w.dir)*.5; w.y+=Math.sin(w.dir)*.5; }
         if(w.atkT>0) w.atkT--;
       }
@@ -1409,7 +1548,7 @@ function fireGameStart(where){
 }
 function fireGameTap(){
   const g=MTN.fire.game; if(!g) return;
-  const pos=(Math.sin(performance.now()/300)+1)/2;   // 0..1 ping-pong
+  const pos=(Math.sin(performance.now()/420)+1)/2;   // 0..1 ping-pong — same clock the meter draws with
   if(pos>0.38 && pos<0.62){
     g.hits++; addFloat(P.x,P.y-34,'✨ '+g.hits+'/3','#ffb347',18);
     if(g.hits>=3){
@@ -1423,18 +1562,34 @@ function gatherTreasure(){
   MTN.cave.treasure=true;
   P.coins+=400; addFloat(P.x,P.y-36,'+400 🪙','#ffd977',24);
   P.weapons.hammer=true; P.inv.item_hammer=1;
-  banner('💰 The troll’s hoard: +400 coins… and a HAMMER of troll-forged star-iron! (Show Modo!)');
+  banner('💰 The chest creaks open: +400 coins… and a HAMMER of troll-forged star-iron! (Show Modo!)');
 }
 
-// ---------- MODO WALKS OUT TO OFFER TRAINING ----------
-let modoWalk=null;   // {x,y} while approaching
-function modoWalkUpdate(dt){
+// ---------- QUESTS COME FROM PEOPLE ----------
+// EVERY quest offer is delivered face to face: the giver leaves their post, crosses
+// the village to wherever you are, and speaks. People, not screen banners.
+let giverWalk=null;               // {npcId,x,y,spoke,returning}
+const giverWalkDone={};           // questId → already delivered in person
+function giverHome(id){
+  const n=NPCS.find(x=>x.id===id); if(!n || n.raw.scene==='mountains') return null;
+  if(n.raw.building) return {x:n.raw.building.x, y:n.raw.building.y+72};   // steps out of the shop door
+  return {x:n.raw.pos.x, y:Math.min(H-60,n.raw.pos.y+40)};
+}
+function giverWalkUpdate(dt){
   if(scene!=='village') return;
-  if(questState.currentId==='quest_main_05_shield_training' && questState.stage==='offer' && !dialogOpen){
-    if(!modoWalk) modoWalk={x:1030,y:1370};
-    const d=Math.hypot(P.x-modoWalk.x,P.y-modoWalk.y);
-    if(d>64){ const a=Math.atan2(P.y-modoWalk.y,P.x-modoWalk.x); modoWalk.x+=Math.cos(a)*1.7; modoWalk.y+=Math.sin(a)*1.7; }
-    else if(!modoWalk.spoke){ modoWalk.spoke=true; openDialog(NPCS.find(n=>n.id==='npc_modo')); }
+  const qid=questState.currentId, giverId=Quests.giverId();
+  if(questState.stage==='offer' && giverId && !giverWalkDone[qid]){
+    if(!giverWalk || giverWalk.npcId!==giverId){ const h=giverHome(giverId); if(!h) return; giverWalk={npcId:giverId,x:h.x,y:h.y,spoke:false,returning:false}; }
+    if(dialogOpen) return;
+    const d=Math.hypot(P.x-giverWalk.x,P.y-giverWalk.y);
+    if(d>60){ const a=Math.atan2(P.y-giverWalk.y,P.x-giverWalk.x); giverWalk.x+=Math.cos(a)*1.8*(dt/16); giverWalk.y+=Math.sin(a)*1.8*(dt/16); }
+    else if(!giverWalk.spoke){ giverWalk.spoke=true; giverWalkDone[qid]=true; giverWalk.returning=true; openDialog(NPCS.find(n=>n.id===giverId)); }
+  } else if(giverWalk && !dialogOpen){
+    giverWalk.returning=true;
+    const h=giverHome(giverWalk.npcId); if(!h){ giverWalk=null; return; }
+    const d=Math.hypot(h.x-giverWalk.x,h.y-giverWalk.y);
+    if(d>10){ const a=Math.atan2(h.y-giverWalk.y,h.x-giverWalk.x); giverWalk.x+=Math.cos(a)*1.8*(dt/16); giverWalk.y+=Math.sin(a)*1.8*(dt/16); }
+    else giverWalk=null;
   }
 }
 
@@ -1457,7 +1612,7 @@ function sparUpdate(dt){
   } else if(c.state==='windup'){
     if(c.t>600){ c.t=0; c.state='swing';
       if(d<85){
-        if(P.hasShield && chargeInfo()){
+        if(P.shieldUp){
           const r=Quests.emit('block',{target:'training_modo'});
           banner(r.banner ?? '🛡️ Block!'); addFloat(P.x,P.y-36,'🛡️ BLOCK!','#7ed67e',20);
         } else {
@@ -1495,15 +1650,17 @@ function drawFishing(){
   }
   // tension bar while reeling
   if(fish.state==='reeling'){
-    const w=Math.min(340,vw*.5), x=vw/2-w/2, y=44;
-    ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-8,y-8,w+16,34,10);
-    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y,w,18,6);
-    { const z=HOOKS[fish.hook]||HOOKS.basic;
-      ctx.fillStyle='rgba(120,230,140,.35)'; rr(ctx,x+w*(z.lo/100),y,w*((z.hi-z.lo)/100),18,6); }   // the green band (tiny with the fine hook!)
-    { const z=HOOKS[fish.hook]||HOOKS.basic; ctx.fillStyle= fish.tension>z.lo&&fish.tension<z.hi ? '#7ed67e' : '#e0b34a'; }
-    ctx.beginPath(); ctx.arc(x+w*(fish.tension/100), y+9, 10, 0, 7); ctx.fill();
-    ctx.font='11.5px Georgia'; ctx.textAlign='center'; ctx.fillStyle='rgba(240,230,200,.75)';
-    ctx.fillText('keep the marker in the green — HOLD to reel, release to ease', vw/2, y+42);
+    // VERTICAL tension bar on the LEFT — banners at the top never cover it
+    const h=Math.min(300,vh-170), x=30, y0=(vh-h)/2, z=HOOKS[fish.hook]||HOOKS.basic;
+    ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-14,y0-34,64,h+64,10);
+    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y0,18,h,7);
+    ctx.fillStyle='rgba(120,230,140,.4)'; rr(ctx,x,y0+h*(1-z.hi/100),18,h*((z.hi-z.lo)/100),7);   // the green band (tiny with the fine hook!)
+    const inZ=fish.tension>z.lo&&fish.tension<z.hi;
+    ctx.fillStyle= inZ? '#7ed67e' : '#e0b34a';
+    ctx.beginPath(); ctx.arc(x+9, y0+h*(1-fish.tension/100), 10, 0, 7); ctx.fill();
+    ctx.font='bold 12px Georgia'; ctx.textAlign='left'; ctx.fillStyle='#e8d9a8'; ctx.fillText('🎣', x-4, y0-14);
+    ctx.fillStyle= inZ? '#9fe89f' : 'rgba(240,230,200,.65)'; ctx.font='11.5px Georgia';
+    ctx.fillText(inZ? 'in the green — keep it here!' : 'HOLD to reel • release to ease', x+34, y0+h*(1-fish.tension/100)+4);
   }
   // catch tally
   ctx.font='bold 14px Georgia'; ctx.textAlign='left'; ctx.fillStyle='#e8d9a8';
@@ -1580,8 +1737,7 @@ function drawMountains(){
   // player + effects
   if(pot.t>0 && pot.type){ const col = pot.type==='potion_strength'? '255,140,60' : pot.type==='potion_speed'? '90,220,255' : '200,200,215';
     ctx.strokeStyle='rgba('+col+',.6)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,26,0,7); ctx.stroke(); }
-  { const ch=chargeInfo();
-    if(ch && P.hasShield){ ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke(); } }
+  if(P.shieldUp){ ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke(); }
   ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
   drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false);
   ctx.restore();
@@ -1594,39 +1750,73 @@ function drawMountains(){
     ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y);
     ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); ctx.globalAlpha=1; }
   ctx.restore();
-  // climbing overlay
-  if(MTN.climbing){
-    ctx.fillStyle='rgba(10,8,5,.55)'; ctx.fillRect(0,0,vw,vh);
-    ctx.fillStyle='#e8d9a8'; ctx.font='bold 15px Georgia'; ctx.textAlign='center';
-    ctx.fillText('🧗 THE CLIMB — hold to climb, release to rest on a ledge', vw/2, 46);
-    const w=Math.min(360,vw*.55), x=vw/2-w/2;
-    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,70,w,14,5);
-    ctx.fillStyle='#9fd6e8'; rr(ctx,x,70,Math.max(4,w*(MTN.climbProg/100)),14,5);
-    ctx.fillStyle='rgba(240,230,200,.6)'; ctx.font='11px Georgia'; ctx.fillText('height', vw/2, 98);
-    ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,112,w,14,5);
-    ctx.fillStyle= MTN.climbGrip>30? '#7ed67e' : '#e05545'; rr(ctx,x,112,Math.max(4,w*(MTN.climbGrip/100)),14,5);
-    ctx.fillText('grip — empty means FALL', vw/2, 140);
-  }
   // fire minigame overlay (Strax's lesson happens outdoors)
   if(MTN.fire.game){ drawFireGame(); }
 }
+// ---------- THE CLIMB RENDERER — a real scene: watch yourself climb ----------
+function drawClimb(){
+  const grd=ctx.createLinearGradient(0,0,0,vh);
+  grd.addColorStop(0,'#6f7d8c'); grd.addColorStop(.25,'#4c4744'); grd.addColorStop(1,'#38342f');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  const cx=vw/2, wallW=Math.min(360,vw*.5);
+  ctx.fillStyle='#43403b'; ctx.fillRect(cx-wallW/2,0,wallW,vh);
+  ctx.fillStyle='#4c4744'; for(let i=0;i<34;i++){ ctx.fillRect(cx-wallW/2+((i*53)%Math.max(1,wallW-30)), (i*89)%vh, 30, 10); }
+  const topY=70, botY=vh-90, yOf=p=>botY-(botY-topY)*(p/100);
+  // the LEDGES — resting shelves
+  for(const L of LEDGES.concat([100])){
+    const y=yOf(L);
+    ctx.fillStyle= L===100? '#5d7a4a' : '#2c2822'; ctx.fillRect(cx-wallW/2-14, y, wallW+28, 9);
+    ctx.fillStyle='#57534a'; ctx.fillRect(cx-wallW/2-14, y-3, wallW+28, 4);
+    if(L!==100){ ctx.fillStyle='rgba(232,217,168,.55)'; ctx.font='10.5px Georgia'; ctx.textAlign='left'; ctx.fillText('ledge — rest here', cx+wallW/2+20, y+4); }
+  }
+  ctx.fillStyle='#8a97a8'; ctx.font='bold 12px Georgia'; ctx.textAlign='center'; ctx.fillText('☁️ the summit', cx, topY-26);
+  // YOU, on the wall
+  const py=yOf(Math.max(0,CLIMB.prog));
+  const holding=swp.active&&swp.reelHold;
+  const sway= holding? Math.sin(performance.now()/130)*3 : 0;
+  ctx.save();
+  if(CLIMB.fall){ ctx.translate(cx,py); ctx.rotate(Math.sin(performance.now()/70)*0.5); ctx.translate(-cx,-py); }
+  drawPerson(cx+sway, py-10, 0, AVATARS[chosen<0?0:chosen], false, false);
+  ctx.restore();
+  if(CLIMB.fall){ ctx.fillStyle='#ff8f7a'; ctx.font='bold 15px Georgia'; ctx.textAlign='center'; ctx.fillText('FALLING!', cx, py-50); }
+  else if(!holding && Math.abs(CLIMB.prog-nearestLedgeBelow(CLIMB.prog))<0.6){
+    ctx.fillStyle='#9fe89f'; ctx.font='11.5px Georgia'; ctx.textAlign='center'; ctx.fillText('resting… grip refills', cx, py-44); }
+  // VERTICAL GRIP BAR on the left — banners at the top never cover it
+  const h=Math.min(300,vh-170), x=26, y0=(vh-h)/2;
+  ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-12,y0-34,58,h+62,10);
+  ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y0,16,h,7);
+  ctx.fillStyle= CLIMB.grip>30? '#7ed67e' : '#e05545';
+  const gh=h*(Math.max(0,CLIMB.grip)/100); rr(ctx,x,y0+h-gh,16,Math.max(4,gh),7);
+  ctx.fillStyle='#e8d9a8'; ctx.font='bold 12px Georgia'; ctx.textAlign='left'; ctx.fillText('✊', x-2, y0-12);
+  ctx.fillStyle='rgba(240,230,200,.6)'; ctx.font='10.5px Georgia'; ctx.fillText('grip', x+2, y0+h+18);
+}
 function drawFireGame(){
-  const w=Math.min(360,vw*.55), x=vw/2-w/2, y=56;
-  ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-10,y-26,w+20,74,10);
-  ctx.fillStyle='#e8d9a8'; ctx.font='bold 13px Georgia'; ctx.textAlign='center';
-  ctx.fillText('🔥 strike when the spark is in the HOT zone — '+MTN.fire.game.hits+'/3', vw/2, y-6);
-  ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y+4,w,16,6);
-  ctx.fillStyle='rgba(255,120,40,.4)'; rr(ctx,x+w*0.38,y+4,w*0.24,16,6);
-  const pos=(Math.sin(performance.now()/300)+1)/2;
-  ctx.fillStyle='#ffb347'; ctx.beginPath(); ctx.arc(x+w*pos,y+12,9,0,7); ctx.fill();
+  // VERTICAL spark meter on the LEFT edge — banners above never cover it,
+  // and the HOT zone is unmistakable: it PULSES and shouts NOW!
+  const h=Math.min(300,vh-170), x=30, y0=(vh-h)/2, g=MTN.fire.game;
+  const pos=(Math.sin(performance.now()/420)+1)/2;
+  const hot = pos>0.38 && pos<0.62;
+  ctx.fillStyle='rgba(10,8,5,.8)'; rr(ctx,x-14,y0-34,64,h+64,10);
+  ctx.fillStyle='rgba(255,255,255,.14)'; rr(ctx,x,y0,18,h,7);
+  ctx.fillStyle= hot? 'rgba(255,90,30,'+(0.75+0.25*Math.sin(performance.now()/90))+')' : 'rgba(255,120,40,.45)';
+  rr(ctx,x,y0+h*0.38,18,h*0.24,7);
+  ctx.fillStyle= hot? '#ffe08a' : '#ffb347';
+  ctx.beginPath(); ctx.arc(x+9,y0+h*pos,hot?11:8,0,7); ctx.fill();
+  if(hot){ ctx.strokeStyle='rgba(255,225,130,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x+9,y0+h*pos,15,0,7); ctx.stroke(); }
+  ctx.font='bold 13px Georgia'; ctx.textAlign='left';
+  ctx.fillStyle='#e8d9a8'; ctx.fillText('🔥 '+g.hits+'/3', x-6, y0-14);
+  ctx.fillStyle= hot? '#ffe08a' : 'rgba(240,230,200,.65)'; ctx.font= hot? 'bold 15px Georgia' : '11.5px Georgia';
+  ctx.fillText(hot? '⚡ NOW!' : 'strike on HOT', x+34, y0+h*pos+4);
 }
 // ---------- CAVE RENDERER ----------
 function drawCave(){
   const T=MTN.troll;
   const lit=MTN.cave.fireLit;
-  const ox=(vw-880)/2, oy=Math.max(24,(vh-520)/2);
+  // the cave always FITS the screen — you never lose sight of yourself in the dark
+  const cs=Math.min(1,(vw-16)/880,(vh-56)/520);
+  const ox=(vw-880*cs)/2, oy=Math.max(20,(vh-520*cs)/2);
   ctx.fillStyle= lit? '#241a10' : '#060505'; ctx.fillRect(0,0,vw,vh);
-  ctx.save(); ctx.translate(ox,oy);
+  ctx.save(); ctx.translate(ox,oy); ctx.scale(cs,cs);
   if(lit){
     ctx.fillStyle='#3a2c1c'; ctx.fillRect(0,0,880,520);
     ctx.fillStyle='#ff9b3b'; ctx.beginPath(); ctx.arc(450,300,10+3*Math.sin(performance.now()/120),0,7); ctx.fill();
@@ -1634,7 +1824,14 @@ function drawCave(){
     ctx.font='22px Georgia'; ctx.textAlign='center';
     const piles=[[120,340],[220,120],[700,380],[780,220],[560,120],[340,420],[640,470]];
     for(const q of piles){ ctx.fillText('💰', q[0], q[1]); }
-    ctx.font='26px Georgia'; if(!MTN.cave.treasure) ctx.fillText('🔨', 470, 260);
+    // the HOARD CHEST — walk to it and OPEN it; nothing collects itself
+    if(!MTN.cave.treasure){
+      ctx.fillStyle='#6b4a26'; rr(ctx,CHEST.x-26,CHEST.y-18,52,34,6);
+      ctx.fillStyle='#8a6d38'; ctx.fillRect(CHEST.x-26,CHEST.y-6,52,5);
+      ctx.fillStyle='#ffd53e'; ctx.fillRect(CHEST.x-4,CHEST.y-8,8,10);
+      ctx.font='22px Georgia'; ctx.fillText('🔨', CHEST.x+42, CHEST.y+4);
+      if(Math.hypot(P.x-CHEST.x,P.y-CHEST.y)<70){ ctx.fillStyle='#ffd977'; ctx.font='12px Georgia'; ctx.fillText('💰 open the chest', CHEST.x, CHEST.y-32); }
+    }
     if(MTN.bog.found && !MTN.bog.escort){
       drawPerson(700,300,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false, Math.hypot(700-P.x,300-P.y)<70);
       ctx.strokeStyle='#a87c3f'; ctx.lineWidth=3; ctx.strokeRect(686,282,28,36);   // the ropes
@@ -1697,7 +1894,7 @@ function drawInterior(){
   ctx.font='bold 15px Georgia'; ctx.fillStyle='#ffd977'; ctx.fillText(d.building.sign+'  '+d.name, r.w/2, 42);
   ctx.font='12px Georgia'; ctx.fillStyle='rgba(240,230,200,.5)'; ctx.fillText('🚪 walk here to leave', r.w/2, r.h+18<r.h?r.h-26:r.h-26);
   const n=NPCS.find(x=>x.id===scene);
-  drawPerson(d.pos.x, d.pos.y, 0, {hair:'#555',outfit:n.col,skin:'#e0b088'}, n.hat, Math.hypot(d.pos.x-P.x,d.pos.y-P.y)<86);
+  drawPerson(d.pos.x, d.pos.y, 0, {hair:d.look.hair||'#555',outfit:n.col,skin:'#e0b088'}, n.hat, Math.hypot(d.pos.x-P.x,d.pos.y-P.y)<86);
   if(pot.t>0 && pot.type){ const col = pot.type==='potion_strength'? '255,140,60' : pot.type==='potion_speed'? '90,220,255' : '200,200,215';
     ctx.strokeStyle='rgba('+col+',.6)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,26,0,7); ctx.stroke(); }
   ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
@@ -1719,6 +1916,8 @@ if(location.hash==='#inv'){ chosen=0; P.inv.item_bread=2; P.inv.item_potion=1; s
 if(location.hash==='#fish'){ chosen=0; P.inv.item_rod=1; P.inv.item_hook_basic=1; P.inv.item_hook_fine=1; questState.flags.flag_bog_rescued=true; startGame(); NPC_ACTIONS.fish_trip(); }
 if(location.hash==='#mtn'){ chosen=0; startGame(); questState.completed.push('quest_main_05_shield_training'); Quests.debugJump('quest_main_06_find_bog','active'); scene='mountains'; mtnInit(); P.x=750; P.y=470; }
 if(location.hash==='#cave'){ chosen=0; startGame(); scene='cave'; mtnInit(); MTN.troll.dawnT=60000; P.x=430; P.y=430; }
+if(location.hash==='#climb'){ chosen=0; startGame(); mtnInit(); startClimb(); }
+if(location.hash==='#boat'){ chosen=0; startGame(); startBoatLesson(); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
 let devBuilt=false;
@@ -1741,6 +1940,8 @@ function buildDevMenu(){
   mk('▶ Q6: TROLL ARC', ()=>{ questState.completed.push('quest_main_05_shield_training'); Quests.debugJump('quest_main_06_find_bog'); });
   mk('jump: mountains', ()=>{ questState.completed.push('quest_main_05_shield_training'); Quests.debugJump('quest_main_06_find_bog','active'); scene='mountains'; mtnInit(); P.x=750; P.y=90; });
   mk('jump: cave (dawn 10s)', ()=>{ scene='cave'; mtnInit(); MTN.troll.alive=true; MTN.troll.stone=false; MTN.troll.dawn=false; MTN.troll.dawnT=10000; P.x=430; P.y=430; });
+  mk('jump: THE CLIMB', ()=>{ mtnInit(); startClimb(); });
+  mk('jump: boat lesson', ()=>{ startBoatLesson(); });
   mk('+200 coins', ()=>{ P.coins+=200; });
   mk('give sword/bow/shield', ()=>{ P.weapons.sword=true; P.weapons.bow=true; P.arrows+=10; P.hasShield=true; });
   mk('open both shops', ()=>{ questState.flags.flag_dorgan_shop_open=true; questState.flags.flag_erik_turkey_stock=true; });
@@ -1826,6 +2027,12 @@ if(location.hash==='#test-quests'){
   ok(!champion.alive, 'strike the OPEN window → he falls');
   openDialog(chief); while(dialogOpen) advanceDialog();
   ok(P.hasShield && questState.flags.flag_champion_defeated===true, 'shield won + champion flag set');
+  // SHIELD DECOUPLED: attack-button holds never smash, releases never damage
+  swp.active=true; swp.smashOnly=false; swp.reelHold=false; swp.sx=swp.cx=0; swp.sy=swp.cy=0; swp.t0=performance.now()-5000;
+  ok(chargeInfo()===null, 'attack-hold no longer charges a smash once you own the shield');
+  P.slashT=0; attackRelease(0,0);
+  ok(P.slashT===0, 'releasing a long shield-hold deals NO damage — smash lives on 💥 only');
+  swp.active=false;
   // Modo now sells everything
   openDialog(modo); ok($('shopBox').children.length===3, 'bow & arrows unlocked after the champion'); while(dialogOpen) advanceDialog();
   // permanent gear never vanishes
@@ -1863,6 +2070,13 @@ if(location.hash==='#test-quests'){
   // the mountains
   scene='mountains'; mtnInit();
   ok(MTN.packs.length===2 && packAlive(MTN.packs[0])===5, 'two wolf packs of five roam the mountains');
+  ok(MTN.packs[0].wolves[0].maxhp===18, 'wolves toughened to 18hp — no one-smash pack wipes');
+  // THE CLIMB — a real full-screen scene now
+  startClimb(); ok(scene==='climb', 'the climb is a full-screen scene');
+  P.hurtT=0; const hpClimb=P.hp; CLIMB.fall=true; CLIMB.prog=0.01; climbUpdate(999);
+  ok(scene==='mountains' && P.hp===hpClimb-4, 'grip gone = a FALL to the base, with bruises');
+  startClimb(); CLIMB.prog=100; climbUpdate(16);
+  ok(scene==='mountains' && MTN.climbed===true && P.y===975, 'topping out lands you on the summit');
   const pk=MTN.packs[0];
   pk.wolves.slice(0,4).forEach(w=>hitTarget(w,'wolf',99,0));
   ok(packAlive(pk)===1, 'four down, one left…');
@@ -1919,6 +2133,12 @@ if(location.hash==='#test-quests'){
   Quests.update(16);
   ok(questState.stage==='complete', 'Bog’s quest complete');
   openDialog(bog); while(dialogOpen) advanceDialog();
+  // Bog's boat-driving lesson — YOU drive, rocks and all
+  NPC_ACTIONS.boat_lesson();
+  ok(scene==='boat', 'Bog hands you the oars — a real driving scene');
+  BOAT.x=BW-80; boatUpdate(16,0,0);
+  ok(scene==='village' && questState.flags.flag_boat_skill===true, 'reach the far jetty → boat-driving learned');
+  ok(NPCS.some(n=>n.id==='npc_reba'), 'Reba keeps the stables (🐴) — no rides yet, Maple threw a shoe');
   ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'THE WHOLE CHAIN: goblins→berries→turkeys→champion→shield→TROLL→hammer→fishing');
   // red berries + the cursed stone (moved with the arc)
   P.inv.item_red_berry=1; invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
@@ -1940,6 +2160,6 @@ if(location.hash==='#test-quests'){
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;
-  div.textContent='ROUND 5 (FISHING) SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
+  div.textContent='v0.18 SMOKE TEST — '+(fails? fails+' FAILURE(S)':'ALL '+R.length+' PASS')+'\n\n'+R.join('\n');
   document.getElementById('app').appendChild(div);
 }

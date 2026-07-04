@@ -97,6 +97,8 @@ export const Quests = {
     return q.choice || null;
   },
   acceptOffer(npcId){ const q=defs[questState.currentId]; if(!q) return; this._activate(q); },
+  // who gives the CURRENT quest (used by the giver-walks-to-you system — people, not banners)
+  giverId(){ const q=defs[questState.currentId]; return q? q.giver : null; },
   _activate(q){
     questState.stage='active';
     questState.progress = (q.retroactive && hooks.retroCount) ? Math.min(hooks.retroCount(q.objective), q.objective.count) : 0;

@@ -23,7 +23,7 @@ export default {
   banners:{
     start:'📯 QUEST: defeat the visiting champion in the square!',
     objectiveDone:'🏆 The champion yields! Report to Chief Bonbottom!',
-    reward:'🛡️ You won the Champion’s Shield! (hold to charge = shield raised)',
+    reward:'🛡️ You won the Champion’s Shield! (HOLD the attack button to raise it — Modo can teach you)',
   },
   reward:{ item:'item_shield' },
   setFlagOnReward:'flag_champion_defeated',
