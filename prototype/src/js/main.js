@@ -89,7 +89,7 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, hammer:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, shieldUp:false, shieldT:0, shieldCd:0, dashT:0, dashCd:0, swimming:false };
+  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0,item_pearl:0}, hasShield:false, shieldUp:false, shieldT:0, shieldCd:0, dashT:0, dashCd:0, swimming:false };
 // combat scale: 1 = one punch. Goblin=6 punches or 2 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, hammer:{icon:'🔨',dmg:5,range:82}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','hammer','bow'].filter(w=>P.weapons[w]); }
@@ -187,18 +187,13 @@ function renderShop(){
       box.appendChild(b);
     }
   }
-  if(d.buys){ // NPCs that BUY from you (Erik + turkeys)
-    for(const entry of d.buys){
-      const def=ITEM_DEFS[entry.item], price=SELL_PRICES[entry.item];
-      const have=P.inv[entry.item]||0;
-      const b=document.createElement('button'); b.className='btn shopBtn';
-      b.textContent=entry.label.replace('{price}',price)+(have?'  (have '+have+')':'');
-      if(!have){ b.disabled=true; b.style.opacity=.5; }
-      b.onclick=(ev)=>{ ev.stopPropagation();
-        if((P.inv[entry.item]||0)<1) return;
-        P.inv[entry.item]--; P.coins+=price; banner(entry.banner); renderShop(); };
-      box.appendChild(b);
-    }
+  if(d.buys){ // NPCs that BUY from you (Erik) → ONE general Sell button that opens the satchel
+    const sellable=Object.keys(SELL_PRICES).reduce((a,k)=>a+(P.inv[k]||0),0);
+    const b=document.createElement('button'); b.className='btn shopBtn';
+    b.textContent = sellable? '💰 Sell items… (opens your satchel)' : '💰 Sell items… (nothing to sell yet)';
+    if(!sellable){ b.disabled=true; b.style.opacity=.5; }
+    b.onclick=(ev)=>{ ev.stopPropagation(); openInv(true); };
+    box.appendChild(b);
   }
 }
 
@@ -675,11 +670,13 @@ const EFFECTS = {
   deadly_food(){ die('You ate the RED berries. The Chief warned you…','The red berries'); },
 };
 function useItem(id){ const e=ITEM_DEFS[id].effect; EFFECTS[e.kind](e); }
-let invOpen=false, invSel=null;
-function openInv(){ if(dialogOpen) closeDialog(); invOpen=true; invSel=null; renderInv(); $('inv').classList.remove('hidden'); }
-function closeInv(){ invOpen=false; $('inv').classList.add('hidden'); }
+let invOpen=false, invSel=null, sellMode=false;
+function openInv(sell){ if(dialogOpen && !sell) closeDialog(); invOpen=true; invSel=null; sellMode=!!sell; renderInv(); $('inv').classList.remove('hidden'); }
+function closeInv(){ invOpen=false; sellMode=false; $('inv').classList.add('hidden'); if(dialogOpen && dNpc) renderShop(); }
 function renderInv(){
-  const g=$('invGrid'), det=$('invDetail');
+  const g=$('invGrid'), det=$('invDetail'), useB=$('invUse'), sellB=$('invSell');
+  const h3=$('inv').querySelector('h3');
+  h3.textContent = sellMode? '💰 Sell to Erik — tap an item' : '🎒 Satchel';
   if(invSel){
     g.classList.add('hidden'); det.classList.remove('hidden');
     const it=ITEM_DEFS[invSel];
@@ -689,6 +686,17 @@ function renderInv(){
     let stHtml=it.st;
     if(invSel==='item_potion' && P.potionRolls[0]){ const pp=POTION_POWERS[P.potionRolls[0]];
       stHtml += '<br><b style="color:#d9b8ff">This one is: '+pp.ic+' '+pp.nm+'</b>'; }
+    // sell mode: the Use button is replaced by a Sell offer the player can accept or reject (← Back)
+    if(sellMode){
+      useB.classList.add('hidden'); sellB.classList.remove('hidden');
+      const price=SELL_PRICES[invSel];
+      if(price){ sellB.disabled=false; sellB.style.opacity=1; sellB.textContent='💰 Sell for '+price+' 🪙';
+        stHtml += '<br><b style="color:#ffd977">Erik offers '+price+' 🪙 for this. Sell — or ← Back to keep it.</b>'; }
+      else { sellB.disabled=true; sellB.style.opacity=.5; sellB.textContent='🚫 Erik won’t buy this';
+        stHtml += '<br><i style="color:#b7a67e">Erik has no use for this one.</i>'; }
+    } else {
+      sellB.classList.add('hidden'); useB.classList.remove('hidden');
+    }
     det.querySelector('.ist').innerHTML=stHtml;
     return;
   }
@@ -706,6 +714,13 @@ function renderInv(){
 }
 $('invClose').onclick=closeInv;
 $('invBack').onclick=()=>{ invSel=null; renderInv(); };
+$('invSell').onclick=()=>{
+  if(!invSel) return; const price=SELL_PRICES[invSel]; if(!price || (P.inv[invSel]||0)<1) return;
+  P.inv[invSel]--; P.coins+=price;
+  banner('💰 Sold '+ITEM_DEFS[invSel].nm+' for '+price+' 🪙. Erik counts it into the ledger.');
+  if((P.inv[invSel]||0)<1) invSel=null;   // sold the last one → back to the grid
+  renderInv();
+};
 $('invUse').onclick=()=>{ if(!invSel || P.inv[invSel]<1) return;
   const e=ITEM_DEFS[invSel].effect;
   if(e.kind==='passive'||e.kind==='gear'){ banner('🧰 It’s gear — always with you.'); return; }   // permanent gear never vanishes
@@ -749,6 +764,7 @@ function renderDialog(){
   appendQuestChoice();
 }
 function advanceDialog(){
+  if(invOpen) return;   // the satchel is open over the shop — don't let a stray tap close the dialog
   dIdx++;
   if(dIdx>=dLines.length){
     Quests.onDialogueEnd(dNpc.id);   // quest transitions (offer→active, complete→reward)
@@ -1564,7 +1580,8 @@ function diveUpdate(dt,mx,my){
     f.y=Math.max(top+18,Math.min(floorY-8,f.y)); }
   // grab the pearl
   if(DIVE.pearl && !DIVE.pearl.got && Math.hypot(DIVE.pearl.x-DIVE.x,DIVE.pearl.y-DIVE.y)<24){
-    DIVE.pearl.got=true; P.coins+=12; DIVE.got++; addFloat(DIVE.x,DIVE.y-22,'🦪 +12 🪙','#ffd977',18); banner('🦪 A pearl! Erik will give you coins for that.'); }
+    DIVE.pearl.got=true; P.inv.item_pearl=(P.inv.item_pearl||0)+1; DIVE.got++;
+    addFloat(DIVE.x,DIVE.y-22,'🦪 +1','#ffd977',18); banner('🦪 A pearl! Into your satchel — Erik will buy it back in the village.'); }
   // your bubbles rise (fewer when your head is up)
   if(!headUp && Math.random()<0.07) DIVE.bubbles.push({x:DIVE.x+(Math.random()-0.5)*10, y:DIVE.y-6, r:1.5+Math.random()*2.5});
   for(let i=DIVE.bubbles.length-1;i>=0;i--){ const b=DIVE.bubbles[i]; b.y-=0.9+b.r*0.25; b.x+=Math.sin(b.y*0.06)*0.35; if(b.y<top) DIVE.bubbles.splice(i,1); }
@@ -2244,19 +2261,29 @@ if(location.hash==='#test-quests'){
   ok(questState.stage==='complete', '3 in the satchel → deliver');
   openDialog(erik); while(dialogOpen) advanceDialog();
   ok(P.inv.item_wild_turkey===0 && P.coins===210, 'Erik takes the 3 turkeys and pays 90 → 210');
-  // Erik BUYS turkeys forever
-  P.inv.item_wild_turkey=1;
+  // Erik BUYS via ONE general Sell button that opens the satchel in sell mode
+  P.inv.item_wild_turkey=1; P.inv.item_pearl=1;
   openDialog(erik);
-  const sellBtn=[...$('shopBox').children].find(b=>b.textContent.includes('Sell wild turkey'));
-  ok(!!sellBtn, 'Erik has a SELL turkey button');
+  const sellBtn=[...$('shopBox').children].find(b=>b.textContent.includes('Sell items'));
+  ok(!!sellBtn, 'Erik shows ONE general Sell button (not per-item)');
   sellBtn.click();
-  ok(P.inv.item_wild_turkey===0 && P.coins===225, 'sold a turkey for 15 (225)');
+  ok(invOpen && sellMode, 'the Sell button opens the satchel in sell mode');
+  invSel='item_wild_turkey'; renderInv();
+  ok(!$('invSell').classList.contains('hidden') && $('invUse').classList.contains('hidden'), 'sell mode shows a Sell offer, hides Use');
+  $('invSell').click();
+  ok(P.inv.item_wild_turkey===0 && P.coins===225, 'accepted the turkey offer → +15 (225)');
+  invSel='item_pearl'; renderInv();
+  $('invSell').click();
+  ok(P.inv.item_pearl===0 && P.coins===243, 'sold a pearl for 18 (243)');
+  P.inv.item_bread=1; invSel='item_bread'; renderInv();
+  ok($('invSell').disabled, 'Erik won’t buy bread — Sell offer disabled (can reject)');
+  P.inv.item_bread=0; closeInv();
   while(dialogOpen) advanceDialog();
   // Modo gating: only the sword until the champion falls
   openDialog(modo);
   ok($('shopBox').children.length===1, 'Modo sells ONLY the sword pre-champion');
   $('shopBox').children[0].click();
-  ok(P.weapons.sword===true && P.coins===25, 'sword bought with earned coins');
+  ok(P.weapons.sword===true && P.coins===43, 'sword bought with earned coins (243 − 200)');
   while(dialogOpen) advanceDialog();
   // Q4 — the tougher champion
   Quests.update(16000);

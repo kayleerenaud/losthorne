@@ -11,5 +11,5 @@ export const PRICES = {
   item_turkey: 15,   // price = placeholder guess (restores 1.5 hearts vs bread's 1 at 10)
 };
 export const ANCHORS = { horse:500, best_sword:300, small_hammer:100 }; // future pricing reference
-export const SELL_PRICES = { item_wild_turkey: 15, item_fish_small: 8, item_fish_big: 20 };  // fish prices = placeholder guesses
+export const SELL_PRICES = { item_wild_turkey: 15, item_fish_small: 8, item_fish_big: 20, item_pearl: 18 };  // fish/pearl prices = placeholder guesses
 export const STARTING_COINS = 10;  // just enough for one loaf of bread

@@ -6,11 +6,10 @@ export default {
   pos:{x:260,y:120},   // position INSIDE his shop
   look:{ outfit:'#2f5d7d', hat:false },
   lines:["Welcome to Erik\u2019s! Bread, fresh-ish. Rods and hooks for the pond. And I BUY — turkeys, fish, you catch it, I count it.","Scroll the list, friend — Erik stocks more than the eye can hold."],
-  buys:[
-    { item:'item_wild_turkey', label:'💰 Sell wild turkey — +{price} coins', banner:'💰 Erik counts feathers happily. +15 coins' },
-    { item:'item_fish_small', label:'💰 Sell pond fish — +{price} coins', banner:'💰 “Fresh-ish fish!” +8 coins' },
-    { item:'item_fish_big',   label:'💰 Sell BIG fish — +{price} coins', banner:'💰 Erik whistles. +20 coins' },
-  ],
+  // Erik BUYS from you → renders ONE general "Sell items…" button that opens the satchel in
+  // sell mode. What he'll pay is the single source of truth in economy.js SELL_PRICES
+  // (turkeys, fish, pearls…). Tap an item, see the offer, accept or reject.
+  buys:true,
   shop:[
     { item:'item_bread',  label:'🍞 Buy bread — {price} coins (goes to satchel)', banner:'🍞 Bread tucked into your satchel' },
     { item:'item_turkey', label:'🍗 Turkey meat — {price} coins (+1½ ❤️)', banner:'🍗 Roast turkey wrapped and tucked away', requiresFlag:'flag_erik_turkey_stock' },

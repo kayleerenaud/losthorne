@@ -30,6 +30,8 @@ export const ITEM_DEFS = {
     st:'Fresh from Bog’s boat. Erik pays 8 apiece.', effect:{ kind:'sellable' } },
   item_fish_big: { id:'item_fish_big', ic:'🐠', nm:'Big Fish',
     st:'A proper trophy. Erik pays 20 apiece.', effect:{ kind:'sellable' } },
+  item_pearl: { id:'item_pearl', ic:'🦪', nm:'Pearl',
+    st:'A smooth pearl prised from an oyster on the pond floor. Erik pays well for a shine like this.', effect:{ kind:'sellable' } },
   item_hammer: { id:'item_hammer', ic:'🔨', nm:"Troll's Hammer",
     st:'Troll-forged star-iron from the mountain hoard. The heaviest thing you will ever swing.<br>Switch weapons to wield it — Modo can teach you the way of it.',
     effect:{ kind:'unlock_weapon', weapon:'hammer' } },

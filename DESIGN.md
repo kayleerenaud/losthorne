@@ -86,13 +86,13 @@ Each avatar has their own unique personal side quest that the others don't — r
 ## 6. Economy & Money
 
 - Start with **10 coins** — exactly one loaf of bread. Free forest berries handle hunger; money must be EARNED. ✅
-- **You start with your FISTS** — no weapons. A goblin takes ~8 punches, or 3 hits with a bought sword. Earn coins → buy gear from Modo. ✅
+- **You start with your FISTS** — no weapons. A goblin takes ~6 punches, or 2 hits with a bought sword. Earn coins → buy gear from Modo. ✅
 - **Coins are never automatic.** Coins come ONLY from people (quest rewards) and special boss hoards. Regular creatures like goblins drop NOTHING — treasure is what makes beating the Troll special. ✅
 - **Price anchors:** bread **10** · turkey meat **15** (price is a placeholder guess) · mystery potion **100** · forged (basic) sword **200** · hunting bow **100** · arrow pack **80** (10 arrows — pack size is a placeholder guess) · horse ≈ **500** · best sword ≈ **300** · small hammer ≈ **100**. Premium materials cost more. ✅ (bow is cheaper up front but arrows are a recurring cost, so it totals more than the sword — intentional)
 - **Challenge rewards:** goblins **110 coins** · berries **a free Stoneskin potion** (no coins — the potion is the pay) · turkeys **90 coins**. Total: 10+110+90 = **210 → the 200-coin sword with 10 left over for bread**. Erik even points it out: "just enough for a basic sword." ✅
 - Money is spent on: weapons/armor, supplies for Dorgan's potions, food, animal feed, **bridge tolls** (fancier villages charge to cross into their land), bigger maps, small taxes.
 - **Village specialty armor:** every village's armory is different and suited to different things — like every country having its own soccer uniform. The lake village sells **underwater armor** (wanted before the Kraken). 🔜
-- Rewards: quest payouts + selling turkeys (15) and fish (8/20) to Erik ✅; the Troll guards a treasure hoard 🔜.
+- Rewards: quest payouts + **selling to Erik** ✅ — one general **"Sell items…"** button opens the satchel in *sell mode*; tap an item to see Erik's offer and accept or reject it (turkeys 15, fish 8/20, pearls 18). The Troll guards a treasure hoard 🔜.
 
 ## 7. Combat
 
@@ -138,7 +138,7 @@ Each avatar has their own unique personal side quest that the others don't — r
 
 **SWIMMING & THE DEEP** ✅ (v0.20 — *idea by Kaylee; tuning is prototype guess, flag for review*): the pond isn't just scenery — you can get in it.
 - **Surface swim** (top-down, in the pond): wade past the water's edge and you start swimming — **slower** (~58% of walk speed), rendered as just your head above the water with a ripple ring. Reach the shore and you climb out automatically. You can still **DASH** while your head's up, but a swim-stroke burst **tires your arms** — a much longer recharge (~3.3s) than a land dash (~1s).
-- **DIVE** 🤿 → a full **underwater scene** (side-view): sunbeams, darting fish that shy from you, seaweed, rocks, rising bubbles, and a **pearl** 🦪 to grab for a few coins. A little **air ring** (status circle) drains as you stay under (~12s per breath).
+- **DIVE** 🤿 → a full **underwater scene** (side-view): sunbeams, darting fish that shy from you, seaweed, rocks, rising bubbles, and a **pearl** 🦪 you grab **into your satchel** (a real sellable item — Erik pays 18). A little **air ring** (status circle) drains as you stay under (~12s per breath).
 - **Breathing** is positional: swim UP so your head breaks the waterline and the ring refills (~2s) — **just the head surfaces, you stay under**, and you **can't descend while catching your breath**. You do **not** leave the water on a breath.
 - **Resurface** ⬆️ is the ONLY way out of the deep — an explicit button that pops you back up into the surface-swim pond. Run fully out of air and you take gulps of damage until you reach the top.
 - *Future hooks:* deeper zones, things worth diving FOR (treasure, a quest item, a creature), and this reads as the seed of the lake territory (DESIGN §9 "lake 🔜").

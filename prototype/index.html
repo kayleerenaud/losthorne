@@ -129,6 +129,7 @@
     <div class="inm"></div>
     <div class="ist"></div>
     <button class="btn" id="invUse" data-ref="use-item-button">Use it</button>
+    <button class="btn" id="invSell" data-ref="sell-item-button">Sell</button>
     <button class="btn ghost" id="invBack">← Back</button>
   </div>
   <button class="btn ghost" id="invClose" data-ref="close-satchel-button">Close satchel</button>
@@ -170,7 +171,7 @@
     item_turkey: 15
     // price = placeholder guess (restores 1.5 hearts vs bread's 1 at 10)
   };
-  var SELL_PRICES = { item_wild_turkey: 15, item_fish_small: 8, item_fish_big: 20 };
+  var SELL_PRICES = { item_wild_turkey: 15, item_fish_small: 8, item_fish_big: 20, item_pearl: 18 };
   var STARTING_COINS = 10;
 
   // prototype/src/js/data/items.js
@@ -252,6 +253,13 @@
       st: "A proper trophy. Erik pays 20 apiece.",
       effect: { kind: "sellable" }
     },
+    item_pearl: {
+      id: "item_pearl",
+      ic: "🦪",
+      nm: "Pearl",
+      st: "A smooth pearl prised from an oyster on the pond floor. Erik pays well for a shine like this.",
+      effect: { kind: "sellable" }
+    },
     item_hammer: {
       id: "item_hammer",
       ic: "🔨",
@@ -317,11 +325,10 @@
     // position INSIDE his shop
     look: { outfit: "#2f5d7d", hat: false },
     lines: ["Welcome to Erik’s! Bread, fresh-ish. Rods and hooks for the pond. And I BUY — turkeys, fish, you catch it, I count it.", "Scroll the list, friend — Erik stocks more than the eye can hold."],
-    buys: [
-      { item: "item_wild_turkey", label: "💰 Sell wild turkey — +{price} coins", banner: "💰 Erik counts feathers happily. +15 coins" },
-      { item: "item_fish_small", label: "💰 Sell pond fish — +{price} coins", banner: "💰 “Fresh-ish fish!” +8 coins" },
-      { item: "item_fish_big", label: "💰 Sell BIG fish — +{price} coins", banner: "💰 Erik whistles. +20 coins" }
-    ],
+    // Erik BUYS from you → renders ONE general "Sell items…" button that opens the satchel in
+    // sell mode. What he'll pay is the single source of truth in economy.js SELL_PRICES
+    // (turkeys, fish, pearls…). Tap an item, see the offer, accept or reject.
+    buys: true,
     shop: [
       { item: "item_bread", label: "🍞 Buy bread — {price} coins (goes to satchel)", banner: "🍞 Bread tucked into your satchel" },
       { item: "item_turkey", label: "🍗 Turkey meat — {price} coins (+1½ ❤️)", banner: "🍗 Roast turkey wrapped and tucked away", requiresFlag: "flag_erik_turkey_stock" },
@@ -1033,7 +1040,7 @@
     weapons: { fists: true, sword: false, hammer: false, bow: false },
     arrows: 0,
     potionRolls: [],
-    inv: { item_bread: 0, item_potion: 0, item_turkey: 0, item_blueberry: 0, item_shield: 0, item_wild_turkey: 0, item_red_berry: 0, item_hammer: 0 },
+    inv: { item_bread: 0, item_potion: 0, item_turkey: 0, item_blueberry: 0, item_shield: 0, item_wild_turkey: 0, item_red_berry: 0, item_hammer: 0, item_pearl: 0 },
     hasShield: false,
     shieldUp: false,
     shieldT: 0,
@@ -1195,26 +1202,19 @@
       }
     }
     if (d.buys) {
-      for (const entry of d.buys) {
-        const def = ITEM_DEFS[entry.item], price = SELL_PRICES[entry.item];
-        const have = P.inv[entry.item] || 0;
-        const b = document.createElement("button");
-        b.className = "btn shopBtn";
-        b.textContent = entry.label.replace("{price}", price) + (have ? "  (have " + have + ")" : "");
-        if (!have) {
-          b.disabled = true;
-          b.style.opacity = 0.5;
-        }
-        b.onclick = (ev) => {
-          ev.stopPropagation();
-          if ((P.inv[entry.item] || 0) < 1) return;
-          P.inv[entry.item]--;
-          P.coins += price;
-          banner(entry.banner);
-          renderShop();
-        };
-        box.appendChild(b);
+      const sellable = Object.keys(SELL_PRICES).reduce((a, k) => a + (P.inv[k] || 0), 0);
+      const b = document.createElement("button");
+      b.className = "btn shopBtn";
+      b.textContent = sellable ? "💰 Sell items… (opens your satchel)" : "💰 Sell items… (nothing to sell yet)";
+      if (!sellable) {
+        b.disabled = true;
+        b.style.opacity = 0.5;
       }
+      b.onclick = (ev) => {
+        ev.stopPropagation();
+        openInv(true);
+      };
+      box.appendChild(b);
     }
   }
   var goblins = [];
@@ -1928,19 +1928,25 @@
   }
   var invOpen = false;
   var invSel = null;
-  function openInv() {
-    if (dialogOpen) closeDialog();
+  var sellMode = false;
+  function openInv(sell) {
+    if (dialogOpen && !sell) closeDialog();
     invOpen = true;
     invSel = null;
+    sellMode = !!sell;
     renderInv();
     $("inv").classList.remove("hidden");
   }
   function closeInv() {
     invOpen = false;
+    sellMode = false;
     $("inv").classList.add("hidden");
+    if (dialogOpen && dNpc) renderShop();
   }
   function renderInv() {
-    const g = $("invGrid"), det = $("invDetail");
+    const g = $("invGrid"), det = $("invDetail"), useB = $("invUse"), sellB = $("invSell");
+    const h3 = $("inv").querySelector("h3");
+    h3.textContent = sellMode ? "💰 Sell to Erik — tap an item" : "🎒 Satchel";
     if (invSel) {
       g.classList.add("hidden");
       det.classList.remove("hidden");
@@ -1952,6 +1958,25 @@
       if (invSel === "item_potion" && P.potionRolls[0]) {
         const pp = POTION_POWERS[P.potionRolls[0]];
         stHtml += '<br><b style="color:#d9b8ff">This one is: ' + pp.ic + " " + pp.nm + "</b>";
+      }
+      if (sellMode) {
+        useB.classList.add("hidden");
+        sellB.classList.remove("hidden");
+        const price = SELL_PRICES[invSel];
+        if (price) {
+          sellB.disabled = false;
+          sellB.style.opacity = 1;
+          sellB.textContent = "💰 Sell for " + price + " 🪙";
+          stHtml += '<br><b style="color:#ffd977">Erik offers ' + price + " 🪙 for this. Sell — or ← Back to keep it.</b>";
+        } else {
+          sellB.disabled = true;
+          sellB.style.opacity = 0.5;
+          sellB.textContent = "🚫 Erik won’t buy this";
+          stHtml += '<br><i style="color:#b7a67e">Erik has no use for this one.</i>';
+        }
+      } else {
+        sellB.classList.add("hidden");
+        useB.classList.remove("hidden");
       }
       det.querySelector(".ist").innerHTML = stHtml;
       return;
@@ -1979,6 +2004,16 @@
   $("invClose").onclick = closeInv;
   $("invBack").onclick = () => {
     invSel = null;
+    renderInv();
+  };
+  $("invSell").onclick = () => {
+    if (!invSel) return;
+    const price = SELL_PRICES[invSel];
+    if (!price || (P.inv[invSel] || 0) < 1) return;
+    P.inv[invSel]--;
+    P.coins += price;
+    banner("💰 Sold " + ITEM_DEFS[invSel].nm + " for " + price + " 🪙. Erik counts it into the ledger.");
+    if ((P.inv[invSel] || 0) < 1) invSel = null;
     renderInv();
   };
   $("invUse").onclick = () => {
@@ -2064,6 +2099,7 @@
     appendQuestChoice();
   }
   function advanceDialog() {
+    if (invOpen) return;
     dIdx++;
     if (dIdx >= dLines.length) {
       Quests.onDialogueEnd(dNpc.id);
@@ -3713,10 +3749,10 @@
     }
     if (DIVE.pearl && !DIVE.pearl.got && Math.hypot(DIVE.pearl.x - DIVE.x, DIVE.pearl.y - DIVE.y) < 24) {
       DIVE.pearl.got = true;
-      P.coins += 12;
+      P.inv.item_pearl = (P.inv.item_pearl || 0) + 1;
       DIVE.got++;
-      addFloat(DIVE.x, DIVE.y - 22, "🦪 +12 🪙", "#ffd977", 18);
-      banner("🦪 A pearl! Erik will give you coins for that.");
+      addFloat(DIVE.x, DIVE.y - 22, "🦪 +1", "#ffd977", 18);
+      banner("🦪 A pearl! Into your satchel — Erik will buy it back in the village.");
     }
     if (!headUp && Math.random() < 0.07) DIVE.bubbles.push({ x: DIVE.x + (Math.random() - 0.5) * 10, y: DIVE.y - 6, r: 1.5 + Math.random() * 2.5 });
     for (let i = DIVE.bubbles.length - 1; i >= 0; i--) {
@@ -5086,16 +5122,32 @@
     while (dialogOpen) advanceDialog();
     ok(P.inv.item_wild_turkey === 0 && P.coins === 210, "Erik takes the 3 turkeys and pays 90 → 210");
     P.inv.item_wild_turkey = 1;
+    P.inv.item_pearl = 1;
     openDialog(erik);
-    const sellBtn = [...$("shopBox").children].find((b) => b.textContent.includes("Sell wild turkey"));
-    ok(!!sellBtn, "Erik has a SELL turkey button");
+    const sellBtn = [...$("shopBox").children].find((b) => b.textContent.includes("Sell items"));
+    ok(!!sellBtn, "Erik shows ONE general Sell button (not per-item)");
     sellBtn.click();
-    ok(P.inv.item_wild_turkey === 0 && P.coins === 225, "sold a turkey for 15 (225)");
+    ok(invOpen && sellMode, "the Sell button opens the satchel in sell mode");
+    invSel = "item_wild_turkey";
+    renderInv();
+    ok(!$("invSell").classList.contains("hidden") && $("invUse").classList.contains("hidden"), "sell mode shows a Sell offer, hides Use");
+    $("invSell").click();
+    ok(P.inv.item_wild_turkey === 0 && P.coins === 225, "accepted the turkey offer → +15 (225)");
+    invSel = "item_pearl";
+    renderInv();
+    $("invSell").click();
+    ok(P.inv.item_pearl === 0 && P.coins === 243, "sold a pearl for 18 (243)");
+    P.inv.item_bread = 1;
+    invSel = "item_bread";
+    renderInv();
+    ok($("invSell").disabled, "Erik won’t buy bread — Sell offer disabled (can reject)");
+    P.inv.item_bread = 0;
+    closeInv();
     while (dialogOpen) advanceDialog();
     openDialog(modo);
     ok($("shopBox").children.length === 1, "Modo sells ONLY the sword pre-champion");
     $("shopBox").children[0].click();
-    ok(P.weapons.sword === true && P.coins === 25, "sword bought with earned coins");
+    ok(P.weapons.sword === true && P.coins === 43, "sword bought with earned coins (243 − 200)");
     while (dialogOpen) advanceDialog();
     Quests.update(16e3);
     openDialog(chief);

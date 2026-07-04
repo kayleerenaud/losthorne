@@ -50,6 +50,15 @@
 
 *Updated at every checkpoint.*
 
+- **Version:** v0.21 — GENERAL SELL FLOW + PEARL ITEM (reorg steps 6–8,10 still queued)
+- **v0.21 checkpoint (2026-07-04, Kaylee):** reworked selling + made the pearl a real item.
+  - **Selling:** Erik's per-item sell buttons → ONE general **"Sell items…"** button that opens the satchel in a new **sell mode**. Tap an item → its detail shows Erik's offer ("Erik offers N 🪙… Sell — or ← Back to keep it") with a green **Sell** button (Use is hidden); ← Back / Close = reject. Non-sellable items show a disabled "Erik won't buy this." What's sellable + the price is the single source of truth in `economy.js SELL_PRICES` (turkey 15, fish 8/20, pearl 18) — Erik's data is now just `buys:true`.
+  - **Pearl:** grabbing the underwater pearl now adds `item_pearl` to the satchel (was: straight +12 coins). New item def + SELL_PRICES entry (18). Sells through the same general flow.
+  - **Robustness:** `advanceDialog()` ignores taps while the satchel is open over a shop (a stray tap can't close Erik mid-sale); `closeInv()` re-renders the shop so the Sell button's state refreshes.
+  - **Files:** main.js (renderShop sell button, openInv/closeInv sellMode, renderInv sell UI, invSell handler, advanceDialog guard, pearl→inv, inv seed), index.html (#invSell button), data/items.js (item_pearl), data/economy.js (SELL_PRICES.item_pearl), data/npcs/erik.js (buys:true). Smoke test updated for the new flow (+pearl-sell +non-sellable coverage; sword-buy total 25→43).
+  - **Verified:** builds clean; smoke test green (screenshot ❌-scan: none); sell grid + offer view + reject path confirmed by screenshot.
+  - **Also fixed in passing:** DESIGN §6 still said goblins take "8 punches / 3 hits" → corrected to 6/2 (matches engine + §9).
+  - **Guess (confirm w/ Kaylee):** pearl sells for **18** coins.
 - **Version:** v0.20 — SWIMMING & THE DEEP (reorg steps 6–8,10 still queued)
 - **v0.20 checkpoint (2026-07-04, Kaylee's idea):** you can SWIM in the pond.
   - **Surface swim:** cross the pond edge → `P.swimming` on; move at ~58% speed, rendered as head-above-water + ripple; reach shore → climb out. Dash still works on the surface but the swim-stroke uses a long recharge (~3.3s vs land's ~1s) — "head above water, they can dash but then slow down longer before dashing again."
