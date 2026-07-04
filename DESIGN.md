@@ -136,6 +136,13 @@ Each avatar has their own unique personal side quest that the others don't — r
 - **Pond ducks** 🦆 (Bog's pond): they paddle a lazy loop and leave wakes. Crowd them and they STARTLE to deeper water; **play your instrument (🎵) and they drift CLOSER** — the first seed of a future TAMING/creature system. *(charm radius/speeds = guesses)*
 - **Petting** 🤲 at Reba's stable: Maple leans in warmly; Biscuit still snaps (she "counts the year") — reinforces Reba's not-yet-earned-horse beat through touch, not just dialogue.
 
+**SWIMMING & THE DEEP** ✅ (v0.20 — *idea by Kaylee; tuning is prototype guess, flag for review*): the pond isn't just scenery — you can get in it.
+- **Surface swim** (top-down, in the pond): wade past the water's edge and you start swimming — **slower** (~58% of walk speed), rendered as just your head above the water with a ripple ring. Reach the shore and you climb out automatically. You can still **DASH** while your head's up, but a swim-stroke burst **tires your arms** — a much longer recharge (~3.3s) than a land dash (~1s).
+- **DIVE** 🤿 → a full **underwater scene** (side-view): sunbeams, darting fish that shy from you, seaweed, rocks, rising bubbles, and a **pearl** 🦪 to grab for a few coins. A little **air ring** (status circle) drains as you stay under (~12s per breath).
+- **Breathing** is positional: swim UP so your head breaks the waterline and the ring refills (~2s) — **just the head surfaces, you stay under**, and you **can't descend while catching your breath**. You do **not** leave the water on a breath.
+- **Resurface** ⬆️ is the ONLY way out of the deep — an explicit button that pops you back up into the surface-swim pond. Run fully out of air and you take gulps of damage until you reach the top.
+- *Future hooks:* deeper zones, things worth diving FOR (treasure, a quest item, a creature), and this reads as the seed of the lake territory (DESIGN §9 "lake 🔜").
+
 ### Regular enemies
 - **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest. 6 punches (or 2 sword hits) to defeat. **They can NEVER cross into the village** — the village boundary is protected ground; they stop at its edge.
 - **The Visiting Champion** ✅ (quest 4) — a larger human who FIGHTS BACK, hard. He runs a fixed, LEARNABLE pattern: chase → shield up (unhittable) → swing → swing → a brief OPEN moment (green ring — strike now!) → repeat. He presses constantly and lands real hits (2 half-hearts each). 28 HP. Defeat him — it's an entertainment fight — and his shield becomes yours (permanent gear; it can never be consumed or lost).

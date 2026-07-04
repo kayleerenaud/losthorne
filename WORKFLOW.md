@@ -50,6 +50,13 @@
 
 *Updated at every checkpoint.*
 
+- **Version:** v0.20 — SWIMMING & THE DEEP (reorg steps 6–8,10 still queued)
+- **v0.20 checkpoint (2026-07-04, Kaylee's idea):** you can SWIM in the pond.
+  - **Surface swim:** cross the pond edge → `P.swimming` on; move at ~58% speed, rendered as head-above-water + ripple; reach shore → climb out. Dash still works on the surface but the swim-stroke uses a long recharge (~3.3s vs land's ~1s) — "head above water, they can dash but then slow down longer before dashing again."
+  - **New underwater scene** (`scene='dive'`, side-view): 🤿 DIVE from the surface. Fish that shy away, seaweed, rocks, sunbeams, bubbles, a grabbable pearl (+12🪙). Radial **air ring** drains ~12s/breath. **Breathing is positional** — swim up so the head breaches the waterline to refill (~2s); you can't descend while catching breath and you DON'T leave the water on a breath. **⬆️ Resurface** button is the only exit back to the surface pond. Out of air = gulp damage until you reach the top.
+  - **Files touched:** all in main.js — `P.swimming`, `dash()` swim branch, swim speed factor, pond block now swim-enter/exit (replaces the old push-out), `contextAction` (DIVE + Resurface), `pressButton` (dive/resurface), `DIVE` state + `startDive`/`diveBuild`/`diveUpdate`/`resurface`/`drawDive`/`drawSwimmer`, surface-swimmer render in the village. New `#dive` dev hash.
+  - **Verified:** builds clean, 70-assertion smoke test still green; surface-swim head+ripple, the full underwater scene (air ring, Resurface, fish/weeds/rocks/beams), and the side-view swimmer all confirmed by screenshot at phone-landscape. Air/refill/speed/dash timings sanity-checked numerically.
+  - **Guesses (INVENTED CANON — confirm w/ Kaylee):** swim speed 58% · swim-dash recharge 3.3s · ~12s air / ~2s refill · out-of-air 1♥ per 1.1s · pearl = 12 coins · underwater is SIDE-view (chose it for immersion; could be top-down instead).
 - **Version:** v0.19 — CLEANUP + AMBIENT WORLD (reorg steps 6–8,10 still queued; step 9 dead-code partly done here)
 - **Phase:** playtest-driven feature work, auto-deploy rhythm
 - **v0.19 checkpoint (2026-07-04, Kaylee):** a code-health audit + a creative environment pass.

@@ -89,7 +89,7 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, hammer:false, bow:false}, arrows:0, potionRolls:[],
-  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, shieldUp:false, shieldT:0, shieldCd:0, dashT:0, dashCd:0 };
+  inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, shieldUp:false, shieldT:0, shieldCd:0, dashT:0, dashCd:0, swimming:false };
 // combat scale: 1 = one punch. Goblin=6 punches or 2 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, hammer:{icon:'🔨',dmg:5,range:82}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','hammer','bow'].filter(w=>P.weapons[w]); }
@@ -392,6 +392,9 @@ function contextAction(){
     if(caveDoorNear()) return {icon:'🚪', label: T.dawn&&T.alive? 'OUT — into the light!':'leave', kind:'cavedoor'};
     return {icon:'🕳', label: T.alive? (T.dawn? 'RUN for the exit!' : 'outlast it… dawn comes') : 'dark…', kind:'none'};
   }
+  if(scene==='dive'){
+    return {icon:'⬆️', label: DIVE.breathing?'(catching breath)':'Resurface', kind:'resurface'};
+  }
   if(scene==='fishing'){
     if(fish.state==='idle') return {icon:'🎣', label:'cast', kind:'cast'};
     if(fish.state==='waiting') return {icon:'👀', label:'watch…', kind:'none'};
@@ -406,6 +409,7 @@ function contextAction(){
     if(interiorDoorNear()) return {icon:'🚪', label:'leave', kind:'leave'};
     return {icon:'🚪', label:'to the door', kind:'none'};
   }
+  if(P.swimming) return {icon:'🤿', label:'DIVE', kind:'dive'};
   const n=npcNearby(); if(n) return {icon:'💬', label:n.nm.split(' ')[0], kind:'talk'};
   const d=shopDoorNearby(); if(d) return {icon:'🚪', label:'enter '+d.building.sign, kind:'enter', npc:d};
   if(Math.hypot(RUINS.x-P.x,RUINS.y-P.y)<70) return {icon:'🔍', label:'the old ruins', kind:'ruins'};
@@ -475,6 +479,8 @@ function groundTap(){
 }
 function dash(){
   if(P.dashCd>0 || blocked()) return;
+  // a surface-swim stroke is a real burst, but the arms TIRE — much longer before the next one
+  if(P.swimming){ P.dashT=8; P.dashCd=200; addFloat(P.x,P.y-26,'💦','#bfe0ea',18); return; }
   P.dashT=9; P.dashCd=60;
   addFloat(P.x,P.y-30,'💨','#cfc7b2',18);
 }
@@ -504,6 +510,8 @@ function pressButton(kind){
     else if(a.kind==='grab'){ catchTurkey(); }
     else if(a.kind==='ruins'){ banner('🗿 Stone trolls, frozen mid-stride. The elders say they wandered into the sunrise… and never walked home.'); }
     else if(a.kind==='well'){ tossCoinWell(); }
+    else if(a.kind==='dive'){ startDive(); }
+    else if(a.kind==='resurface'){ resurface(); }
     else if(a.kind==='sign'){ banner(a.sign.txt); }
     else if(a.kind==='pet'){
       if(a.horse==='maple'){ banner('🐴 Maple leans into your hand and huffs warm air. A friend for life — once that shoe is fixed.'); addFloat(P.x,P.y-34,'🐴❤️','#e8c9a0',18); }
@@ -771,6 +779,7 @@ function update(dt){
   // scenes with their own physics: the boat crossing & THE CLIMB
   if(scene==='boat'){ boatUpdate(dt,mx,my); updFloats(); return; }
   if(scene==='climb'){ climbUpdate(dt); updFloats(); if(P.hurtT>0)P.hurtT--; return; }
+  if(scene==='dive'){ diveUpdate(dt,mx,my); updFloats(); return; }
   // THE SHIELD: hold = up, but a shield arm TIRES (~3s), then it must rest — no more spam-and-hold
   if(P.shieldCd>0) P.shieldCd-=dt;
   { const want=shieldHoldRaw();
@@ -783,7 +792,7 @@ function update(dt){
     } }
   if(P.dashT>0){ P.dashT--; P.x+=Math.cos(P.dir)*7.5; P.y+=Math.sin(P.dir)*7.5; }
   if(P.dashCd>0) P.dashCd--;
-  const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1);
+  const spd = P.speed * (pot.t>0 ? (POTION_POWERS[pot.type]?.speedMult||1) : 1) * (P.swimming?0.58:1);
   const charging = chargeInfo();
   if((mx||my) && !blocked() && !charging && !P.shieldUp && scene!=='fishing'){
     P.x+=mx*spd; P.y+=my*spd; P.dir=Math.atan2(my,mx);
@@ -800,11 +809,13 @@ function update(dt){
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
     for(const h of houses){ if(Math.abs(P.x-h.x)<62 && Math.abs(P.y-h.y)<56){ if(Math.abs(P.x-h.x)/62>Math.abs(P.y-h.y)/56) P.x=h.x+Math.sign(P.x-h.x)*62; else P.y=h.y+Math.sign(P.y-h.y)*56; } }
-    // the pond is water — you can't walk on it (yet…). Resolve in normalized (circle)
-    // space so an off-centre ellipse edge pushes you straight OUT, not sideways (no slide).
-    { const RX=POND.rx+14, RY=POND.ry+14;
-      const ex=(P.x-POND.x)/RX, ey=(P.y-POND.y)/RY, d2=ex*ex+ey*ey;
-      if(d2<1){ const len=Math.sqrt(d2)||1e-6; P.x=POND.x+(ex/len)*RX; P.y=POND.y+(ey/len)*RY; } }
+    // the pond — you can SWIM now. Cross the edge → start swimming; reach shore → climb out.
+    { const RX=POND.rx+10, RY=POND.ry+10;
+      const ex=(P.x-POND.x)/RX, ey=(P.y-POND.y)/RY, inWater=(ex*ex+ey*ey)<1;
+      if(inWater && !P.swimming){ P.swimming=true; addFloat(P.x,P.y-24,'💦','#bfe0ea',20);
+        banner('🏊 You wade in and SWIM. 🤿 DIVE to go under — or swim to shore to climb out.'); }
+      else if(!inWater && P.swimming){ P.swimming=false; addFloat(P.x,P.y-22,'💧','#bfe0ea',15); }
+    }
     }
   }
   if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; if(P.hurtT>0)P.hurtT--;
@@ -941,6 +952,7 @@ function update(dt){
 function draw(){
   if(scene==='fishing'){ drawFishing(); }
   else if(scene==='boat'){ drawBoatScene(); }
+  else if(scene==='dive'){ drawDive(); }
   else if(scene==='climb'){ drawClimb(); }
   else if(scene==='mountains'){ drawMountains(); }
   else if(scene==='cave'){ drawCave(); }
@@ -1132,7 +1144,16 @@ function draw(){
     ctx.strokeStyle='rgba('+col+','+(.5+pulse)+')'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(P.x,P.y,26+3*Math.sin(performance.now()/200),0,7); ctx.stroke();
   }
   ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
-  drawPerson(P.x,P.y,P.dir,av,false,false);
+  if(P.swimming){
+    // surface swim (top-down): head + shoulders above the water, a ripple ring around you
+    ctx.strokeStyle='rgba(200,230,240,.5)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(P.x,P.y+4,17+2*Math.sin(performance.now()/300),9,0,0,7); ctx.stroke();
+    ctx.fillStyle='rgba(20,70,80,.35)'; ctx.beginPath(); ctx.ellipse(P.x,P.y+4,12,8,0,0,7); ctx.fill();
+    ctx.fillStyle=av.skin; ctx.beginPath(); ctx.arc(P.x,P.y-4,8,0,7); ctx.fill();
+    ctx.fillStyle=av.hair; ctx.beginPath(); ctx.arc(P.x,P.y-6,8,Math.PI,0); ctx.fill();
+  } else {
+    drawPerson(P.x,P.y,P.dir,av,false,false);
+  }
   ctx.restore();
   // slash arc
   if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5;
@@ -1486,6 +1507,156 @@ function climbUpdate(dt){
     if(CLIMB.prog>ledge+0.5) CLIMB.prog=Math.max(ledge, CLIMB.prog-dt*0.05);   // ease back down to the shelf
     else CLIMB.grip=Math.min(100, CLIMB.grip+dt*0.05); }                        // resting on a ledge: grip refills
   if(CLIMB.prog>=100){ scene='mountains'; MTN.climbed=true; P.x=750; P.y=975; banner('🏔 The summit! Wind, stone… and wolves at a cave mouth.'); }
+}
+// ============================================================
+// THE DIVE — a side-view underwater scene (fish, rocks, seaweed, and your air)
+// ============================================================
+const DIVE={ x:0,y:0, air:100, breathing:false, t:0, top:70, floorY:400, airHurtT:0,
+  fish:[], weeds:[], rocks:[], bubbles:[], pearl:null, got:0 };
+const FISH_COLS=['#e8a23a','#7ec8e0','#d76a55','#c9d36a','#e0b0d8'];
+function diveBuild(){
+  const top=64, floorY=vh-42; DIVE.top=top; DIVE.floorY=floorY;
+  DIVE.fish=[]; for(let i=0;i<8;i++){ const dir=(i%2?1:-1);
+    DIVE.fish.push({x:Math.random()*vw, y:top+34+Math.random()*(floorY-top-52), spd:(0.4+Math.random()*0.9)*dir, sz:9+Math.random()*11, col:FISH_COLS[i%FISH_COLS.length], ph:Math.random()*7}); }
+  DIVE.weeds=[]; for(let i=0;i<10;i++) DIVE.weeds.push({x:16+Math.random()*(vw-32), h:26+Math.random()*74, ph:Math.random()*7, w:5+Math.random()*4});
+  DIVE.rocks=[]; for(let i=0;i<6;i++) DIVE.rocks.push({x:20+Math.random()*(vw-40), r:12+Math.random()*26, s:0.7+Math.random()*0.5});
+  DIVE.bubbles=[];
+  DIVE.pearl={x:vw*0.5+(Math.random()-0.5)*vw*0.55, y:floorY-12, got:false};
+}
+function startDive(){
+  scene='dive'; DIVE.air=100; DIVE.breathing=false; DIVE.t=0; DIVE.got=0; DIVE.airHurtT=0;
+  diveBuild(); DIVE.x=vw*0.5; DIVE.y=vh*0.42;
+  banner('🤿 UNDERWATER! Explore the deep. Mind your AIR (the ring) — swim UP to the top to breathe. ⬆️ Resurface when you\'re done.');
+}
+function resurface(){
+  scene='village'; P.swimming=true; P.x=POND.x; P.y=POND.y-6; P.dir=-Math.PI/2;
+  addFloat(P.x,P.y-26,'🏊','#bfe0ea',20);
+  banner('🌅 You break the surface. Swim to shore to climb out — or 🤿 dive again.');
+}
+function diveUpdate(dt,mx,my){
+  DIVE.t+=dt; const top=DIVE.top, floorY=DIVE.floorY;
+  const headUp = DIVE.y <= top+16;      // head has breached the waterline
+  // BREATHING: at the surface your air refills, but you can't descend till you've caught it
+  if(headUp){
+    if(!DIVE.breathing && DIVE.air<97){ DIVE.breathing=true; banner('😮‍💨 Head up — catching your breath. You can\'t dive back down until the ring fills.'); }
+    DIVE.air=Math.min(100, DIVE.air + dt*0.05);
+    if(DIVE.air>=100 && DIVE.breathing){ DIVE.breathing=false; banner('👍 Lungs full! Down you go — or ⬆️ Resurface to leave.'); }
+  } else {
+    DIVE.air=Math.max(0, DIVE.air - dt*0.0083);   // ~12s of air per full breath
+    DIVE.breathing=false;
+  }
+  // MOVEMENT (side view). While catching breath, downward strokes are locked.
+  let sx=mx, sy=my;
+  if(DIVE.breathing && sy>0) sy=0;
+  const spd=2.5;
+  DIVE.x=Math.max(16,Math.min(vw-16, DIVE.x+sx*spd));
+  DIVE.y=Math.max(top-8,Math.min(floorY-6, DIVE.y+sy*spd));
+  if(sx||sy) P.dir=Math.atan2(sy, sx||(P.dir<0?-0.001:0.001));
+  // OUT OF AIR — a gulp of damage and an involuntary drift upward
+  if(DIVE.air<=0){ DIVE.airHurtT+=dt;
+    if(DIVE.airHurtT>1100){ DIVE.airHurtT=0; hurtPlayer(1,'No air! Get to the surface!'); DIVE.y=Math.max(top-8, DIVE.y-46); addFloat(DIVE.x,DIVE.y,'💧','#bfe0ea',18); } }
+  else DIVE.airHurtT=0;
+  // fish drift + shy away from you
+  for(const f of DIVE.fish){ f.x+=f.spd*dt*0.06;
+    if(f.x<-34) f.x=vw+24; if(f.x>vw+34) f.x=-24;
+    const dx=f.x-DIVE.x, dy=f.y-DIVE.y, d=Math.hypot(dx,dy)||1;
+    if(d<66){ f.y+=(dy/d)*1.6; f.x+=(dx/d)*0.8; }
+    f.y=Math.max(top+18,Math.min(floorY-8,f.y)); }
+  // grab the pearl
+  if(DIVE.pearl && !DIVE.pearl.got && Math.hypot(DIVE.pearl.x-DIVE.x,DIVE.pearl.y-DIVE.y)<24){
+    DIVE.pearl.got=true; P.coins+=12; DIVE.got++; addFloat(DIVE.x,DIVE.y-22,'🦪 +12 🪙','#ffd977',18); banner('🦪 A pearl! Erik will give you coins for that.'); }
+  // your bubbles rise (fewer when your head is up)
+  if(!headUp && Math.random()<0.07) DIVE.bubbles.push({x:DIVE.x+(Math.random()-0.5)*10, y:DIVE.y-6, r:1.5+Math.random()*2.5});
+  for(let i=DIVE.bubbles.length-1;i>=0;i--){ const b=DIVE.bubbles[i]; b.y-=0.9+b.r*0.25; b.x+=Math.sin(b.y*0.06)*0.35; if(b.y<top) DIVE.bubbles.splice(i,1); }
+  if(P.hurtT>0) P.hurtT--;
+}
+function drawDive(){
+  const top=DIVE.top, floorY=DIVE.floorY;
+  // water column: bright near the surface, deep-dark at the floor
+  const g=ctx.createLinearGradient(0,top,0,vh);
+  g.addColorStop(0,'#2f7d90'); g.addColorStop(0.5,'#1d5867'); g.addColorStop(1,'#0c2c37');
+  ctx.fillStyle=g; ctx.fillRect(0,0,vw,vh);
+  // sky sliver above the waterline
+  const sky=ctx.createLinearGradient(0,0,0,top); sky.addColorStop(0,'#bfe0d8'); sky.addColorStop(1,'#8fc3c0');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,vw,top);
+  // sun beams slanting down from the surface
+  ctx.save(); ctx.globalAlpha=0.10; ctx.fillStyle='#dff3ff';
+  for(let i=0;i<4;i++){ const bx=((i*vw/4)+ (DIVE.t*0.01)%(vw/4)); ctx.beginPath();
+    ctx.moveTo(bx,top); ctx.lineTo(bx+30,top); ctx.lineTo(bx+140,floorY); ctx.lineTo(bx+80,floorY); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+  // wavy waterline
+  ctx.strokeStyle='rgba(220,245,255,.7)'; ctx.lineWidth=3; ctx.beginPath();
+  for(let x=0;x<=vw;x+=12){ const yy=top+Math.sin(x*0.05+DIVE.t*0.004)*3; if(x===0)ctx.moveTo(x,yy); else ctx.lineTo(x,yy); } ctx.stroke();
+  // sandy floor
+  ctx.fillStyle='#c8b184'; ctx.beginPath(); ctx.moveTo(0,floorY+14);
+  for(let x=0;x<=vw;x+=40){ ctx.lineTo(x, floorY+ Math.sin(x*0.03)*5); } ctx.lineTo(vw,vh); ctx.lineTo(0,vh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#a68e63'; ctx.fillRect(0,floorY+16,vw,4);
+  // rocks
+  for(const r of DIVE.rocks){ ctx.fillStyle='#4a5a52'; ctx.beginPath(); ctx.ellipse(r.x,floorY+6,r.r,r.r*0.7*r.s,0,Math.PI,0); ctx.fill();
+    ctx.fillStyle='#5c6e63'; ctx.beginPath(); ctx.ellipse(r.x-r.r*0.25,floorY+2,r.r*0.55,r.r*0.4,0,Math.PI,0); ctx.fill(); }
+  // swaying seaweed
+  for(const w of DIVE.weeds){ ctx.strokeStyle='#3f8a5a'; ctx.lineWidth=w.w; ctx.lineCap='round'; ctx.beginPath();
+    ctx.moveTo(w.x,floorY+6); let px=w.x, py=floorY+6;
+    for(let s=1;s<=4;s++){ const ny=floorY+6-(w.h/4)*s; const nx=w.x+Math.sin(DIVE.t*0.003+w.ph+s*0.6)*(4*s); ctx.quadraticCurveTo(px,(py+ny)/2,nx,ny); px=nx; py=ny; } ctx.stroke(); }
+  ctx.lineCap='butt';
+  // pearl on the floor (glints)
+  if(DIVE.pearl && !DIVE.pearl.got){ const gl=0.6+0.4*Math.sin(DIVE.t*0.006);
+    ctx.fillStyle='#7a5a3a'; ctx.beginPath(); ctx.ellipse(DIVE.pearl.x,DIVE.pearl.y+6,13,7,0,Math.PI,0); ctx.fill();  // open oyster shell
+    ctx.fillStyle='#6a4c30'; ctx.beginPath(); ctx.ellipse(DIVE.pearl.x,DIVE.pearl.y+7,10,5,0,Math.PI,0); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,'+gl+')'; ctx.beginPath(); ctx.arc(DIVE.pearl.x,DIVE.pearl.y+2,5,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(DIVE.pearl.x-1.5,DIVE.pearl.y+0.5,1.6,0,7); ctx.fill(); }
+  // fish
+  for(const f of DIVE.fish){ const face=f.spd>=0?1:-1;
+    ctx.fillStyle=f.col; ctx.beginPath(); ctx.ellipse(f.x,f.y,f.sz,f.sz*0.6,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(f.x-face*f.sz,f.y); ctx.lineTo(f.x-face*f.sz*1.7,f.y-f.sz*0.55); ctx.lineTo(f.x-face*f.sz*1.7,f.y+f.sz*0.55); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#12303a'; ctx.beginPath(); ctx.arc(f.x+face*f.sz*0.5,f.y-1.5,1.6,0,7); ctx.fill(); }
+  // bubbles
+  ctx.strokeStyle='rgba(220,245,255,.5)'; ctx.lineWidth=1;
+  for(const b of DIVE.bubbles){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.stroke(); }
+  // THE SWIMMER — side view; head breaks the waterline when up top
+  drawSwimmer(DIVE.x, DIVE.y, top);
+  // ---- HUD: the air ring (a status circle) ----
+  const cx=54, cy=DIVE.top+64, R=26, frac=DIVE.air/100;
+  ctx.fillStyle='rgba(10,26,32,.7)'; ctx.beginPath(); ctx.arc(cx,cy,R+7,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.stroke();
+  const low=frac<0.28; const acol = low? (Math.sin(DIVE.t*0.02)>0?'#ff5a5a':'#ff9a3a') : '#66d8ff';
+  ctx.strokeStyle=acol; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(cx,cy,R,-Math.PI/2, -Math.PI/2 + frac*Math.PI*2); ctx.stroke(); ctx.lineCap='butt';
+  ctx.fillStyle='#dff3ff'; ctx.font='18px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(DIVE.breathing?'😮‍💨':'💨', cx, cy+1); ctx.textBaseline='alphabetic';
+  ctx.font='10.5px Georgia'; ctx.fillStyle='#bfe0ea'; ctx.fillText(low?'AIR — surface!':'air', cx, cy+R+16);
+  // gentle top hint
+  ctx.fillStyle='rgba(223,243,255,.85)'; ctx.font='12px Georgia'; ctx.textAlign='center';
+  ctx.fillText(DIVE.breathing?'catching your breath…':'swim UP to breathe · ⬆️ Resurface to leave', vw/2, top+20);
+  ctx.textAlign='left';
+}
+function drawSwimmer(x,y,top){
+  const av=AVATARS[chosen<0?0:chosen];
+  const headUp = y<=top+16;
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.5;
+  const face = Math.cos(P.dir)>=0?1:-1;
+  if(headUp){
+    // just the head pokes above the wavy line; body hangs below in the water
+    ctx.fillStyle='rgba(20,70,80,.5)'; ctx.beginPath(); ctx.ellipse(x,top+16,12,16,0,0,7); ctx.fill(); // submerged body hint
+    ctx.fillStyle=av.skin; ctx.beginPath(); ctx.arc(x,top-4,9,0,7); ctx.fill();
+    ctx.fillStyle=av.hair; ctx.beginPath(); ctx.arc(x,top-6.5,9,Math.PI,0); ctx.fill();
+    ctx.strokeStyle='rgba(220,245,255,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(x,top+2,15,4,0,0,7); ctx.stroke(); // ripple collar
+  } else {
+    // horizontal swimming pose
+    ctx.save(); ctx.translate(x,y); ctx.scale(face,1);
+    ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(0,10,16,5,0,0,7); ctx.fill();
+    ctx.fillStyle=av.outfit; ctx.beginPath(); ctx.ellipse(-2,0,15,9,0,0,7); ctx.fill();     // body
+    ctx.fillStyle=av.skin; ctx.beginPath(); ctx.ellipse(-16,-2,7,6,0,0,7); ctx.fill();      // arm reaching forward
+    ctx.fillStyle=av.skin; ctx.beginPath(); ctx.arc(13,-2,8,0,7); ctx.fill();               // head
+    ctx.fillStyle=av.hair; ctx.beginPath(); ctx.arc(13,-4,8,Math.PI*1.1,Math.PI*0.1); ctx.fill();
+    ctx.fillStyle='#123'; ctx.beginPath(); ctx.arc(17,-2,1.5,0,7); ctx.fill();
+    // kicking legs
+    const kick=Math.sin(DIVE.t*0.02)*5;
+    ctx.strokeStyle=av.skin; ctx.lineWidth=4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-14,2); ctx.lineTo(-24,4+kick); ctx.moveTo(-14,4); ctx.lineTo(-24,6-kick); ctx.stroke(); ctx.lineCap='butt';
+    ctx.restore();
+  }
+  ctx.restore();
 }
 function mountainsUpdate(dt){
   if(scene!=='mountains' && scene!=='cave') return;
@@ -1988,6 +2159,7 @@ if(location.hash==='#mtn'){ chosen=0; startGame(); questState.completed.push('qu
 if(location.hash==='#cave'){ chosen=0; startGame(); scene='cave'; mtnInit(); MTN.troll.dawnT=60000; P.x=430; P.y=430; }
 if(location.hash==='#climb'){ chosen=0; startGame(); mtnInit(); startClimb(); }
 if(location.hash==='#boat'){ chosen=0; startGame(); startBoatLesson(); }
+if(location.hash==='#dive'){ chosen=0; startGame(); P.x=POND.x; P.y=POND.y; P.swimming=true; startDive(); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
 let devBuilt=false;
