@@ -800,9 +800,11 @@ function update(dt){
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
     for(const h of houses){ if(Math.abs(P.x-h.x)<62 && Math.abs(P.y-h.y)<56){ if(Math.abs(P.x-h.x)/62>Math.abs(P.y-h.y)/56) P.x=h.x+Math.sign(P.x-h.x)*62; else P.y=h.y+Math.sign(P.y-h.y)*56; } }
-    // the pond is water — you can't walk on it (yet…)
-    { const ex=(P.x-POND.x)/(POND.rx+14), ey=(P.y-POND.y)/(POND.ry+14), d2=ex*ex+ey*ey;
-      if(d2<1){ const a=Math.atan2(P.y-POND.y,(P.x-POND.x)); P.x=POND.x+Math.cos(a)*(POND.rx+15); P.y=POND.y+Math.sin(a)*(POND.ry+15); } }
+    // the pond is water — you can't walk on it (yet…). Resolve in normalized (circle)
+    // space so an off-centre ellipse edge pushes you straight OUT, not sideways (no slide).
+    { const RX=POND.rx+14, RY=POND.ry+14;
+      const ex=(P.x-POND.x)/RX, ey=(P.y-POND.y)/RY, d2=ex*ex+ey*ey;
+      if(d2<1){ const len=Math.sqrt(d2)||1e-6; P.x=POND.x+(ex/len)*RX; P.y=POND.y+(ey/len)*RY; } }
     }
   }
   if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; if(P.hurtT>0)P.hurtT--;

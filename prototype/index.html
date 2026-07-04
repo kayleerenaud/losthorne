@@ -2179,11 +2179,12 @@
           }
         }
         {
-          const ex = (P.x - POND.x) / (POND.rx + 14), ey = (P.y - POND.y) / (POND.ry + 14), d2 = ex * ex + ey * ey;
+          const RX = POND.rx + 14, RY = POND.ry + 14;
+          const ex = (P.x - POND.x) / RX, ey = (P.y - POND.y) / RY, d2 = ex * ex + ey * ey;
           if (d2 < 1) {
-            const a = Math.atan2(P.y - POND.y, P.x - POND.x);
-            P.x = POND.x + Math.cos(a) * (POND.rx + 15);
-            P.y = POND.y + Math.sin(a) * (POND.ry + 15);
+            const len = Math.sqrt(d2) || 1e-6;
+            P.x = POND.x + ex / len * RX;
+            P.y = POND.y + ey / len * RY;
           }
         }
       }
