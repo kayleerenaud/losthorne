@@ -19,7 +19,7 @@ export default {
   },
   tracker:{
     offer:'🔨 Modo wants to spar!',
-    active:'🛡️ Blocks: {n}/3',
+    active:'🛡️ Block Modo’s blows',
     complete:'🏆 Talk to Modo',
     afterReward:'⛰️ The Chief has news…',
   },

@@ -90,6 +90,20 @@ export const Quests = {
     return (lines && lines.length) ? lines : null;
   },
 
+  // For a DELIVER quest whose turn-in NPC is npcId and which is NOT yet satisfied:
+  // returns the still-missing items [{item, short}] so the NPC can SCOLD with specifics.
+  // null = not applicable (wrong NPC, not a deliver quest, or already has enough).
+  deliverShortfall(npcId){
+    const q = defs[questState.currentId];
+    if(!q || q.objective.type!=='deliver' || questState.stage!=='active') return null;
+    if((q.turnIn || q.giver) !== npcId) return null;
+    const parts = q.objective.items || [q.objective];
+    const miss = [];
+    for(const pt of parts){ const n = hooks.itemCount ? hooks.itemCount(pt.item) : 0; if(n < pt.count) miss.push({item:pt.item, short:pt.count-n}); }
+    return miss.length ? miss : null;
+  },
+  scoldTemplate(){ const q=defs[questState.currentId]; return (q && q.scold) || null; },
+
   // Does the current offer end in a yes/later CHOICE instead of auto-accepting?
   pendingChoice(npcId){
     const q = defs[questState.currentId];

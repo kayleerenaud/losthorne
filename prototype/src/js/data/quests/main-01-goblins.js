@@ -16,7 +16,7 @@ export default {
   },
   tracker:{
     offer:'💬 Find Chief Bonbottom',
-    active:'⚔️ Goblins: {n}/5',
+    active:'⚔️ Drive the goblins from the north woods',
     complete:'🏆 Return to the Chief',
     afterReward:'🧪 Find Dorgan’s shop',
   },

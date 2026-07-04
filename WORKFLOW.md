@@ -50,6 +50,15 @@
 
 *Updated at every checkpoint.*
 
+- **Version:** v0.23 — PLAYTEST FIXES: climb/wolves/boat/quest-counters (reorg steps 6–8,10 still queued)
+- **v0.23 checkpoint (2026-07-04, Kaylee playtest):** four fixes.
+  - **Climb prompt was buried behind the cliff:** the in-world 🧗 marker sat low inside the cliff band. Now there's a bright climb CHUTE (rungs) with a glowing base PAD in the approach strip (above the wall), and a floating "🧗 CLIMB" label drawn ABOVE the player AFTER the cliff/player, so it can never be hidden. (Verified by screenshot.)
+  - **Wolves swarming the cliff base:** the woods pack (moved to y=460) now can't cross below y=600, and the plateau pack stays ≥975 — so reaching the cliff base is a safe beat to climb. Fight the wolves in the woods, then climb.
+  - **Boating harder + a real rock consequence:** added a steady downstream CURRENT (0.95/frame — you can't rest), a tighter 13-rock staggered slalom, and a HULL of 3 planks. Each rock hit CRACKS a plank (💥 + Bog coaching); the 3rd crack WRECKS you — swamped back to the start dock, hull reset, and Bog charges an ≤8-coin repair fee (scolds if you're broke). Hull pips shown top-left.
+  - **Removed live quest counters ("3/5", "4/4", etc):** all `tracker.active` strings are now goal text (no fractions); the goblin kill banner dropped its "(n/5)". Goblins simply keep attacking until you've cleared enough (the one-time "quest complete!" cue still fires). Deliver quests (berries→Dorgan, turkeys→Erik) now SCOLD with the exact shortfall when you return short — new engine `deliverShortfall()` + per-quest `scold` templates, injected in `openDialog`.
+  - **Files:** main.js (cliff chute + CLIMB prompt, wolf turf clamps + pack move, boat current/rocks/hull/wreck + hull HUD, goblin banner, scold injection in openDialog), engine/quests.js (deliverShortfall + scoldTemplate), 5 quest data files (tracker text + scold lines), quest-03 banners.
+  - **Verified:** builds clean; smoke test green (~90 assertions) incl. NEW guards — tracker has no x/y, Dorgan scolds "2 more red", boat 3-crack wreck resets + charges a fee. Climb prompt & boat hull confirmed by screenshot at phone-landscape.
+  - **Guesses (confirm w/ Kaylee):** boat current 0.95 + 13 rocks + 3-plank hull + 8-coin repair fee · wolf turf line y=600 · that tutorial quests (shield/hammer) also lose their HUD counter (kept their transient per-action banners).
 - **Version:** v0.22 — COMBAT INPUT FIXES (shield + smash reliability) (reorg steps 6–8,10 still queued)
 - **v0.22 checkpoint (2026-07-04, Kaylee bug reports):** "shield doesn't always work vs wolves" + "smash isn't always letting me hold for a bigger smash."
   - **Root cause (both):** the hold-gesture (`swp`) had NO `touchcancel` handler. A browser-cancelled touch (palm rejection, a notification, a scroll/tab switch) left `swp.active=true` stuck, and `pointerDown` only starts a hold `if(!swp.active)` — so every later shield-hold and smash-charge was silently ignored. FIX: added `pointerCancel()` + a `touchcancel` listener (and a `window blur` safety) that ABORT the gesture without firing an attack.

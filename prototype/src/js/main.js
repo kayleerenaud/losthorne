@@ -593,8 +593,9 @@ function hitTarget(t,kind,dmg,ang){
     if(t.hp<=0){ t.alive=false;
       // no coin drops from goblins — coins come from people & boss hoards (DESIGN.md §6)
       const r=Quests.emit('kill',{target:'enemy_goblin'});
-      banner('Goblin driven off!'+(r.counted?'  ('+r.progress+'/'+r.count+')':''));
-      if(r.banner && r.progress===r.count) banner(r.banner); }
+      // no running tally — they just keep coming until you've cleared enough (Kaylee, 2026-07-04)
+      if(r.banner && r.progress===r.count) banner(r.banner);   // only the one-time "quest complete!" cue
+      else banner('Goblin driven off!'); }
   } else if(kind==='wolf'){
     const kb=dmg>=5? 40 : 24; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
     if(t.hp<=0){ t.alive=false; banner('🐺 Wolf down!'+(MTN.packs.some(pk=>pk.wolves.includes(t)&&packAlive(pk)===1)?' ONE LEFT — kill it before it HOWLS!':'')); }
@@ -768,7 +769,15 @@ $('btnRespawn').onclick=()=>{
 // ============================================================
 let dialogOpen=false, dNpc=null, dIdx=0, dLines=[];
 function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
-  dLines = Quests.dialogueFor(n.id) || npcLines(n);
+  // came back to a deliver-quest NPC without the goods? They SCOLD you with the exact shortfall.
+  const short = Quests.deliverShortfall(n.id);
+  if(short){
+    const list = short.map(s=> s.short+' more '+ITEM_DEFS[s.item].ic+' '+ITEM_DEFS[s.item].nm).join(', and ');
+    const tmpl = Quests.scoldTemplate() || 'Back already? You’re still short: {short}. Off you go!';
+    dLines = [ tmpl.replace('{short}', list) ];
+  } else {
+    dLines = Quests.dialogueFor(n.id) || npcLines(n);
+  }
   renderDialog(); $('dialog').classList.remove('hidden'); }
 function renderDialog(){
   $('dialog').querySelector('.who').textContent=dNpc.nm;
@@ -1371,31 +1380,44 @@ const NPC_ACTIONS={
 // ---------- BOG'S BOAT-DRIVING LESSON: YOU take the oars ----------
 // A real crossing: steer with the joystick, dodge the rocks, reach the far jetty.
 const BW=1700, BH=700;
-const BOAT={x:90,y:350,bumps:0,coachT:0,done:false};
-const BOAT_ROCKS=[[380,190],[520,450],[700,130],[830,340],[1000,540],[1120,240],[1310,420],[940,150],[1210,600]].map(r=>({x:r[0],y:r[1],r:26}));
+const BOAT_HULL_MAX=3, BOAT_CURRENT=0.95;   // the river always pushes you toward the jetty — no resting
+const BOAT={x:90,y:350,bumps:0,coachT:0,done:false,hull:BOAT_HULL_MAX};
+// a tighter slalom now — staggered rocks force real steering against the current
+const BOAT_ROCKS=[[300,340],[430,150],[470,520],[640,300],[720,560],[770,120],[900,400],[1010,220],[1050,560],[1180,360],[1270,150],[1320,540],[1440,300]].map(r=>({x:r[0],y:r[1],r:27}));
 const BOG_COACH=['Bog: ROCK! Small strokes — go AROUND, not THROUGH!',
-                 'Bog: My poor boat! Steer EARLY — the water gives you time!',
+                 'Bog: My poor boat! Steer EARLY — the current gives you a moment!',
                  'Bog: You row like a turkey swims. AROUND the rocks, warrior!'];
 function startBoatLesson(){
-  scene='boat'; BOAT.x=90; BOAT.y=BH/2; BOAT.bumps=0; BOAT.coachT=0; BOAT.done=false;
-  banner('⛵ Bog hands YOU the oars: “Press & drag anywhere to steer — same as your feet. Take us to the FAR JETTY. Mind the ROCKS!”');
+  scene='boat'; BOAT.x=90; BOAT.y=BH/2; BOAT.bumps=0; BOAT.coachT=0; BOAT.done=false; BOAT.hull=BOAT_HULL_MAX;
+  banner('⛵ Bog hands YOU the oars: “Press & drag to steer — the CURRENT pushes you on. Mind the ROCKS: crack the hull three times and we SINK back to the dock.”');
+}
+function boatWreck(){
+  const fee=Math.min(P.coins,8); P.coins-=fee;
+  BOAT.x=90; BOAT.y=BH/2; BOAT.hull=BOAT_HULL_MAX; BOAT.coachT=1800; BOAT.bumps++;
+  addFloat(P.x,P.y,'🌊','#9fd6e8',22);
+  banner(fee>0 ? '🌊 The hull SPLITS and you swamp! Bog hauls you back to the dock — “−'+fee+' coins for new planks. Again — GENTLY this time.”'
+               : '🌊 The hull SPLITS and you swamp! Bog hauls you back — “No coin for planks? You’ll owe me. Again — GENTLY!”');
 }
 function boatUpdate(dt,mx,my){
   if(BOAT.done) return;
   tickHunger(dt,1);
   if(BOAT.coachT>0) BOAT.coachT-=dt;
-  BOAT.x+=mx*2.7; BOAT.y+=my*2.7;
+  // the CURRENT carries you downstream every frame — steering only nudges you across it
+  BOAT.x+=mx*2.7 + BOAT_CURRENT; BOAT.y+=my*2.7;
   BOAT.x=Math.max(50,Math.min(BW-40,BOAT.x)); BOAT.y=Math.max(60,Math.min(BH-60,BOAT.y));
   for(const r0 of BOAT_ROCKS){ const d=Math.hypot(r0.x-BOAT.x,r0.y-BOAT.y);
-    if(d<r0.r+30){ const a=Math.atan2(BOAT.y-r0.y,BOAT.x-r0.x);
-      BOAT.x=r0.x+Math.cos(a)*(r0.r+31); BOAT.y=r0.y+Math.sin(a)*(r0.r+31);
-      if(BOAT.coachT<=0){ BOAT.bumps++; BOAT.coachT=1600; banner('💢 '+BOG_COACH[BOAT.bumps%BOG_COACH.length]); } } }
+    if(d<r0.r+22){ const a=Math.atan2(BOAT.y-r0.y,BOAT.x-r0.x);
+      BOAT.x=r0.x+Math.cos(a)*(r0.r+23); BOAT.y=r0.y+Math.sin(a)*(r0.r+23);
+      if(BOAT.coachT<=0){ BOAT.bumps++; BOAT.hull--; BOAT.coachT=1100;
+        addFloat(BOAT.x,BOAT.y-30,'💥 CRACK','#ff8a5a',18);
+        if(BOAT.hull<=0){ boatWreck(); return; }
+        banner('💢 '+BOG_COACH[BOAT.bumps%BOG_COACH.length]+'  ('+BOAT.hull+' plank'+(BOAT.hull>1?'s':'')+' left!)'); } } }
   if(BOAT.x>BW-90){
     BOAT.done=true; questState.flags.flag_boat_skill=true;
     scene='village'; P.x=1195; P.y=1100;
     addFloat(P.x,P.y-40,'⛵ skill learned!','#9fd6e8',20);
-    banner(BOAT.bumps===0 ? '⛵ THE JETTY — not one scratch! Bog: “Born on water! BOAT-DRIVING learned.”'
-                          : '⛵ The jetty! '+BOAT.bumps+' bump'+(BOAT.bumps>1?'s':'')+', but YOU drove. Bog: “Boat-driving learned… the rocks will heal.”');
+    banner(BOAT.bumps===0 ? '⛵ THE JETTY — not one scratch! Bog: “BORN on water! Boat-driving learned.”'
+                          : '⛵ The jetty at last! Bog: “'+BOAT.bumps+' bump'+(BOAT.bumps>1?'s':'')+' — my planks remember. But YOU drove us home. Boat-driving learned.”');
   }
 }
 function drawBoatScene(){
@@ -1423,8 +1445,18 @@ function drawBoatScene(){
   drawPerson(BOAT.x-22,BOAT.y-22,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false,false);
   ctx.fillStyle='#9fd6e8'; ctx.font='10.5px Georgia'; ctx.textAlign='center'; ctx.fillText('Bog', BOAT.x-22, BOAT.y-46);
   ctx.restore();
-  ctx.fillStyle='#e8d9a8'; ctx.font='bold 14px Georgia'; ctx.textAlign='left';
-  ctx.fillText('⛵ bumps: '+BOAT.bumps, 18, vh-18);
+  // HULL indicator — three planks; a cracked plank per rock hit, wreck at zero. Sits up top-left,
+  // clear of the movement hint along the bottom edge.
+  ctx.textAlign='left'; ctx.font='bold 14px Georgia';
+  ctx.fillStyle='rgba(20,16,10,.5)'; rr(ctx, 14, 74, 158, 26, 7);
+  ctx.fillStyle='#e8d9a8'; ctx.fillText('⛵ hull', 22, 92);
+  for(let i=0;i<BOAT_HULL_MAX;i++){
+    const px=82+i*28, py=79, ok=i<BOAT.hull;
+    ctx.fillStyle= ok? '#8a5a2e' : 'rgba(90,70,50,.35)';
+    rr(ctx, px, py, 22, 15, 3);
+    if(ok){ ctx.strokeStyle='#c98f52'; ctx.lineWidth=1.5; ctx.strokeRect(px,py,22,15); }
+    else { ctx.strokeStyle='#ff8a5a'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(px+3,py+3); ctx.lineTo(px+19,py+12); ctx.stroke(); }   // a crack
+  }
 }
 function fishingCast(){
   if(fish.state!=='idle') return;
@@ -1492,7 +1524,7 @@ const MTN={
 };
 function mtnInit(){
   if(MTN.entered) return; MTN.entered=true;
-  MTN.packs=[ mkPack(750,520), mkPack(750,1010) ];
+  MTN.packs=[ mkPack(750,460), mkPack(750,1010) ];
   MTN.mbushes=[ {x:250,y:250,type:'blue',taken:false,respawn:0},{x:1180,y:300,type:'blue',taken:false,respawn:0},{x:600,y:180,type:'blue',taken:false,respawn:0},
                 {x:950,y:230,type:'red',taken:false,respawn:0},{x:340,y:520,type:'red',taken:false,respawn:0} ];
   for(let i=0;i<26;i++) MTN.mtrees.push({x:80+Math.random()*(MW-160), y:80+Math.random()*300, r:20+Math.random()*12});
@@ -1734,6 +1766,10 @@ function mountainsUpdate(dt){
         }
         else { w.t+=dt; if(w.t>1900){ w.t=0; w.dir=Math.random()*7; } w.x+=Math.cos(w.dir)*.5; w.y+=Math.sin(w.dir)*.5; }
         if(w.atkT>0) w.atkT--;
+        // wolves keep to their turf: the WOODS pack can't crowd the cliff-base climb spot,
+        // the PLATEAU pack stays up top. Reaching the cliff base is a safe beat to climb.
+        if(pk===MTN.packs[0]) w.y=Math.min(w.y,600); else w.y=Math.max(w.y,975);
+        w.x=Math.max(24,Math.min(MW-24,w.x));
       }
     }
     // birds wander
@@ -1970,8 +2006,14 @@ function drawMountains(){
   // the CLIFF band
   ctx.fillStyle='#3f3b38'; ctx.fillRect(0,700,MW,260);
   ctx.fillStyle='#4c4744'; for(let i=0;i<30;i++){ ctx.fillRect((i*61)%MW, 706+(i*37)%236, 34, 12); }
-  ctx.strokeStyle='rgba(255,217,119,.5)'; ctx.lineWidth=2; ctx.strokeRect(690,700,120,260);
-  ctx.fillStyle='#e8d9a8'; ctx.font='13px Georgia'; ctx.textAlign='center'; ctx.fillText('🧗', 750, 736);
+  // THE CLIMB CHUTE — a marked lane with handholds; the glowing PAD at the base (in the approach
+  // strip, ABOVE the wall) is where you trigger the climb, so the prompt is never buried in the rock.
+  const near=cliffBaseNear();
+  ctx.strokeStyle='rgba(255,217,119,'+(near?0.95:0.55)+')'; ctx.lineWidth=near?3:2; ctx.strokeRect(700,660,100,300);
+  ctx.fillStyle='rgba(255,217,119,'+(near?0.22:0.10)+')'; ctx.fillRect(700,660,100,44);   // the base PAD sits in the approach
+  ctx.strokeStyle='rgba(255,225,150,.6)'; ctx.lineWidth=2;
+  for(let i=0;i<7;i++){ const hy=706+i*36; ctx.beginPath(); ctx.moveTo(724,hy); ctx.lineTo(776,hy); ctx.stroke(); }   // rungs
+  ctx.fillStyle='#ffe9a8'; ctx.font='15px Georgia'; ctx.textAlign='center'; ctx.fillText('🧗', 750, 690);
   // cave mouth on the summit plateau
   ctx.fillStyle='#191512'; ctx.beginPath(); ctx.ellipse(750,1130,84,58,0,Math.PI,0); ctx.fill();
   ctx.fillStyle='#26201a'; ctx.beginPath(); ctx.ellipse(750,1132,60,40,0,Math.PI,0); ctx.fill();
@@ -2012,6 +2054,11 @@ function drawMountains(){
   ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
   drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false);
   ctx.restore();
+  // floating CLIMB prompt — drawn AFTER the cliff & the player so it's never hidden behind the rock
+  if(cliffBaseNear()){
+    const bob=Math.sin(performance.now()/220)*2;
+    ctx.fillStyle='rgba(20,16,10,.65)'; rr(ctx, P.x-40, P.y-58+bob, 80, 22, 7);
+    ctx.fillStyle='#ffe27a'; ctx.font='bold 14px Georgia'; ctx.textAlign='center'; ctx.fillText('🧗 CLIMB', P.x, P.y-42+bob); }
   if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5;
     ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke(); }
   if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0;
@@ -2257,6 +2304,11 @@ if(location.hash==='#test-quests'){
   openDialog(dorgan); while(dialogOpen) advanceDialog();
   P.inv.item_blueberry=4; Quests.update(16);
   ok(questState.stage==='active', '4 blue alone is NOT enough — Dorgan wants 2 red too');
+  // v0.23: no running x/y counter, and Dorgan scolds with the exact shortfall
+  ok(!/\d+\s*\/\s*\d+/.test(Quests.trackerText()||''), 'quest tracker shows NO x/y progress counter');
+  openDialog(dorgan);
+  ok(dLines.length===1 && /2 more/.test(dLines[0]) && /Red/i.test(dLines[0]), 'Dorgan scolds with the exact shortfall (2 more red)');
+  closeDialog();
   P.inv.item_red_berry=2; Quests.update(16);
   ok(questState.stage==='complete', '4 blue + 2 red → ready to deliver');
   P.inv.item_blueberry=3; Quests.update(16);
@@ -2452,6 +2504,14 @@ if(location.hash==='#test-quests'){
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();
   ok(scene==='village' && questState.currentId===cq, 'village deaths respawn home; quests never reset');
+  // v0.23: boat rocks CRACK the hull; three cracks WRECK you back to the dock with a repair fee
+  startBoatLesson();
+  ok(BOAT.hull===3, 'boat starts with a full 3-plank hull');
+  { const rk=BOAT_ROCKS[0]; P.coins=20; const c0=P.coins;
+    for(let k=0;k<3;k++){ BOAT.x=rk.x; BOAT.y=rk.y; BOAT.coachT=0; boatUpdate(16,0,0); }
+    ok(BOAT.x<200 && BOAT.hull===3, 'a third rock crack WRECKS the boat → hauled back to the dock, hull reset');
+    ok(P.coins<c0, 'Bog charges a repair fee for the wreck'); }
+  scene='village'; BOAT.done=true;
   const div=document.createElement('div');
   div.style.cssText='position:fixed;inset:8px;z-index:99;background:rgba(10,8,5,.97);color:#e8d9a8;font:12px/1.6 monospace;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;';
   const fails=R.filter(r=>r.startsWith('❌')).length;

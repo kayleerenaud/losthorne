@@ -15,7 +15,7 @@ export default {
   },
   tracker:{
     offer:'🔨 Take the hammer to Modo',
-    active:'🔨 Hammer-smash dummies: {n}/3',
+    active:'🔨 Smash the dummies with the hammer',
     complete:'🏆 Talk to Modo',
     afterReward:'🛶 Bog owes you a boat ride…',
   },

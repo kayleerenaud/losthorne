@@ -18,7 +18,7 @@ export default {
   },
   tracker:{
     offer:'🧪 Talk to Dorgan',
-    active:'{multi}',
+    active:'🧺 Gather Dorgan’s berries',
     complete:'🏆 Deliver the berries to Dorgan',
     afterReward:'🪙 Erik has work for you…',
   },
@@ -28,6 +28,8 @@ export default {
     reward:'🎉 Dorgan brews you a FREE Stoneskin potion — his shop is OPEN!',
     progress:null,
   },
+  // shown (via {short}) when you return to Dorgan still missing berries — no HUD counter, just a scolding
+  scold:'Empty-handed?! I still need {short}. In the SATCHEL, warrior — never your belly. Back to the bushes with you!',
   reward:{ potion:'potion_stoneskin' },
   setFlagOnReward:'flag_dorgan_shop_open',
   next:{ quest:'quest_main_03_turkeys', delayMs:1500, banner:null },
