@@ -9,7 +9,7 @@ export default {
            "Drive off 5 goblins, and there'll be 110 coins in it for you.",
            "Oh — and NEVER eat the red berries. The blue ones are safe. The red ones… we lost old Gregor that way."],
     active:["The goblins won't leave on their own, warrior! North, up the path, through the woods."],
-    complete:["HA! You did it! Three goblins gone — the children can play again. Here: 110 coins, well earned.",
+    complete:["HA! You did it! Five goblins gone — the children can play again. Here: 110 coins, well earned.",
               "But tell me… wasn't that BRUTAL with bare hands? You could use some strength. Or a shield.",
               "Talk to DORGAN, our potion-maker — the shop with the 🧪 sign. Tell him I sent you."],
     afterReward:["Dorgan, warrior! The 🧪 sign! He brews things that would curl Gregor's beard. Rest his soul."],

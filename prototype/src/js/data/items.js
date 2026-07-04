@@ -37,7 +37,7 @@ export const ITEM_DEFS = {
     st:'Won from the visiting champion. HOLD the attack button to raise it — blows bounce off. The arm tires after ~3 seconds and needs a breath to recover. Releasing deals NO damage: the smash lives on the 💥 button.',
     effect:{ kind:'passive' } },
   item_sword:  { id:'item_sword', ic:'🗡️', nm:'Forged Sword',
-    st:'Modo steel. Goblins fall in 3 good hits instead of 8 punches.',
+    st:'Modo steel. Goblins fall in 2 good hits instead of 6 punches.',
     effect:{ kind:'unlock_weapon', weapon:'sword' } },
   item_bow:    { id:'item_bow', ic:'🏹', nm:'Hunting Bow',
     st:'Strike from a distance — but every shot costs an arrow.',

@@ -130,6 +130,12 @@ Each avatar has their own unique personal side quest that the others don't — r
 **The village (home base):** resupply, sleep, your own house — you start with a **hut** and can expand/upgrade it over time. 🔜
 **The STONE-TROLL RUINS** ✅: mossy troll-shaped statues by the village's west fence (🔍 to inspect). The daylight lore lives HERE, in the world: trolls of the dark years wandered into the sunrise and froze forever. Chief Bonbottom points to the ruins when he sends you toward the mountains — the hint that daylight is the weapon, without ever naming what waits up there.
 
+**Village landmarks & ambient life** ✅ (v0.19 — *numbers/flavor are prototype guesses, flag for review*): the world rewards poking at it, not just fighting in it.
+- **Wishing well** 🪙 (center of the square): 🪙 to toss a coin (costs 1). ~1-in-8 the well "hums" and returns 5 — a tiny gamble/flavor loop, not an economy pillar. *(payout odds = guess)*
+- **Signposts** 🪧 at the north (woods) and south (mountain-trail) exits: 🪧 to read in-world wayfinding + soft danger hints, reinforcing where quests point.
+- **Pond ducks** 🦆 (Bog's pond): they paddle a lazy loop and leave wakes. Crowd them and they STARTLE to deeper water; **play your instrument (🎵) and they drift CLOSER** — the first seed of a future TAMING/creature system. *(charm radius/speeds = guesses)*
+- **Petting** 🤲 at Reba's stable: Maple leans in warmly; Biscuit still snaps (she "counts the year") — reinforces Reba's not-yet-earned-horse beat through touch, not just dialogue.
+
 ### Regular enemies
 - **Goblins** ✅ — small roamers; encounters get thicker deeper into the forest. 6 punches (or 2 sword hits) to defeat. **They can NEVER cross into the village** — the village boundary is protected ground; they stop at its edge.
 - **The Visiting Champion** ✅ (quest 4) — a larger human who FIGHTS BACK, hard. He runs a fixed, LEARNABLE pattern: chase → shield up (unhittable) → swing → swing → a brief OPEN moment (green ring — strike now!) → repeat. He presses constantly and lands real hits (2 half-hearts each). 28 HP. Defeat him — it's an entertainment fight — and his shield becomes yours (permanent gear; it can never be consumed or lost).

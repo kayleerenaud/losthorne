@@ -90,7 +90,7 @@ function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.cli
 const P = { x:800, y:1210, dir:0, hp:10, maxhp:10, coins:STARTING_COINS, speed:2.5, slashT:0, smashT:0, smashT0:16, smashR:95, hurtT:0,
   weapon:'fists', weapons:{fists:true, sword:false, hammer:false, bow:false}, arrows:0, potionRolls:[],
   inv:{item_bread:0,item_potion:0,item_turkey:0,item_blueberry:0,item_shield:0,item_wild_turkey:0,item_red_berry:0,item_hammer:0}, hasShield:false, shieldUp:false, shieldT:0, shieldCd:0, dashT:0, dashCd:0 };
-// combat scale: 1 = one punch. Goblin=8 punches or 3 sword hits (DESIGN.md §7)
+// combat scale: 1 = one punch. Goblin=6 punches or 2 sword hits (DESIGN.md §7)
 const WEAPONS = { fists:{icon:'👊',dmg:1,range:50}, sword:{icon:'⚔️',dmg:3,range:74}, hammer:{icon:'🔨',dmg:5,range:82}, bow:{icon:'🏹'} };
 function ownedWeapons(){ return ['fists','sword','hammer','bow'].filter(w=>P.weapons[w]); }
 const floats=[];   // floating damage/pickup numbers
@@ -217,6 +217,43 @@ function spawnTurkeys(){
 }
 const CURSED_STONE={x:840,y:170};
 const RUINS={x:400,y:1210};   // the STONE-TROLL RUINS — village lore: trolls that met the dawn froze forever
+const WELL={x:700,y:1245};    // the WISHING WELL — toss a coin; sometimes the old stones hum back
+const SIGNPOSTS=[
+  {x:880, y:640,  txt:'🪧 “NORTH: the woods. Goblins lately — children keep OUT.”'},
+  {x:990, y:1500, txt:'🪧 “SOUTH: the mountain trail. Travelers report rumbling. Go prepared.”'},
+];
+const ducks=[0.4,2.5,4.6].map((a,i)=>({ang:a, r:0.5+i*0.14, spd:0.00028+i*0.00009, flee:0, quackT:1500+i*900}));
+function duckPos(dk){ return {x:POND.x+Math.cos(dk.ang)*POND.rx*dk.r, y:POND.y+Math.sin(dk.ang)*POND.ry*dk.r}; }
+let musicT=0;                 // playing your instrument draws small creatures closer (the seed of taming)
+function ducksUpdate(dt){
+  if(musicT>0) musicT-=dt;
+  const charmed = musicT>0;
+  for(const dk of ducks){
+    dk.ang += dk.spd*dt;                                   // a lazy paddling loop around the pond
+    const dp=duckPos(dk), dist=Math.hypot(P.x-dp.x, P.y-dp.y);
+    const pa=Math.atan2(P.y-POND.y, P.x-POND.x);
+    if(charmed && dist<300){                               // the tune coaxes them toward the near shore
+      dk.r=Math.min(0.94, dk.r+0.00045*dt);
+      let da=((pa-dk.ang+Math.PI*3)%(Math.PI*2))-Math.PI; dk.ang += Math.max(-0.001*dt,Math.min(0.001*dt,da));
+      dk.flee=0;
+    } else if(!charmed && dist<90){                        // crowded — startle to deeper water, away from you
+      dk.flee=260; dk.r=Math.max(0.26, dk.r-0.0013*dt);
+      let da=((dk.ang-pa+Math.PI*3)%(Math.PI*2))-Math.PI; dk.ang += (da>=0?1:-1)*0.0017*dt;
+    } else {
+      if(dk.flee>0) dk.flee-=dt;
+      dk.r += (0.6-dk.r)*0.00035*dt;                       // drift back to a comfortable mid-radius
+    }
+    dk.r=Math.max(0.22,Math.min(0.95,dk.r));
+    dk.quackT-=dt; if(dk.quackT<=0){ dk.quackT=4000+((dk.ang*1000|0)%3500); addFloat(dp.x,dp.y-14, charmed?'♪':'quack','#dfeaf0',12); }
+  }
+}
+const WELL_LINES=['You hear it splash… far, far down.','The water whispers back. Probably the wind. Probably.','Somewhere below, a tiny *plink*. The well is listening.'];
+function tossCoinWell(){
+  if(P.coins<1){ banner('🪙 Not a coin to spare. The well understands hard times.'); return; }
+  P.coins--; addFloat(WELL.x,WELL.y-30,'🪙','#ffd977',16);
+  if(Math.random()<0.125){ P.coins+=5; addFloat(P.x,P.y-40,'+5 🪙','#ffd977',20); banner('✨ The well HUMS — five coins ride the bucket up! The old stones like you.'); }
+  else banner('🪙 '+WELL_LINES[Math.floor(Math.random()*WELL_LINES.length)]);
+}
 const VILLAGE={x:800,y:1230,rx:365,ry:245};   // goblins can't cross this line
 spawnTurkeys();
 
@@ -257,11 +294,10 @@ function turkeyNearby(){
   for(const tk of turkeys){ const d=Math.hypot(tk.x-P.x,tk.y-P.y); if(d<bd){bd=d;best=tk;} }
   return best;
 }
-let caughtTurkeys=0, turkeyRespawnT=0;
+let turkeyRespawnT=0;
 function catchTurkey(){
   const tk=turkeyNearby(); if(!tk) return;
   turkeys.splice(turkeys.indexOf(tk),1);
-  caughtTurkeys++;
   P.inv.item_wild_turkey=(P.inv.item_wild_turkey||0)+1;
   addFloat(P.x,P.y-36,'🦃 grabbed!','#f0d8a0',18);
   banner('🦃 Wild turkey into the satchel! ('+P.inv.item_wild_turkey+') — Erik pays 15 apiece');
@@ -275,7 +311,6 @@ Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questS
   takeItems: (id,n)=>{ P.inv[id]=Math.max(0,(P.inv[id]||0)-n); },
   givePotion: (k)=>{ P.potionRolls.push(k); P.inv.item_potion=(P.inv.item_potion||0)+1; },
   giveItem: (id)=>{ if(id==='item_shield'){ P.hasShield=true; } P.inv[id]=(P.inv[id]||0)+1; },
-  retroCount: (o)=> o.target==='entity_turkey' ? caughtTurkeys : 0,
   itemIcon: (id)=> (ITEM_DEFS[id]&&ITEM_DEFS[id].ic)||'•',
 });
 let gobRespawnT=0;
@@ -363,6 +398,10 @@ function contextAction(){
     return {icon:'🎣', label:'HOLD to reel!', kind:'reel'};
   }
   if(scene!=='village'){
+    if(scene==='npc_reba'){   // the horses are RIGHT THERE and extremely pettable (results vary)
+      if(Math.hypot(P.x-120,P.y-120)<62) return {icon:'🤲', label:'pet Maple', kind:'pet', horse:'maple'};
+      if(Math.hypot(P.x-400,P.y-120)<62) return {icon:'🤲', label:'pet Biscuit', kind:'pet', horse:'biscuit'};
+    }
     if(npcNearby()) return {icon:'💬', label:NPCS.find(x=>x.id===scene).nm.split(' ')[0], kind:'talk'};
     if(interiorDoorNear()) return {icon:'🚪', label:'leave', kind:'leave'};
     return {icon:'🚪', label:'to the door', kind:'none'};
@@ -370,6 +409,8 @@ function contextAction(){
   const n=npcNearby(); if(n) return {icon:'💬', label:n.nm.split(' ')[0], kind:'talk'};
   const d=shopDoorNearby(); if(d) return {icon:'🚪', label:'enter '+d.building.sign, kind:'enter', npc:d};
   if(Math.hypot(RUINS.x-P.x,RUINS.y-P.y)<70) return {icon:'🔍', label:'the old ruins', kind:'ruins'};
+  if(Math.hypot(WELL.x-P.x,WELL.y-P.y)<58) return {icon:'🪙', label:'toss a coin', kind:'well'};
+  { const sp=SIGNPOSTS.find(s=>Math.hypot(s.x-P.x,s.y-P.y)<60); if(sp) return {icon:'🪧', label:'read the sign', kind:'sign', sign:sp}; }
   if(turkeyNearby()) return {icon:'🤲', label:'GRAB!', kind:'grab'};
   if(enemyNearby()) return {icon:'💥', label:'smash', kind:'smash'};
   const av=AVATARS[chosen<0?0:chosen];
@@ -462,7 +503,13 @@ function pressButton(kind){
     else if(a.kind==='leave'){ leaveShop(); }
     else if(a.kind==='grab'){ catchTurkey(); }
     else if(a.kind==='ruins'){ banner('🗿 Stone trolls, frozen mid-stride. The elders say they wandered into the sunrise… and never walked home.'); }
-    else if(a.kind==='music'){ banner('🎵 You play a gentle tune… the village hums along.'); for(let i=0;i<3;i++) addFloat(P.x+(i-1)*16, P.y-30-i*8, '♪', '#ffd977', 15+i*2); }
+    else if(a.kind==='well'){ tossCoinWell(); }
+    else if(a.kind==='sign'){ banner(a.sign.txt); }
+    else if(a.kind==='pet'){
+      if(a.horse==='maple'){ banner('🐴 Maple leans into your hand and huffs warm air. A friend for life — once that shoe is fixed.'); addFloat(P.x,P.y-34,'🐴❤️','#e8c9a0',18); }
+      else { banner('🐴 Biscuit SNAPS at your fingers! Reba: “Told you. A year, warrior. She counts.”'); addFloat(P.x,P.y-34,'😬','#e8c9a0',18); }
+    }
+    else if(a.kind==='music'){ musicT=4200; banner('🎵 You play a gentle tune… small ears prick up, and creatures wander CLOSER.'); for(let i=0;i<3;i++) addFloat(P.x+(i-1)*16, P.y-30-i*8, '♪', '#ffd977', 15+i*2); }
     else if(a.kind==='rest'){ banner('💤 You rest a moment, watching the clouds.'); addFloat(P.x,P.y-34,'💤','#cfc7b2',18); }
   }
   else if(kind==='wpn'){
@@ -508,11 +555,6 @@ cvs.addEventListener('mousedown',e=>pointerDown(pt(e),'m'));
 cvs.addEventListener('mousemove',e=>pointerMove(pt(e),'m'));
 cvs.addEventListener('mouseup',e=>pointerUp(pt(e),'m'));
 
-function tapAction(){ // talk to nearby NPC, or attack forward
-  if(dialogOpen){ advanceDialog(); return; }
-  for(const n of NPCS){ if(Math.hypot(n.x-P.x,n.y-P.y)<70){ openDialog(n); return; } }
-  if(P.weapon==='bow') fireArrow(P.dir,75); else slash(P.dir);
-}
 
 // ============================================================
 // COMBAT
@@ -724,6 +766,7 @@ function update(dt){
   let mx=0,my=0;
   if(joy.active){ const m=Math.hypot(joy.dx,joy.dy); if(m>6){ const cl=Math.min(m,52)/52; mx=joy.dx/m*cl; my=joy.dy/m*cl; } }
   if(keys.w||keys.ArrowUp)my=-1; if(keys.s||keys.ArrowDown)my=1; if(keys.a||keys.ArrowLeft)mx=-1; if(keys.d||keys.ArrowRight)mx=1;
+  { const m=Math.hypot(mx,my); if(m>1){ mx/=m; my/=m; } }   // normalize diagonals (keyboard was √2 too fast)
   if(keys[' ']){ slash(P.dir); }
   // scenes with their own physics: the boat crossing & THE CLIMB
   if(scene==='boat'){ boatUpdate(dt,mx,my); updFloats(); return; }
@@ -786,7 +829,7 @@ function update(dt){
     if(turkeyRespawnT>20000){ turkeyRespawnT=0; turkeys.push({x:200+Math.random()*1200, y:760+Math.random()*280, dir:Math.random()*7, t:0}); } }
 
   // the champion: approach → shield up (immune) → wind-up (get clear!) → strike
-  if(questState.currentId==='quest_main_04_champion' && questState.stage==='active' && !champion) spawnChampion();
+  if(questState.currentId==='quest_main_04_champion' && questState.stage==='active' && (!champion||!champion.alive)) spawnChampion();
   if(champion && champion.alive && scene==='village' && !blocked()){
     const c=champion; c.t+=dt;
     const d=Math.hypot(P.x-c.x,P.y-c.y);
@@ -843,6 +886,9 @@ function update(dt){
   if(goblins.every(g=>!g.alive)){ gobRespawnT+=dt;
     if(gobRespawnT>30000){ gobRespawnT=0; spawnGoblins(); banner('🌲 More goblins prowl the north forest…'); } }
   else gobRespawnT=0;
+
+  // the pond ducks paddle, flee a crowder, and drift closer when you play a tune
+  if(scene==='village') ducksUpdate(dt);
 
   // hunger — a stroll barely counts; fighting and dashing burn hot (climbing is handled in its scene)
   tickHunger(dt, (P.slashT>0||P.dashT>0)? 2.2 : (mx||my)? 1.3 : 1);
@@ -915,6 +961,12 @@ function draw(){
   ctx.fillStyle='#31606e'; ctx.beginPath(); ctx.ellipse(POND.x-14,POND.y-10,POND.rx*.8,POND.ry*.78,0,0,7); ctx.fill();
   ctx.strokeStyle='rgba(210,230,240,.25)'; ctx.lineWidth=2;
   for(let i=0;i<3;i++){ ctx.beginPath(); ctx.ellipse(POND.x-20+i*24, POND.y-16+i*20, 26,7,0,0,7); ctx.stroke(); }
+  // ducks — a little wake trails behind each
+  ctx.textAlign='center';
+  for(const dk of ducks){ const dp=duckPos(dk);
+    ctx.strokeStyle='rgba(210,230,240,.34)'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.ellipse(dp.x, dp.y+4, 11, 4, 0, 0, 7); ctx.stroke();
+    ctx.font='17px serif'; ctx.fillText('🦆', dp.x, dp.y+6); }
   // Bog's shack + 🛶 sign
   ctx.fillStyle='#4a3a26'; ctx.fillRect(1160,1035,74,50);
   ctx.fillStyle='#6d4a2e'; ctx.beginPath(); ctx.moveTo(1152,1037); ctx.lineTo(1197,1008); ctx.lineTo(1242,1037); ctx.closePath(); ctx.fill();
@@ -956,6 +1008,25 @@ function draw(){
     ctx.beginPath(); ctx.arc(R0.x+23,R0.y-13,8,0,7); ctx.fill();
     ctx.fillStyle='#3f4a35'; ctx.beginPath(); ctx.arc(R0.x-34,R0.y-8,6,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(R0.x+10,R0.y+13,5,0,7); ctx.fill();  // moss
     if(Math.hypot(RUINS.x-P.x,RUINS.y-P.y)<70){ ctx.fillStyle='#cbbc90'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('🔍 old ruins', R0.x, R0.y-44); } }
+
+  // the WISHING WELL — stone ring, dark water, a little shingled roof on two posts
+  { const W=WELL;
+    ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(W.x,W.y+16,26,8,0,0,7); ctx.fill();          // shadow
+    ctx.fillStyle='#7d756a'; ctx.beginPath(); ctx.ellipse(W.x,W.y+8,24,13,0,0,7); ctx.fill();                  // outer stone ring
+    ctx.fillStyle='#5b544c'; ctx.beginPath(); ctx.ellipse(W.x,W.y+5,18,10,0,0,7); ctx.fill();                  // rim
+    ctx.fillStyle='#22323b'; ctx.beginPath(); ctx.ellipse(W.x,W.y+5,13,7,0,0,7); ctx.fill();                   // water
+    ctx.strokeStyle='rgba(200,225,235,.25)'; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(W.x-3,W.y+4,7,3,0,0,7); ctx.stroke();
+    ctx.fillStyle='#6d4a2e'; ctx.fillRect(W.x-22,W.y-30,4,34); ctx.fillRect(W.x+18,W.y-30,4,34);               // posts
+    ctx.fillStyle='#7a3f2a'; ctx.beginPath(); ctx.moveTo(W.x-28,W.y-30); ctx.lineTo(W.x,W.y-44); ctx.lineTo(W.x+28,W.y-30); ctx.closePath(); ctx.fill(); // roof
+    if(Math.hypot(W.x-P.x,W.y-P.y)<58){ ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('🪙 make a wish', W.x, W.y-52); } }
+
+  // SIGNPOSTS — a leaning post and a carved board at each trailhead
+  for(const s of SIGNPOSTS){
+    ctx.fillStyle='rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(s.x,s.y+20,15,5,0,0,7); ctx.fill();
+    ctx.fillStyle='#6d4a2e'; ctx.fillRect(s.x-3,s.y-8,6,28);                                                   // post
+    ctx.fillStyle='#8a5a34'; ctx.fillRect(s.x-20,s.y-24,40,18); ctx.strokeStyle='#4a2f18'; ctx.lineWidth=2; ctx.strokeRect(s.x-20,s.y-24,40,18); // board
+    ctx.strokeStyle='#c9a878'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(s.x-14,s.y-18); ctx.lineTo(s.x+14,s.y-18); ctx.moveTo(s.x-14,s.y-13); ctx.lineTo(s.x+8,s.y-13); ctx.stroke(); // carved lines
+    if(Math.hypot(s.x-P.x,s.y-P.y)<60){ ctx.fillStyle='#e8d9b0'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('🪧 read', s.x, s.y-32); } }
 
   // training dummies
   for(const d of dummies){
@@ -1125,7 +1196,7 @@ function draw(){
   }
 
   // ---------- HUD ----------
-  const top = 12 + (window.visualViewport? 0:0);
+  const top = 12;
   // hearts
   for(let i=0;i<P.maxhp/2;i++){ drawHeart(20+i*26, top+18, (P.hp>=(i+1)*2)?1:(P.hp===i*2+1?.5:0)); }
   // coins
@@ -1340,7 +1411,7 @@ function fishingEnd(){
   questState.flags.flag_fished_once=true;
   scene='village'; P.x=1195; P.y=1100;
   banner('⛵ Ashore! Catch: '+fish.catches.length+' — Bog keeps '+bogN+', you keep '+yours.length+'. He can teach boat-driving now!');
-  fish.state='idle'; fish.catches.length=0;
+  fish.state='idle'; fish.catches.length=0; fish.hookChosen=false;   // re-offer the hook choice next trip
 }
 function fishingUpdate(dt){
   if(scene!=='fishing') return;
@@ -1414,8 +1485,6 @@ function climbUpdate(dt){
     else CLIMB.grip=Math.min(100, CLIMB.grip+dt*0.05); }                        // resting on a ledge: grip refills
   if(CLIMB.prog>=100){ scene='mountains'; MTN.climbed=true; P.x=750; P.y=975; banner('🏔 The summit! Wind, stone… and wolves at a cave mouth.'); }
 }
-function strollGoblins(){ // a couple of goblins harass the southern woods trail
-  return; }
 function mountainsUpdate(dt){
   if(scene!=='mountains' && scene!=='cave') return;
   mtnInit();
@@ -1721,7 +1790,6 @@ function drawMountains(){
   if(T.outside || T.stone){
     ctx.save();
     if(T.stone) ctx.filter='grayscale(1)';
-    ctx.fillStyle= T.stone? '#8a8populate' : '#5c6b4a';
     ctx.fillStyle= T.stone? '#8a877f' : '#5c6b4a';
     ctx.beginPath(); ctx.ellipse(T.x,T.y+8,34,44,0,0,7); ctx.fill();
     ctx.beginPath(); ctx.arc(T.x,T.y-42,22,0,7); ctx.fill();
@@ -1892,7 +1960,7 @@ function drawInterior(){
   ctx.font='24px Georgia'; ctx.textAlign='center';
   for(const pr of d.interior.props) ctx.fillText(pr[0], pr[1], pr[2]);
   ctx.font='bold 15px Georgia'; ctx.fillStyle='#ffd977'; ctx.fillText(d.building.sign+'  '+d.name, r.w/2, 42);
-  ctx.font='12px Georgia'; ctx.fillStyle='rgba(240,230,200,.5)'; ctx.fillText('🚪 walk here to leave', r.w/2, r.h+18<r.h?r.h-26:r.h-26);
+  ctx.font='12px Georgia'; ctx.fillStyle='rgba(240,230,200,.5)'; ctx.fillText('🚪 walk here to leave', r.w/2, r.h-26);
   const n=NPCS.find(x=>x.id===scene);
   drawPerson(d.pos.x, d.pos.y, 0, {hair:d.look.hair||'#555',outfit:n.col,skin:'#e0b088'}, n.hat, Math.hypot(d.pos.x-P.x,d.pos.y-P.y)<86);
   if(pot.t>0 && pot.type){ const col = pot.type==='potion_strength'? '255,140,60' : pot.type==='potion_speed'? '90,220,255' : '200,200,215';
