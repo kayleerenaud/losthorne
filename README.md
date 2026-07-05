@@ -23,7 +23,7 @@ Open `prototype/index.html` in a browser — everything is one self-contained fi
 | Dorgan | Potion-maker — random gifts |
 | Erik (with a K) | Trader — nothing is free |
 | Modo | Blacksmith *(coming soon)* |
-| Jesse | Traveling storyteller *(coming soon)* |
+| Jessie | Traveling bard & storyteller — first met cursed as the Witch *(coming soon)* |
 
 ## Roadmap
 1. ✅ Playable village slice, quests, combat
