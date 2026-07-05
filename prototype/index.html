@@ -1578,6 +1578,7 @@
     if (scene === "dive") {
       return { icon: "⬆️", label: DIVE.breathing ? "(catching breath)" : "Resurface", kind: "resurface" };
     }
+    if (scene === "brew") return brewAction();
     if (scene === "fishing") {
       if (fish.state === "idle") return { icon: "🎣", label: "cast", kind: "cast" };
       if (fish.state === "waiting") return { icon: "👀", label: "watch…", kind: "none" };
@@ -1629,6 +1630,10 @@
     const ctxKind = b === "ctx" ? (_a = contextAction()) == null ? void 0 : _a.kind : null;
     if (ctxKind === "firetap") {
       fireGameTap();
+      return;
+    }
+    if (ctxKind === "brewtap") {
+      brewTap();
       return;
     }
     const ctxIsSmash = ctxKind === "smash", ctxIsReel = ctxKind === "reel" || ctxKind === "none" && scene === "fishing";
@@ -2266,9 +2271,27 @@
     if (dNpc && dNpc.id === "npc_strax" && !MTN.fire.learned && !MTN.fire.game) fireGameStart("strax");
   }
   function startAntidoteBrew() {
+    if (dialogOpen) closeDialog();
+    scene = "brew";
+    BREW.step = "fire";
+    BREW.spark = 0;
+    BREW.pos = 0;
+    BREW.dir = 1;
+    BREW.temp = 50;
+    BREW.cook = 0;
+    BREW.added = 0;
+    BREW.stir = 0;
+    BREW.t = 0;
+    banner("🧪 Dorgan pulls you into the back room. “Witch’s-bane, warrior. FIRST — the fire. STRIKE when the spark glows HOT!”");
+  }
+  function finishAntidoteBrew() {
     P.inv.item_antidote = (P.inv.item_antidote || 0) + 1;
     questState.flags.flag_antidote_made = true;
-    banner("🧪 Dorgan walks you through it — light the fire, cook, mix, stir. The Antidote is yours: “Guard it. Do NOT drink it.”");
+    scene = "village";
+    P.x = 560;
+    P.y = 1120;
+    addFloat(P.x, P.y - 40, "🧪 Antidote!", "#c9f0a0", 20);
+    banner("🧪 It shivers pale in the flask — the ANTIDOTE is yours. Dorgan: “Guard it with your life. But do NOT drink it.”");
   }
   $("dialog").onclick = advanceDialog;
   var bannerT = null;
@@ -2319,6 +2342,11 @@
     }
     if (scene === "dive") {
       diveUpdate(dt, mx, my);
+      updFloats();
+      return;
+    }
+    if (scene === "brew") {
+      brewUpdate(dt);
       updFloats();
       return;
     }
@@ -2621,6 +2649,8 @@
       drawBoatScene();
     } else if (scene === "dive") {
       drawDive();
+    } else if (scene === "brew") {
+      drawBrew();
     } else if (scene === "climb") {
       drawClimb();
     } else if (scene === "mountains") {
@@ -3348,7 +3378,7 @@
     ctx.fillStyle = "rgba(240,230,200,.3)";
     ctx.font = "11.5px Georgia";
     ctx.textAlign = "left";
-    if (!joy.active) ctx.fillText("press & drag anywhere to move", 18, vh - 20);
+    if (!joy.active && scene !== "brew" && scene !== "dive") ctx.fillText("press & drag anywhere to move", 18, vh - 20);
     ctx.textAlign = "center";
     ctx.fillText(scene === "fishing" ? "⛵ tap: row back to shore" : scene === "boat" ? "⛵ drag anywhere to steer" : P.weapon === "bow" ? "pull back & release • arrows: " + P.arrows : P.hasShield ? "tap: attack • HOLD: 🛡️ shield (3s max) • 💥: smash" : P.weapon === "fists" ? "tap: punch • hold: charge SMASH" : "drag from the button: aimed slice • hold: charge SMASH", ab.x - 24, ab.y + ab.r + 18);
     if (pot.t > 0 && pot.type) {
@@ -4182,6 +4212,183 @@
       ctx.restore();
     }
     ctx.restore();
+  }
+  var BREW = { step: "fire", spark: 0, pos: 0, dir: 1, temp: 50, cook: 0, added: 0, stir: 0, t: 0 };
+  var BREW_ING = [{ ic: "🍄", nm: "nightcap mushroom" }, { ic: "🌿", nm: "wolfsbane" }, { ic: "🦴", nm: "a shard of bone" }];
+  function brewUpdate(dt) {
+    if (scene !== "brew") return;
+    BREW.t += dt;
+    if (BREW.step === "fire") {
+      BREW.pos += BREW.dir * dt * 16e-4;
+      if (BREW.pos >= 1) {
+        BREW.pos = 1;
+        BREW.dir = -1;
+      }
+      if (BREW.pos <= 0) {
+        BREW.pos = 0;
+        BREW.dir = 1;
+      }
+    } else if (BREW.step === "cook") {
+      BREW.temp = Math.max(0, BREW.temp - dt * 0.02);
+      if (BREW.temp >= 42 && BREW.temp <= 68) BREW.cook = Math.min(100, BREW.cook + dt * 0.05);
+      if (BREW.cook >= 100) {
+        BREW.step = "mix";
+        banner("🧪 Dorgan: “Cooked to a whisper! NOW the three — TAP to drop each in. Mushroom first.”");
+      }
+    }
+  }
+  function brewTap() {
+    if (scene !== "brew") return;
+    if (BREW.step === "fire") {
+      if (BREW.pos > 0.4 && BREW.pos < 0.6) {
+        BREW.spark++;
+        addFloat(vw / 2, vh * 0.5, "✦", "#ffcf6a", 24);
+        if (BREW.spark >= 3) {
+          BREW.step = "cook";
+          BREW.temp = 55;
+          banner("🧪 Dorgan: “It CATCHES! Now COOK it — TAP to stoke, hold the flame in the GREEN.”");
+        } else banner("🔥 Spark! (" + BREW.spark + "/3)");
+      } else banner("… missed. Strike when the spark is CENTERED and hot.");
+    } else if (BREW.step === "cook") {
+      BREW.temp = Math.min(100, BREW.temp + 9);
+    } else if (BREW.step === "mix") {
+      BREW.added++;
+      if (BREW.added < 3) banner("🧪 In it goes — " + BREW_ING[BREW.added - 1].ic + " " + BREW_ING[BREW.added - 1].nm + ". Next!");
+      if (BREW.added >= 3) {
+        BREW.step = "stir";
+        banner("🧪 Dorgan: “All three in! Now STIR — TAP and don’t stop until it TURNS.”");
+      }
+    } else if (BREW.step === "stir") {
+      BREW.stir = Math.min(100, BREW.stir + 7);
+      if (BREW.stir >= 100) {
+        BREW.step = "done";
+        finishAntidoteBrew();
+      }
+    }
+  }
+  function brewAction() {
+    if (BREW.step === "fire") return { icon: "🔥", label: "STRIKE", kind: "brewtap" };
+    if (BREW.step === "cook") return { icon: "🔥", label: "STOKE", kind: "brewtap" };
+    if (BREW.step === "mix") return { icon: "🥄", label: "ADD", kind: "brewtap" };
+    if (BREW.step === "stir") return { icon: "🌀", label: "STIR", kind: "brewtap" };
+    return { icon: "🧪", label: "…", kind: "none" };
+  }
+  function drawBrew() {
+    const g = ctx.createLinearGradient(0, 0, 0, vh);
+    g.addColorStop(0, "#241d2c");
+    g.addColorStop(1, "#161019");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, vw, vh);
+    const cx = vw / 2, cy = vh * 0.56, lit = BREW.step !== "fire";
+    if (lit) {
+      const fg = ctx.createRadialGradient(cx, cy + 40, 10, cx, cy + 40, 160);
+      fg.addColorStop(0, "rgba(255,140,40," + (0.28 + 0.1 * Math.sin(BREW.t / 120)) + ")");
+      fg.addColorStop(1, "rgba(255,140,40,0)");
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, vw, vh);
+    }
+    ctx.fillStyle = "#4a3420";
+    ctx.fillRect(cx - 46, cy + 58, 92, 14);
+    if (lit) {
+      for (let i = 0; i < 5; i++) {
+        const fx = cx - 32 + i * 16, fh = 20 + 14 * Math.abs(Math.sin(BREW.t / 90 + i));
+        ctx.fillStyle = i % 2 ? "#ff8a2a" : "#ffb84a";
+        ctx.beginPath();
+        ctx.moveTo(fx, cy + 58);
+        ctx.lineTo(fx + 6, cy + 58 - fh);
+        ctx.lineTo(fx + 12, cy + 58);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = "#2b2b30";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 66, 54, 0, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = "#1c1c20";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 30, 58, 20, 0, 0, 7);
+    ctx.fill();
+    const col = BREW.step === "stir" ? ["#6a8f3a", "#8fd45a", "#b6f07a"][Math.min(2, Math.floor(BREW.stir / 40))] : BREW.added > 0 ? "#5a6a4a" : "#33434e";
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 30, 50, 15, 0, 0, 7);
+    ctx.fill();
+    if (lit) {
+      for (let i = 0; i < 3; i++) {
+        const bx = cx - 20 + (BREW.t / 30 + i * 40) % 60, by = cy - 30 - 6 * Math.abs(Math.sin(BREW.t / 100 + i));
+        ctx.fillStyle = "rgba(255,255,255,.22)";
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.5, 0, 7);
+        ctx.fill();
+      }
+    }
+    ctx.textAlign = "center";
+    if (BREW.step === "fire") {
+      const bw = Math.min(360, vw * 0.7), bx = cx - bw / 2, by = vh * 0.24;
+      ctx.fillStyle = "rgba(0,0,0,.4)";
+      rr(ctx, bx - 4, by - 4, bw + 8, 26, 8);
+      ctx.fillStyle = "rgba(120,80,40,.5)";
+      rr(ctx, bx, by, bw, 18, 6);
+      ctx.fillStyle = "rgba(255,150,50,.9)";
+      rr(ctx, bx + bw * 0.4, by, bw * 0.2, 18, 6);
+      ctx.fillStyle = "#fff2c0";
+      const mx = bx + bw * BREW.pos;
+      ctx.fillRect(mx - 2, by - 5, 4, 28);
+      ctx.fillStyle = "#e8d9a8";
+      ctx.font = "bold 15px Georgia";
+      ctx.fillText("LIGHT THE FIRE — strike in the hot zone   (" + BREW.spark + "/3)", cx, vh * 0.16);
+    } else if (BREW.step === "cook") {
+      const bh = Math.min(230, vh * 0.4), by0 = vh * 0.16;
+      ctx.fillStyle = "rgba(0,0,0,.4)";
+      rr(ctx, cx - 16, by0 - 6, 32, bh + 12, 8);
+      ctx.fillStyle = "rgba(90,200,90,.35)";
+      rr(ctx, cx - 16, by0 + bh * 0.32, 32, bh * 0.26, 4);
+      const ty = by0 + bh * (1 - BREW.temp / 100);
+      ctx.fillStyle = BREW.temp >= 42 && BREW.temp <= 68 ? "#8fd45a" : "#ff8a4a";
+      ctx.fillRect(cx - 20, ty - 2, 40, 5);
+      ctx.fillStyle = "#e8d9a8";
+      ctx.font = "bold 15px Georgia";
+      ctx.fillText("COOK — TAP to stoke, hold the flame in the GREEN", cx, vh * 0.1);
+      ctx.fillStyle = "rgba(0,0,0,.4)";
+      rr(ctx, cx - 90, vh * 0.87, 180, 16, 6);
+      ctx.fillStyle = "#8fd45a";
+      rr(ctx, cx - 90, vh * 0.87, 180 * BREW.cook / 100, 16, 6);
+    } else if (BREW.step === "mix") {
+      ctx.fillStyle = "#e8d9a8";
+      ctx.font = "bold 15px Georgia";
+      ctx.fillText("ADD THE THREE — tap to drop each in", cx, vh * 0.12);
+      for (let i = 0; i < 3; i++) {
+        const ix = cx - 95 + i * 95, iy = vh * 0.3, done = i < BREW.added;
+        ctx.globalAlpha = done ? 0.28 : 1;
+        ctx.font = "36px serif";
+        ctx.fillText(BREW_ING[i].ic, ix, iy);
+        ctx.globalAlpha = 1;
+        if (i === BREW.added) {
+          ctx.strokeStyle = "#ffd977";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(ix, iy - 11, 27, 0, 7);
+          ctx.stroke();
+        }
+      }
+    } else if (BREW.step === "stir") {
+      ctx.fillStyle = "#e8d9a8";
+      ctx.font = "bold 15px Georgia";
+      ctx.fillText("STIR — keep tapping until it turns", cx, vh * 0.12);
+      ctx.strokeStyle = "rgba(255,255,255,.2)";
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.arc(cx, vh * 0.3, 28, 0, 7);
+      ctx.stroke();
+      ctx.strokeStyle = "#b6f07a";
+      ctx.beginPath();
+      ctx.arc(cx, vh * 0.3, 28, -Math.PI / 2, -Math.PI / 2 + BREW.stir / 100 * Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.textAlign = "left";
+    ctx.font = "11px Georgia";
+    ctx.fillStyle = "rgba(200,240,170,.55)";
+    ctx.fillText("Dorgan's back room — the antidote", 16, vh - 16);
   }
   function mountainsUpdate(dt) {
     if (scene !== "mountains" && scene !== "cave") return;
@@ -5234,6 +5441,11 @@
     P.y = 1150;
     Quests.debugJump("quest_main_10_witch_alarm", "offer");
   }
+  if (location.hash === "#brew") {
+    chosen = 0;
+    startGame();
+    startAntidoteBrew();
+  }
   if (location.hash === "#dive") {
     chosen = 0;
     startGame();
@@ -5643,7 +5855,22 @@
     }
     ok(questState.stage === "active", "you take on the witch");
     openDialog(dorgan);
-    ok(questState.flags.flag_antidote_made === true && (P.inv.item_antidote || 0) >= 1, "Dorgan brews the Antidote with you");
+    ok(scene === "brew" && BREW.step === "fire", "Dorgan pulls you into the antidote minigame (fire first)");
+    BREW.pos = 0.5;
+    brewTap();
+    brewTap();
+    brewTap();
+    ok(BREW.step === "cook", "three strikes in the hot zone LIGHT the fire");
+    BREW.temp = 55;
+    BREW.cook = 100;
+    brewUpdate(16);
+    ok(BREW.step === "mix", "kept in the green → the brew COOKS");
+    brewTap();
+    brewTap();
+    brewTap();
+    ok(BREW.step === "stir", "all THREE ingredients added");
+    for (let i = 0; i < 15; i++) brewTap();
+    ok(questState.flags.flag_antidote_made === true && (P.inv.item_antidote || 0) >= 1 && scene === "village", "STIRRED → Antidote brewed, back in the village");
     Quests.update(16);
     ok(questState.stage === "complete", "antidote made → quest complete");
     {
