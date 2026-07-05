@@ -1190,7 +1190,7 @@
     box.innerHTML = "";
     const d = dNpc && dNpc.raw;
     if (!d) return;
-    if (d.shop && !(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag])) {
+    if (d.shop && !dStoryTalk && !(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag])) {
       for (const entry of d.shop) {
         if (entry.requiresFlag && !questState.flags[entry.requiresFlag]) continue;
         const def = ITEM_DEFS[entry.item], price = PRICES[entry.item];
@@ -1223,7 +1223,7 @@
         box.appendChild(b);
       }
     }
-    if (d.buys) {
+    if (d.buys && !dStoryTalk) {
       const sellable = Object.keys(SELL_PRICES).reduce((a, k) => a + (P.inv[k] || 0), 0);
       const b = document.createElement("button");
       b.className = "btn shopBtn";
@@ -2128,6 +2128,7 @@
   var dNpc = null;
   var dIdx = 0;
   var dLines = [];
+  var dStoryTalk = false;
   function openDialog(n) {
     dialogOpen = true;
     dNpc = n;
@@ -2137,8 +2138,16 @@
       const list = short.map((s) => s.short + " more " + ITEM_DEFS[s.item].ic + " " + ITEM_DEFS[s.item].nm).join(", and ");
       const tmpl = Quests.scoldTemplate() || "Back already? You’re still short: {short}. Off you go!";
       dLines = [tmpl.replace("{short}", list)];
+      dStoryTalk = false;
     } else {
-      dLines = Quests.dialogueFor(n.id) || npcLines(n);
+      const ql = Quests.dialogueFor(n.id);
+      if (ql) {
+        dLines = ql;
+        dStoryTalk = true;
+      } else {
+        dLines = npcLines(n);
+        dStoryTalk = false;
+      }
     }
     renderDialog();
     $("dialog").classList.remove("hidden");

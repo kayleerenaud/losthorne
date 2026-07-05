@@ -165,7 +165,10 @@ function renderShop(){
   const box=$('shopBox'); box.innerHTML='';
   const d=dNpc && dNpc.raw;
   if(!d) return;
-  if(d.shop && !(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag])){
+  // STORY FIRST: when an NPC is mid-quest-dialogue (an offer, a lesson, a turn-in), keep their
+  // MERCHANT menu (buy/sell) out of the way — it shouldn't upstage what they're trying to tell you.
+  // Actions (Bog's fishing/boat) and the quest CHOICE buttons still show. (Kaylee, 2026-07-04)
+  if(d.shop && !dStoryTalk && !(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag])){
     for(const entry of d.shop){
       if(entry.requiresFlag && !questState.flags[entry.requiresFlag]) continue;
       const def=ITEM_DEFS[entry.item], price=PRICES[entry.item];
@@ -187,7 +190,7 @@ function renderShop(){
       box.appendChild(b);
     }
   }
-  if(d.buys){ // NPCs that BUY from you (Erik) → ONE general Sell button that opens the satchel
+  if(d.buys && !dStoryTalk){ // NPCs that BUY from you (Erik) → ONE general Sell button that opens the satchel
     const sellable=Object.keys(SELL_PRICES).reduce((a,k)=>a+(P.inv[k]||0),0);
     const b=document.createElement('button'); b.className='btn shopBtn';
     b.textContent = sellable? '💰 Sell items… (opens your satchel)' : '💰 Sell items… (nothing to sell yet)';
@@ -767,7 +770,7 @@ $('btnRespawn').onclick=()=>{
 // ============================================================
 // DIALOGUE
 // ============================================================
-let dialogOpen=false, dNpc=null, dIdx=0, dLines=[];
+let dialogOpen=false, dNpc=null, dIdx=0, dLines=[], dStoryTalk=false;
 function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
   // came back to a deliver-quest NPC without the goods? They SCOLD you with the exact shortfall.
   const short = Quests.deliverShortfall(n.id);
@@ -775,8 +778,11 @@ function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
     const list = short.map(s=> s.short+' more '+ITEM_DEFS[s.item].ic+' '+ITEM_DEFS[s.item].nm).join(', and ');
     const tmpl = Quests.scoldTemplate() || 'Back already? You’re still short: {short}. Off you go!';
     dLines = [ tmpl.replace('{short}', list) ];
+    dStoryTalk = false;   // a quick scolding — a shopkeeper still keeps their wares out
   } else {
-    dLines = Quests.dialogueFor(n.id) || npcLines(n);
+    const ql = Quests.dialogueFor(n.id);
+    if(ql){ dLines = ql; dStoryTalk = true; }        // real quest business → story takes the stage
+    else { dLines = npcLines(n); dStoryTalk = false; }
   }
   renderDialog(); $('dialog').classList.remove('hidden'); }
 function renderDialog(){

@@ -50,6 +50,13 @@
 
 *Updated at every checkpoint.*
 
+- **Version:** v0.24 — STORY-FIRST DIALOGUE + WITCH ARC SPEC'D (reorg steps 6–8,10 still queued)
+- **v0.24 checkpoint (2026-07-04, Kaylee):** one bug fix + captured a big new arc as canon.
+  - **BUG FIX — NPC menu upstaged story dialogue:** an NPC's merchant menu (buy/sell) rendered under EVERY dialogue, even story moments (Modo selling weapons mid shield-training pitch). Now `openDialog` tracks `dStoryTalk` (true when the lines come from `Quests.dialogueFor`), and `renderShop` hides the `d.shop`/`d.buys` menus while story is being told. KEPT visible: Bog's `d.actions` (fishing/boat), the quest CHOICE buttons (appendQuestChoice), and a shopkeeper's wares during a deliver-SCOLD (so you can still buy). Verified by screenshot (Modo shows clean story, then full shop when idle) + smoke test green.
+  - **Hammer already swings:** confirmed hammer = SWING on tap (slash uses the equipped weapon's dmg 5 / range 82) + SMASH on the 💥 charge — no combat change needed; the "teach both" is a lesson-copy job in the arc build.
+  - **WITCH ARC captured into the Bible (DESIGN §9 boss #1, §5 Jessie, §10 chain, §13 open-Q resolved):** Kaylee's full spec is now canon — Dorgan's frantic hook → Chief's "I'll do it / need more time" + food reminder → Dorgan's 3-ingredient antidote MINIGAME (fire → cook → mix → stir) → the potion is NOT for the player ("never meant for YOU…") → deep-woods approach (goblins + one wolf pack, never both aggroing) → **piranha BOAT crossing** (2 hits each; smash cracks the hull; broken hull → swim) → **shapeshifting CAT-Witch** (gather ingredients around her house under harmless harassment, then THROW the potion) → she's revealed as **JESSIE** (the Bible's traveling bard "Jesse" — her cursed origin!), who promises future aid. This is realistically a 5+ step build.
+  - **Files:** main.js (dStoryTalk in openDialog + renderShop guards), DESIGN.md (§5 Jessie origin, §9 witch arc + piranha, §10 chain, §13 open-Q).
+  - **NOT built yet (staged — see roadmap I gave Kaylee):** the Bog/Modo re-flow ordering, Dorgan's potion minigame, the deep-woods territory, piranha-boat combat, the shapeshift boss + Jessie reveal. Awaiting her go/priority before building the big new subsystems.
 - **Version:** v0.23 — PLAYTEST FIXES: climb/wolves/boat/quest-counters (reorg steps 6–8,10 still queued)
 - **v0.23 checkpoint (2026-07-04, Kaylee playtest):** four fixes.
   - **Climb prompt was buried behind the cliff:** the in-world 🧗 marker sat low inside the cliff band. Now there's a bright climb CHUTE (rungs) with a glowing base PAD in the approach strip (above the wall), and a floating "🧗 CLIMB" label drawn ABOVE the player AFTER the cliff/player, so it can never be hidden. (Verified by screenshot.)
