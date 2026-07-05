@@ -19,7 +19,7 @@ export default {
     offer:'🛶 Talk to Bog',
     active:'🎣 Catch your first fish with Bog',
     complete:'🏆 Talk to Bog',
-    afterReward:'✅ All quests done — explore Losthorne!',
+    afterReward:'🛶 Bog will teach you to drive next',
   },
   banners:{
     start:'📜 Quest: gear up at Erik’s and land your first fish with Bog!',
@@ -27,5 +27,5 @@ export default {
     reward:'🎉 Fisherman of Losthorne!',
   },
   reward:{},
-  next:null,
+  next:{ quest:'quest_main_09_boat_lesson', delayMs:2500, banner:'🛶 Bog wants to teach you to DRIVE the boat next!' },
 };

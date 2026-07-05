@@ -260,6 +260,13 @@
       st: "A smooth pearl prised from an oyster on the pond floor. Erik pays well for a shine like this.",
       effect: { kind: "sellable" }
     },
+    item_antidote: {
+      id: "item_antidote",
+      ic: "🧪",
+      nm: "Dorgan's Antidote",
+      st: 'A pale, shivering brew Dorgan taught you to make — three ingredients, cooked over fire, mixed, and stirred.<br><i>"Guard it with your life. But do NOT drink it."</i>',
+      effect: { kind: "antidote" }
+    },
     item_hammer: {
       id: "item_hammer",
       ic: "🔨",
@@ -790,16 +797,16 @@
       ],
       active: ["South, warrior! Through the woods at the bottom of the valley — the trail climbs into the mountains. Bring Bog home."],
       complete: [
-        "BOG'S BACK?! And a TROLL?! Turned to STONE?! Sit down, warrior, you're telling this twice.",
-        "…And what in Losthorne is that HAMMER on your back? That's troll-make. Show it to MODO — the forge, go, GO!"
+        "BOG'S BACK?! And a TROLL turned to STONE?! Sit down, warrior — you're telling this twice.",
+        "And that HAMMER on your back is troll-make… but that's a tale for the forge later. First: BOG. That man owes you the whole pond, and he means to pay it. Go see him down at the water."
       ],
-      afterReward: ["A troll. An actual troll. And our warrior walked up its BACK. Gregor would have loved this."]
+      afterReward: ["A troll. An actual troll. And our warrior walked up its BACK. Gregor would have loved this. …Go on — Bog's waving you down to the pond."]
     },
     tracker: {
       offer: "📯 The Chief needs you!",
       active: "⛰️ Find Bog — take the trail SOUTH",
       complete: "🏆 Tell the Chief",
-      afterReward: "🔨 Show the hammer to Modo"
+      afterReward: "🛶 Bog wants to thank you — go to the pond"
     },
     banners: {
       start: "📜 QUEST: Bog is missing — follow the southern trail into the mountains!",
@@ -807,7 +814,7 @@
       reward: "🎉 The whole village cheers your name!"
     },
     reward: {},
-    next: { quest: "quest_main_07_hammer", delayMs: 2e3, banner: null }
+    next: { quest: "quest_main_08_first_catch", delayMs: 2e3, banner: "🛶 Bog is home — and waving you down to the pond!" }
   };
 
   // prototype/src/js/data/quests/main-07-hammer.js
@@ -818,13 +825,14 @@
     objective: { type: "train_hammer", target: "dummy", count: 3 },
     dialogue: {
       offer: [
-        "Give it here. …Troll-forged. Star-iron. Modo has dreamed of holding one of these.",
-        "It is NOT a sword, warrior. You don't slice with a mountain — you DROP it on things.",
-        "Switch to the hammer, then press and HOLD like the shield — but release ON a training dummy. Three clean hammer-smashes. Show me."
+        "So it's TRUE. Bog rowed up here babbling about star-iron and I told him to sober up. …Then you walk in with THAT on your back.",
+        "Let me — by the forge-light. Troll-forged. Real. I'd have dreamed of holding one. Tell you what: I'll BUY it. Name your price! …No? Ha — good. I wouldn't sell it either.",
+        "Then let Modo teach you to WIELD it. It's not a sword — you don't slice with a mountain, you DROP it. But up close it SWINGS, too.",
+        "Switch to the hammer. TAP to swing. HOLD then release to SMASH. Break three dummies for me — they volunteered."
       ],
-      active: ["Hammer OUT (weapon switch), HOLD to wind up, release on the dummy. Three smashes, warrior. The dummies volunteered."],
+      active: ["Hammer OUT (weapon switch): TAP swings it, HOLD-then-release SMASHES. Three dummies, warrior."],
       complete: [
-        "THREE! The ground is still complaining! HA!",
+        "THREE! The ground is STILL complaining! HA!",
         "You carry troll-iron and you've earned it. Losthorne has never been safer — or louder."
       ],
       afterReward: []
@@ -836,13 +844,14 @@
       afterReward: "🛶 Bog owes you a boat ride…"
     },
     banners: {
-      start: "📜 Training: switch to the 🔨, HOLD to charge, release on a dummy — 3 times!",
-      objectiveDone: "🔨 3/3! Modo approves — talk to him!",
+      start: "📜 Training: switch to the 🔨 — TAP to swing, HOLD-release to SMASH a dummy. 3 smashes!",
+      objectiveDone: "🔨 Enough! Modo approves — talk to him!",
       reward: "🎉 Hammer training complete!",
       progress: "🔨 CRUNCH! {n}/3"
     },
     reward: {},
-    next: { quest: "quest_main_08_first_catch", delayMs: 3e3, banner: "🛶 Bog is waving from his shack — he owes you a boat ride!" }
+    // NEXT: the WITCH arc begins (wired in Stage 2 — quest_main_10_witch_alarm).
+    next: { quest: "quest_main_10_witch_alarm", delayMs: 3e3, banner: null }
   };
 
   // prototype/src/js/data/quests/main-08-first-catch.js
@@ -869,7 +878,7 @@
       offer: "🛶 Talk to Bog",
       active: "🎣 Catch your first fish with Bog",
       complete: "🏆 Talk to Bog",
-      afterReward: "✅ All quests done — explore Losthorne!"
+      afterReward: "🛶 Bog will teach you to drive next"
     },
     banners: {
       start: "📜 Quest: gear up at Erik’s and land your first fish with Bog!",
@@ -877,7 +886,84 @@
       reward: "🎉 Fisherman of Losthorne!"
     },
     reward: {},
-    next: null
+    next: { quest: "quest_main_09_boat_lesson", delayMs: 2500, banner: "🛶 Bog wants to teach you to DRIVE the boat next!" }
+  };
+
+  // prototype/src/js/data/quests/main-09-boat-lesson.js
+  var main_09_boat_lesson_default = {
+    id: "quest_main_09_boat_lesson",
+    giver: "npc_bog",
+    turnIn: "npc_bog",
+    objective: { type: "flag", flag: "flag_boat_skill" },
+    dialogue: {
+      offer: [
+        "Now the REAL lesson, savior. A warrior who can't drive a boat is only half dangerous.",
+        "This time YOU take the oars — I'll heckle from the stern. Watch the CURRENT, weave the rocks, reach the far jetty. Crack the hull three times and we sink back to the dock.",
+        "When you're ready, ask Bog for the oars — the 🛶 in my menu."
+      ],
+      active: ["Take the oars, warrior — the 🛶 in my menu. Steer across the current, AROUND the rocks, to the far jetty."],
+      complete: [
+        "HA! Drove us home near enough clean. Boat-driving — LEARNED. You're a proper danger now.",
+        "Oh — and I told Modo about that HAMMER on your back. He near dropped his tongs. Best go see him before he bursts."
+      ],
+      afterReward: ["Modo's forge — the 🔨 sign. Go on, he'll never forgive Bog if you keep the man waiting."]
+    },
+    tracker: {
+      offer: "🛶 Bog will teach you to drive",
+      active: "⛵ Take Bog’s oars — reach the far jetty",
+      complete: "🏆 Talk to Bog",
+      afterReward: "🔨 Modo heard about your hammer…"
+    },
+    banners: {
+      start: "📜 Bog will teach you BOAT-DRIVING — ask him for the oars (🛶)!",
+      objectiveDone: "⛵ Boat-driving learned! Talk to Bog.",
+      reward: "🎉 Boat-driving mastered!"
+    },
+    reward: {},
+    next: { quest: "quest_main_07_hammer", delayMs: 2500, banner: "🔨 Modo is asking about your hammer — head to the forge!" }
+  };
+
+  // prototype/src/js/data/quests/main-10-witch-alarm.js
+  var main_10_witch_alarm_default = {
+    id: "quest_main_10_witch_alarm",
+    giver: "npc_chief_bonbottom",
+    turnIn: "npc_dorgan",
+    objective: { type: "flag", flag: "flag_antidote_made" },
+    choice: {
+      go: "I'll do it.",
+      later: "I need more time to prepare.",
+      laterBanner: "📯 The Chief: “Prepare well — food, potions, a clear head. But don’t wait long. That thing is stirring.”"
+    },
+    dialogue: {
+      offer: [
+        "You saw Dorgan tear through the square just now? He's not one to panic. Something past the NORTH WOODS has him white as chalk.",
+        "He says it's the WITCH. An old curse in the deep woods — goblins at her feet, wolves at her door, and worse things wearing borrowed faces.",
+        "Dorgan swears he can brew something to end it, and he'll teach the recipe to whoever's brave enough to carry it in. …So. Will you go?"
+      ],
+      active: [
+        "You're going — good. First: STOCK UP ON FOOD, warrior. Bread, turkey, anything Erik will sell. The woods are long and the Witch is patient.",
+        "Then see DORGAN in his shop — the 🧪 sign. He has a recipe, and there's no facing her without it."
+      ],
+      complete: [
+        "…It's done, then. You made it — real witch's-bane, cooked and mixed and stirred by your own hand.",
+        "Take the trail NORTH, past where the goblins thicken, to the black water in the deep woods. And warrior — GUARD this potion. Everything depends on it."
+      ],
+      afterReward: ["North, into the deep woods. Mind the goblins, mind the wolves — and DON'T lose the potion."]
+    },
+    tracker: {
+      offer: "📯 The Chief needs an answer",
+      active: "🍞 Stock food, then see Dorgan for the recipe",
+      complete: "🧪 Talk to Dorgan",
+      afterReward: "🌲 North — into the deep woods"
+    },
+    banners: {
+      start: "📜 QUEST: the WITCH stirs past the north woods. Stock up on FOOD, then see Dorgan!",
+      objectiveDone: "🧪 The Antidote is brewed! Talk to Dorgan.",
+      reward: "🎉 Dorgan sends you north — the Witch awaits."
+    },
+    reward: {},
+    // NEXT: the deep-woods crossing + the Witch fight (wired in Stage 6 — quest_main_11_witch).
+    next: { quest: "quest_main_11_witch", delayMs: 1500, banner: null }
   };
 
   // prototype/src/js/data/npcs/strax.js
@@ -1365,7 +1451,7 @@
     addFloat(P.x, P.y - 36, "🦃 grabbed!", "#f0d8a0", 18);
     banner("🦃 Wild turkey into the satchel! (" + P.inv.item_wild_turkey + ") — Erik pays 15 apiece");
   }
-  Quests.init([main_01_goblins_default, main_02_blueberries_default, main_03_turkeys_default, main_04_champion_default, main_05_shield_training_default, main_06_find_bog_default, main_07_hammer_default, main_08_first_catch_default], "quest_main_01_goblins", {
+  Quests.init([main_01_goblins_default, main_02_blueberries_default, main_03_turkeys_default, main_04_champion_default, main_05_shield_training_default, main_06_find_bog_default, main_07_hammer_default, main_08_first_catch_default, main_09_boat_lesson_default, main_10_witch_alarm_default], "quest_main_01_goblins", {
     banner: (t) => {
       if (t) banner(t);
     },
@@ -2071,6 +2157,10 @@
       banner("🦃 Erik buys these — visit the 🪙 shop!");
       return;
     }
+    if (e.kind === "antidote") {
+      banner("🧪 You touch it to your lips… nothing happens. This was never meant for YOU. Best keep it — it’s for something else.");
+      return;
+    }
     P.inv[invSel]--;
     useItem(invSel);
     closeInv();
@@ -2130,6 +2220,10 @@
   var dLines = [];
   var dStoryTalk = false;
   function openDialog(n) {
+    if (n.id === "npc_dorgan" && questState.currentId === "quest_main_10_witch_alarm" && questState.stage === "active" && !questState.flags.flag_antidote_made) {
+      startAntidoteBrew();
+      return;
+    }
     dialogOpen = true;
     dNpc = n;
     dIdx = 0;
@@ -2170,6 +2264,11 @@
     dialogOpen = false;
     $("dialog").classList.add("hidden");
     if (dNpc && dNpc.id === "npc_strax" && !MTN.fire.learned && !MTN.fire.game) fireGameStart("strax");
+  }
+  function startAntidoteBrew() {
+    P.inv.item_antidote = (P.inv.item_antidote || 0) + 1;
+    questState.flags.flag_antidote_made = true;
+    banner("🧪 Dorgan walks you through it — light the fire, cook, mix, stir. The Antidote is yours: “Guard it. Do NOT drink it.”");
   }
   $("dialog").onclick = advanceDialog;
   var bannerT = null;
@@ -2377,6 +2476,7 @@
     sparUpdate(dt);
     fishingUpdate(dt);
     giverWalkUpdate(dt);
+    dorganAlarmUpdate(dt);
     mountainsUpdate(dt);
     if (scene === "village" && P.y > H - 46 && P.x > 640 && P.x < 960) {
       const unlocked = questState.completed.includes("quest_main_05_shield_training") || questState.currentId === "quest_main_06_find_bog" || questState.completed.includes("quest_main_06_find_bog");
@@ -2833,6 +2933,7 @@
           }
         }
       }
+      drawDorganAlarm();
       if (!questState.flags.flag_bog_rescued) {
         ctx.fillStyle = "#2c2214";
         ctx.fillRect(1170, 1056, 54, 16);
@@ -4381,6 +4482,49 @@
       } else giverWalk = null;
     }
   }
+  var dorganAlarm = null;
+  var alarmShown = {};
+  var ALARM_SHOUTS = [
+    "“THE WITCH! The witch is REAL — I’d stake my beard on it!”",
+    "“Something moved past the NORTH WOODS — the birds won’t sing!”",
+    "“We need a hero — and we need a POTION. I can make one! I CAN!”"
+  ];
+  function dorganAlarmUpdate(dt) {
+    if (scene !== "village") return;
+    if (questState.currentId === "quest_main_10_witch_alarm" && questState.stage === "offer" && !alarmShown.q10) {
+      if (!dorganAlarm) {
+        dorganAlarm = { x: 1030, y: 1150, tx: 540, t: 0, legs: 0, shout: 0 };
+        banner("🧪 DORGAN bursts into the square, wild-eyed —");
+      }
+      const a = dorganAlarm;
+      a.t += dt;
+      const dx = a.tx - a.x;
+      a.x += Math.sign(dx) * Math.min(Math.abs(dx), 3.4 * dt / 16);
+      a.y = 1150 + Math.sin(a.t / 70) * 9;
+      if (a.t > a.shout * 1250 + 500 && a.shout < 3) {
+        a.shout++;
+        banner("🧪 Dorgan: " + ALARM_SHOUTS[a.shout - 1]);
+      }
+      if (Math.abs(dx) < 8) {
+        a.legs++;
+        a.tx = a.legs % 2 ? 1120 : 540;
+      }
+      if (a.t > 5200) {
+        alarmShown.q10 = true;
+        dorganAlarm = null;
+        banner("🧪 Dorgan darts back to his shop, muttering about ingredients…");
+      }
+    }
+  }
+  function drawDorganAlarm() {
+    if (!dorganAlarm) return;
+    const a = dorganAlarm, dorg = NPCS.find((n) => n.id === "npc_dorgan");
+    drawPerson(a.x, a.y, 0, { hair: dorg.raw.look.hair || "#6a4", outfit: dorg.col, skin: "#dcae86" }, false, false);
+    ctx.fillStyle = "#ffd977";
+    ctx.font = "bold 13px Georgia";
+    ctx.textAlign = "center";
+    ctx.fillText("🧪❗", a.x, a.y - 34);
+  }
   var spar = null;
   function spawnSpar() {
     spar = { x: 1e3, y: 1240, dir: 0, state: "circle", t: 0 };
@@ -5082,6 +5226,14 @@
     startGame();
     startBoatLesson();
   }
+  if (location.hash === "#witchalarm") {
+    chosen = 0;
+    startGame();
+    P.weapons.hammer = true;
+    P.x = 820;
+    P.y = 1150;
+    Quests.debugJump("quest_main_10_witch_alarm", "offer");
+  }
   if (location.hash === "#dive") {
     chosen = 0;
     startGame();
@@ -5426,24 +5578,9 @@
     ok(questState.stage === "complete", "Bog home → quest complete");
     openDialog(chief);
     while (dialogOpen) advanceDialog();
-    Quests.update(2100);
-    ok(questState.currentId === "quest_main_07_hammer", "Modo wants to see that hammer");
-    openDialog(modo);
-    while (dialogOpen) advanceDialog();
-    P.weapon = "hammer";
-    P.x = 660;
-    P.y = 1265;
-    for (let i = 0; i < 3; i++) {
-      P.slashT = 0;
-      dummies[0].hp = 5;
-      doSmash(4, 80, 16);
-    }
-    ok(questState.stage === "complete", "three hammer-smashes on the dummies");
-    openDialog(modo);
-    while (dialogOpen) advanceDialog();
-    Quests.update(3500);
-    ok(questState.currentId === "quest_main_08_first_catch", "Bog owes you a boat ride");
     const bog = NPCS.find((n) => n.id === "npc_bog");
+    Quests.update(2100);
+    ok(questState.currentId === "quest_main_08_first_catch", "after the rescue, Bog offers FISHING first");
     ok(questState.flags.flag_bog_rescued === true, "Bog is home — shack open");
     openDialog(bog);
     while (dialogOpen) advanceDialog();
@@ -5461,7 +5598,11 @@
     fishingEnd();
     ok(questState.flags.flag_fished_once === true, "first catch logged");
     Quests.update(16);
-    ok(questState.stage === "complete", "Bog’s quest complete");
+    ok(questState.stage === "complete", "Bog’s fishing quest complete");
+    openDialog(bog);
+    while (dialogOpen) advanceDialog();
+    Quests.update(2600);
+    ok(questState.currentId === "quest_main_09_boat_lesson", "THEN Bog offers boat-driving");
     openDialog(bog);
     while (dialogOpen) advanceDialog();
     NPC_ACTIONS.boat_lesson();
@@ -5469,8 +5610,51 @@
     BOAT.x = BW - 80;
     boatUpdate(16, 0, 0);
     ok(scene === "village" && questState.flags.flag_boat_skill === true, "reach the far jetty → boat-driving learned");
+    Quests.update(16);
+    ok(questState.stage === "complete", "boat lesson done → quest complete");
+    openDialog(bog);
+    while (dialogOpen) advanceDialog();
+    Quests.update(2600);
+    ok(questState.currentId === "quest_main_07_hammer", "Modo now wants to see that hammer");
+    openDialog(modo);
+    ok(dLines[0].includes("Bog"), "Modo heard it from Bog");
+    ok([...$("shopBox").children].length === 0, "story-first: no weapon shop during the hammer pitch");
+    while (dialogOpen) advanceDialog();
+    P.weapon = "hammer";
+    P.x = 660;
+    P.y = 1265;
+    for (let i = 0; i < 3; i++) {
+      P.slashT = 0;
+      dummies[0].hp = 5;
+      doSmash(4, 80, 16);
+    }
+    ok(questState.stage === "complete", "three hammer-smashes on the dummies");
+    openDialog(modo);
+    while (dialogOpen) advanceDialog();
     ok(NPCS.some((n) => n.id === "npc_reba"), "Reba keeps the stables (🐴) — no rides yet, Maple threw a shoe");
-    ok(Quests.trackerText() === "✅ All quests done — explore Losthorne!", "THE WHOLE CHAIN: goblins→berries→turkeys→champion→shield→TROLL→hammer→fishing");
+    Quests.update(3100);
+    ok(questState.currentId === "quest_main_10_witch_alarm" && questState.stage === "offer", "the witch alarm sounds — the Chief has a question");
+    openDialog(chief);
+    while (dIdx < dLines.length - 1) advanceDialog();
+    {
+      const go = [...$("shopBox").children].find((x) => x.textContent.includes("I'll do it"));
+      ok(!!go, "Chief offers I’ll-do-it / need-more-time");
+      go.click();
+    }
+    ok(questState.stage === "active", "you take on the witch");
+    openDialog(dorgan);
+    ok(questState.flags.flag_antidote_made === true && (P.inv.item_antidote || 0) >= 1, "Dorgan brews the Antidote with you");
+    Quests.update(16);
+    ok(questState.stage === "complete", "antidote made → quest complete");
+    {
+      const anti0 = P.inv.item_antidote;
+      invSel = "item_antidote";
+      $("invUse").onclick();
+      invSel = null;
+      ok(P.inv.item_antidote === anti0, "the antidote is NOT for you — drinking does nothing and it isn’t consumed");
+    }
+    openDialog(dorgan);
+    while (dialogOpen) advanceDialog();
     P.inv.item_red_berry = 1;
     invSel = "item_red_berry";
     P.inv.item_red_berry--;

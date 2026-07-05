@@ -16,15 +16,15 @@ export default {
            "Old history, of course. But in the mountains, warrior… old history has a way of still breathing. Remember the ruins. Remember what the DAYLIGHT did.",
            "I don't know what's up there. Take the road SOUTH, through the woods, and find our boatman."],
     active:["South, warrior! Through the woods at the bottom of the valley — the trail climbs into the mountains. Bring Bog home."],
-    complete:["BOG'S BACK?! And a TROLL?! Turned to STONE?! Sit down, warrior, you're telling this twice.",
-              "…And what in Losthorne is that HAMMER on your back? That's troll-make. Show it to MODO — the forge, go, GO!"],
-    afterReward:["A troll. An actual troll. And our warrior walked up its BACK. Gregor would have loved this."],
+    complete:["BOG'S BACK?! And a TROLL turned to STONE?! Sit down, warrior — you're telling this twice.",
+              "And that HAMMER on your back is troll-make… but that's a tale for the forge later. First: BOG. That man owes you the whole pond, and he means to pay it. Go see him down at the water."],
+    afterReward:["A troll. An actual troll. And our warrior walked up its BACK. Gregor would have loved this. …Go on — Bog's waving you down to the pond."],
   },
   tracker:{
     offer:'📯 The Chief needs you!',
     active:'⛰️ Find Bog — take the trail SOUTH',
     complete:'🏆 Tell the Chief',
-    afterReward:'🔨 Show the hammer to Modo',
+    afterReward:'🛶 Bog wants to thank you — go to the pond',
   },
   banners:{
     start:'📜 QUEST: Bog is missing — follow the southern trail into the mountains!',
@@ -32,5 +32,5 @@ export default {
     reward:'🎉 The whole village cheers your name!',
   },
   reward:{},
-  next:{ quest:'quest_main_07_hammer', delayMs:2000, banner:null },
+  next:{ quest:'quest_main_08_first_catch', delayMs:2000, banner:'🛶 Bog is home — and waving you down to the pond!' },
 };

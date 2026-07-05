@@ -17,6 +17,8 @@ import questShieldTraining from './data/quests/main-05-shield-training.js';
 import questFindBog from './data/quests/main-06-find-bog.js';
 import questHammer from './data/quests/main-07-hammer.js';
 import questFirstCatch from './data/quests/main-08-first-catch.js';
+import questBoatLesson from './data/quests/main-09-boat-lesson.js';
+import questWitchAlarm from './data/quests/main-10-witch-alarm.js';
 import npcStrax from './data/npcs/strax.js';
 import npcReba from './data/npcs/reba.js';
 // ============================================================
@@ -302,7 +304,7 @@ function catchTurkey(){
 }
 
 // Quest state lives in engine/quests.js (single questState object).
-Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining, questFindBog, questHammer, questFirstCatch], 'quest_main_01_goblins', {
+Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining, questFindBog, questHammer, questFirstCatch, questBoatLesson, questWitchAlarm], 'quest_main_01_goblins', {
   banner: (t)=>{ if(t) banner(t); },
   addCoins: (n)=>{ P.coins+=n; },
   itemCount: (id)=>P.inv[id]||0,
@@ -742,6 +744,7 @@ $('invUse').onclick=()=>{ if(!invSel || P.inv[invSel]<1) return;
   const e=ITEM_DEFS[invSel].effect;
   if(e.kind==='passive'||e.kind==='gear'){ banner('🧰 It’s gear — always with you.'); return; }   // permanent gear never vanishes
   if(e.kind==='sellable'){ banner('🦃 Erik buys these — visit the 🪙 shop!'); return; }
+  if(e.kind==='antidote'){ banner('🧪 You touch it to your lips… nothing happens. This was never meant for YOU. Best keep it — it’s for something else.'); return; }   // NOT consumed
   P.inv[invSel]--; useItem(invSel); closeInv(); };
 function hurtPlayer(n,why){
   if(P.hurtT>0) return;
@@ -771,7 +774,14 @@ $('btnRespawn').onclick=()=>{
 // DIALOGUE
 // ============================================================
 let dialogOpen=false, dNpc=null, dIdx=0, dLines=[], dStoryTalk=false;
-function openDialog(n){ dialogOpen=true; dNpc=n; dIdx=0;
+function openDialog(n){
+  // WITCH ARC: visiting Dorgan while the alarm quest is active (and the antidote isn't brewed yet)
+  // sends you straight into the brewing — Dorgan takes you into the shop. (Stage 3 = real minigame.)
+  if(n.id==='npc_dorgan' && questState.currentId==='quest_main_10_witch_alarm'
+     && questState.stage==='active' && !questState.flags.flag_antidote_made){
+    startAntidoteBrew(); return;
+  }
+  dialogOpen=true; dNpc=n; dIdx=0;
   // came back to a deliver-quest NPC without the goods? They SCOLD you with the exact shortfall.
   const short = Quests.deliverShortfall(n.id);
   if(short){
@@ -801,6 +811,12 @@ function advanceDialog(){
 }
 function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden');
   if(dNpc && dNpc.id==='npc_strax' && !MTN.fire.learned && !MTN.fire.game) fireGameStart('strax'); }
+// Dorgan brews the ANTIDOTE with you. STAGE 2 STUB — Stage 3 swaps in the fire→cook→mix→stir minigame.
+function startAntidoteBrew(){
+  P.inv.item_antidote=(P.inv.item_antidote||0)+1;
+  questState.flags.flag_antidote_made=true;
+  banner('🧪 Dorgan walks you through it — light the fire, cook, mix, stir. The Antidote is yours: “Guard it. Do NOT drink it.”');
+}
 $('dialog').onclick=advanceDialog;
 
 // ============================================================
@@ -908,6 +924,7 @@ function update(dt){
   sparUpdate(dt);
   fishingUpdate(dt);
   giverWalkUpdate(dt);
+  dorganAlarmUpdate(dt);
   mountainsUpdate(dt);
 
   // travel: the southern trail (village ⇄ mountains)
@@ -1126,6 +1143,7 @@ function draw(){
   if(giverWalk){ const gn=NPCS.find(n=>n.id===giverWalk.npcId);
     if(gn){ drawPerson(giverWalk.x,giverWalk.y,0,{hair:gn.raw.look.hair||'#555',outfit:gn.col,skin:'#e0b088'},gn.hat, !giverWalk.returning && Math.hypot(giverWalk.x-P.x,giverWalk.y-P.y)<70);
       if(!giverWalk.returning){ ctx.fillStyle='#ffd977'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText(gn.nm.split(' ')[0]+' is coming to you…', giverWalk.x, giverWalk.y-40); } } }
+  drawDorganAlarm();
   // Bog's shack sits CLOSED while he's missing
   if(!questState.flags.flag_bog_rescued){
     ctx.fillStyle='#2c2214'; ctx.fillRect(1170,1056,54,16);
@@ -1907,6 +1925,32 @@ function giverWalkUpdate(dt){
   }
 }
 
+// ---------- DORGAN'S FRANTIC ALARM (witch arc opener) ----------
+// When the witch quest opens, Dorgan sprints back and forth across the square, wild-eyed, shouting —
+// then scurries home. Plays ONCE. The Chief walks to you separately (giver-walk) to make the ask.
+let dorganAlarm=null; const alarmShown={};
+const ALARM_SHOUTS=['“THE WITCH! The witch is REAL — I’d stake my beard on it!”',
+                    '“Something moved past the NORTH WOODS — the birds won’t sing!”',
+                    '“We need a hero — and we need a POTION. I can make one! I CAN!”'];
+function dorganAlarmUpdate(dt){
+  if(scene!=='village') return;
+  if(questState.currentId==='quest_main_10_witch_alarm' && questState.stage==='offer' && !alarmShown.q10){
+    if(!dorganAlarm){ dorganAlarm={x:1030,y:1150,tx:540,t:0,legs:0,shout:0}; banner('🧪 DORGAN bursts into the square, wild-eyed —'); }
+    const a=dorganAlarm; a.t+=dt;
+    const dx=a.tx-a.x; a.x += Math.sign(dx)*Math.min(Math.abs(dx), 3.4*dt/16);
+    a.y=1150+Math.sin(a.t/70)*9;   // panicked wobble, up where you can see him
+    if(a.t > a.shout*1250+500 && a.shout<3){ a.shout++; banner('🧪 Dorgan: '+ALARM_SHOUTS[a.shout-1]); }
+    if(Math.abs(dx)<8){ a.legs++; a.tx = a.legs%2 ? 1120 : 540; }
+    if(a.t>5200){ alarmShown.q10=true; dorganAlarm=null; banner('🧪 Dorgan darts back to his shop, muttering about ingredients…'); }
+  }
+}
+function drawDorganAlarm(){
+  if(!dorganAlarm) return;
+  const a=dorganAlarm, dorg=NPCS.find(n=>n.id==='npc_dorgan');
+  drawPerson(a.x, a.y, 0, {hair:dorg.raw.look.hair||'#6a4', outfit:dorg.col, skin:'#dcae86'}, false, false);
+  ctx.fillStyle='#ffd977'; ctx.font='bold 13px Georgia'; ctx.textAlign='center';
+  ctx.fillText('🧪❗', a.x, a.y-34);
+}
 // ---------- ERIK'S SHIELD TRAINING (quest 5) ----------
 let spar=null;
 function spawnSpar(){ spar={ x:1000, y:1240, dir:0, state:'circle', t:0 }; }
@@ -2242,6 +2286,7 @@ if(location.hash==='#mtn'){ chosen=0; startGame(); questState.completed.push('qu
 if(location.hash==='#cave'){ chosen=0; startGame(); scene='cave'; mtnInit(); MTN.troll.dawnT=60000; P.x=430; P.y=430; }
 if(location.hash==='#climb'){ chosen=0; startGame(); mtnInit(); startClimb(); }
 if(location.hash==='#boat'){ chosen=0; startGame(); startBoatLesson(); }
+if(location.hash==='#witchalarm'){ chosen=0; startGame(); P.weapons.hammer=true; P.x=820; P.y=1150; Quests.debugJump('quest_main_10_witch_alarm','offer'); }
 if(location.hash==='#dive'){ chosen=0; startGame(); P.x=POND.x; P.y=POND.y; P.swimming=true; startDive(); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
@@ -2460,18 +2505,11 @@ if(location.hash==='#test-quests'){
   Quests.update(16);
   ok(questState.stage==='complete', 'Bog home → quest complete');
   openDialog(chief); while(dialogOpen) advanceDialog();
-  // Q7 — Modo teaches the hammer
-  Quests.update(2100);
-  ok(questState.currentId==='quest_main_07_hammer', 'Modo wants to see that hammer');
-  openDialog(modo); while(dialogOpen) advanceDialog();
-  P.weapon='hammer'; P.x=660; P.y=1265;
-  for(let i=0;i<3;i++){ P.slashT=0; dummies[0].hp=5; doSmash(4,80,16); }
-  ok(questState.stage==='complete', 'three hammer-smashes on the dummies');
-  openDialog(modo); while(dialogOpen) advanceDialog();
-  // Q8 — Bog's thank-you trip (fishing unlocks only now)
-  Quests.update(3500);
-  ok(questState.currentId==='quest_main_08_first_catch', 'Bog owes you a boat ride');
+  // NEW ORDER (Kaylee 2026-07-04): troll rescue → FISHING → BOATING → hammer → the Witch arc
   const bog=NPCS.find(n=>n.id==='npc_bog');
+  // Q: Bog's thank-you FISHING trip comes first now
+  Quests.update(2100);
+  ok(questState.currentId==='quest_main_08_first_catch', 'after the rescue, Bog offers FISHING first');
   ok(questState.flags.flag_bog_rescued===true, 'Bog is home — shack open');
   openDialog(bog); while(dialogOpen) advanceDialog();
   ok(questState.stage==='active', 'gear up and catch one');
@@ -2484,15 +2522,42 @@ if(location.hash==='#test-quests'){
   fishingEnd();
   ok(questState.flags.flag_fished_once===true, 'first catch logged');
   Quests.update(16);
-  ok(questState.stage==='complete', 'Bog’s quest complete');
+  ok(questState.stage==='complete', 'Bog’s fishing quest complete');
   openDialog(bog); while(dialogOpen) advanceDialog();
-  // Bog's boat-driving lesson — YOU drive, rocks and all
+  // Q: THEN Bog teaches BOAT-DRIVING (its own quest now)
+  Quests.update(2600);
+  ok(questState.currentId==='quest_main_09_boat_lesson', 'THEN Bog offers boat-driving');
+  openDialog(bog); while(dialogOpen) advanceDialog();
   NPC_ACTIONS.boat_lesson();
   ok(scene==='boat', 'Bog hands you the oars — a real driving scene');
   BOAT.x=BW-80; boatUpdate(16,0,0);
   ok(scene==='village' && questState.flags.flag_boat_skill===true, 'reach the far jetty → boat-driving learned');
+  Quests.update(16);
+  ok(questState.stage==='complete', 'boat lesson done → quest complete');
+  openDialog(bog); while(dialogOpen) advanceDialog();
+  // Q: Modo HEARS FROM BOG about the hammer, teaches SWING + SMASH
+  Quests.update(2600);
+  ok(questState.currentId==='quest_main_07_hammer', 'Modo now wants to see that hammer');
+  openDialog(modo); ok(dLines[0].includes('Bog'), 'Modo heard it from Bog');
+  ok([...$('shopBox').children].length===0, 'story-first: no weapon shop during the hammer pitch'); while(dialogOpen) advanceDialog();
+  P.weapon='hammer'; P.x=660; P.y=1265;
+  for(let i=0;i<3;i++){ P.slashT=0; dummies[0].hp=5; doSmash(4,80,16); }
+  ok(questState.stage==='complete', 'three hammer-smashes on the dummies');
+  openDialog(modo); while(dialogOpen) advanceDialog();
   ok(NPCS.some(n=>n.id==='npc_reba'), 'Reba keeps the stables (🐴) — no rides yet, Maple threw a shoe');
-  ok(Quests.trackerText()==='✅ All quests done — explore Losthorne!', 'THE WHOLE CHAIN: goblins→berries→turkeys→champion→shield→TROLL→hammer→fishing');
+  // Q10 — THE WITCH ALARM: Dorgan raves, the Chief asks (choice), you accept, then brew the antidote
+  Quests.update(3100);
+  ok(questState.currentId==='quest_main_10_witch_alarm' && questState.stage==='offer', 'the witch alarm sounds — the Chief has a question');
+  openDialog(chief); while(dIdx<dLines.length-1) advanceDialog();
+  { const go=[...$('shopBox').children].find(x=>x.textContent.includes("I'll do it")); ok(!!go, 'Chief offers I’ll-do-it / need-more-time'); go.click(); }
+  ok(questState.stage==='active', 'you take on the witch');
+  openDialog(dorgan);   // visiting Dorgan mid-quest brews the antidote
+  ok(questState.flags.flag_antidote_made===true && (P.inv.item_antidote||0)>=1, 'Dorgan brews the Antidote with you');
+  Quests.update(16);
+  ok(questState.stage==='complete', 'antidote made → quest complete');
+  { const anti0=P.inv.item_antidote; invSel='item_antidote'; $('invUse').onclick(); invSel=null;
+    ok(P.inv.item_antidote===anti0, 'the antidote is NOT for you — drinking does nothing and it isn’t consumed'); }
+  openDialog(dorgan); while(dialogOpen) advanceDialog();   // Dorgan's send-off into the woods
   // red berries + the cursed stone (moved with the arc)
   P.inv.item_red_berry=1; invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
   ok($('deathTitle').textContent==='The red berries', 'eating red berries from the satchel = death');
