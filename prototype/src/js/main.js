@@ -397,6 +397,11 @@ function contextAction(){
     return {icon:'⬆️', label: DIVE.breathing?'(catching breath)':'Resurface', kind:'resurface'};
   }
   if(scene==='brew') return brewAction();
+  if(scene==='cross'){
+    if(CROSS.sinking) return {icon:'🏊', label:'swim!', kind:'none'};
+    if(CROSS.piranhas.length>0) return {icon:'💥', label:'smash (cracks hull!)', kind:'smash'};
+    return {icon:'🛶', label:'crossing…', kind:'none'};
+  }
   if(scene==='woods'){
     if(woodsDockNear() && WOODS.packCleared) return {icon:'🛶', label:'board the boat', kind:'crosslake'};
     if(woodsDockNear()) return {icon:'🛶', label:'clear the wolves first', kind:'none'};
@@ -600,6 +605,7 @@ function eachTarget(cb){
     for(const w of WOODS.pack){ if(w.alive) cb(w,'wolf'); }
     return;
   }
+  if(scene==='cross'){ for(const f of CROSS.piranhas){ if(f.alive) cb(f,'piranha'); } return; }
   if(scene!=='village') return;
   for(const g of goblins){ if(g.alive) cb(g,'gob'); }
   for(const d of dummies){ if(d.hp>0) cb(d,'dum'); }
@@ -620,6 +626,9 @@ function hitTarget(t,kind,dmg,ang){
   } else if(kind==='wolf'){
     const kb=dmg>=5? 40 : 24; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
     if(t.hp<=0){ t.alive=false; banner('🐺 Wolf down!'+(MTN.packs.some(pk=>pk.wolves.includes(t)&&packAlive(pk)===1)?' ONE LEFT — kill it before it HOWLS!':'')); }
+  } else if(kind==='piranha'){
+    const kb=18; t.x+=Math.cos(ang)*kb; t.y+=Math.sin(ang)*kb;
+    if(t.hp<=0){ t.alive=false; addFloat(t.x,t.y-18,'🐟💀','#bfe0ea',16); }
   } else if(kind==='troll'){
     t.hp=999; // his hide shrugs off everything — only dawn ends this
     addFloat(t.x,t.y-70,'🪨 his hide shrugs it off','#cfc7b2',14);
@@ -642,7 +651,7 @@ function slash(ang){
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y), a=Math.atan2(t.y-P.y,t.x-P.x);
     let diff=Math.abs(a-ang); if(diff>Math.PI) diff=2*Math.PI-diff;
-    if(d<w.range && diff<1.15) hitTarget(t,kind,w.dmg+dmgBonus(),a);
+    if(d<w.range && (diff<1.15 || scene==='cross')) hitTarget(t,kind,w.dmg+dmgBonus(),a);   // forgiving on the pitching deck
   });
 }
 // SMASH is charged: hold 0.35s–2.4s = mini smash, hold 2.4s+ = FULL smash.
@@ -652,6 +661,9 @@ function fullSmash(){ doSmash(8,130,22); }
 function doSmash(dmg,radius,fx){
   if(P.slashT>0 || blocked()) return;
   P.slashT=22; P.smashT=fx; P.smashT0=fx; P.smashR=radius;
+  // on the crossing, a smash CRACKS the hull — effective, but three cracks sink you
+  if(scene==='cross' && !CROSS.sinking){ CROSS.hull--; addFloat(P.x,P.y-34,'💥 HULL CRACK!','#ff8a5a',18);
+    if(CROSS.hull<=0){ crossSink(); } }
   let hitDummy=false;
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y);
@@ -866,6 +878,7 @@ function update(dt){
   if(scene==='climb'){ climbUpdate(dt); updFloats(); if(P.hurtT>0)P.hurtT--; return; }
   if(scene==='dive'){ diveUpdate(dt,mx,my); updFloats(); return; }
   if(scene==='brew'){ brewUpdate(dt); updFloats(); return; }
+  if(scene==='cross'){ crossUpdate(dt,mx,my); if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; updFloats(); return; }
   // THE SHIELD: hold = up, but a shield arm TIRES (~3s), then it must rest — no more spam-and-hold
   if(P.shieldCd>0) P.shieldCd-=dt;
   { const want=shieldHoldRaw();
@@ -1061,6 +1074,7 @@ function draw(){
   else if(scene==='climb'){ drawClimb(); }
   else if(scene==='mountains'){ drawMountains(); }
   else if(scene==='woods'){ drawWoods(); }
+  else if(scene==='cross'){ drawCross(); }
   else if(scene==='cave'){ drawCave(); }
   else if(scene!=='village'){ drawInterior(); }
   else {
@@ -2372,9 +2386,97 @@ function drawWoods(){
     ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y); ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); ctx.globalAlpha=1; }
   ctx.restore();
 }
+// ---------- THE PIRANHA CROSSING (scene='cross') ----------
+// Auto-drift to the island while piranhas leap aboard. SLASH each (2 hits). A SMASH cracks the hull;
+// three cracks and you SINK — then swim the rest. Reaching the island opens the Witch's hut (stage 6).
+const CROSS={ prog:0, hull:3, piranhas:[], t:0, spawnT:0, sinking:false, warned:false };
+function crossDeck(){ return { cx:vw/2, cy:vh*0.58, w:Math.min(vw*0.42,300), h:Math.min(vh*0.44,260) }; }
 function startWitchCrossing(){
-  // STAGE 4 STUB — the piranha boat crossing lands in Stage 5.
-  banner('🛶 You shove the little boat off the dock toward the island… (the crossing — coming next!)');
+  scene='cross'; CROSS.prog=0; CROSS.hull=3; CROSS.piranhas.length=0; CROSS.t=0; CROSS.spawnT=1100; CROSS.sinking=false; CROSS.warned=false;
+  const d=crossDeck(); P.x=d.cx; P.y=d.cy+20;
+  banner('🛶 You shove off for the island. The water ripples — something’s coming UP. Keep the deck clear — SLASH them, and DON’T smash the hull!');
+}
+function crossSink(){ if(CROSS.sinking) return; CROSS.sinking=true; CROSS.piranhas.length=0;
+  banner('💥🌊 The hull SPLITS! You dive over the side and SWIM the rest of the way!'); }
+function crossArrive(){
+  // STAGE 5 STUB — Stage 6 swaps in the Witch's hut + fight.
+  scene='woods'; P.x=WDOCK.x; P.y=WDOCK.y+34;
+  banner('🛶 The boat grinds onto the island shore. The hut waits, its door glowing… (the WITCH — coming next!)');
+}
+function crossUpdate(dt,mx,my){
+  if(scene!=='cross') return;
+  CROSS.t+=dt;
+  if(CROSS.sinking){ CROSS.prog=Math.min(100, CROSS.prog+dt*0.03); if(P.hurtT>0)P.hurtT--; if(CROSS.prog>=100) crossArrive(); return; }
+  CROSS.prog=Math.min(100, CROSS.prog+dt*0.0052);   // ~20s crossing
+  if(CROSS.prog>=100){ crossArrive(); return; }
+  const d=crossDeck();
+  P.x=Math.max(d.cx-d.w/2+14, Math.min(d.cx+d.w/2-14, P.x+mx*2.5));
+  P.y=Math.max(d.cy-d.h/2+14, Math.min(d.cy+d.h/2-14, P.y+my*2.5));
+  if(mx||my) P.dir=Math.atan2(my,mx);
+  CROSS.spawnT-=dt;
+  if(CROSS.spawnT<=0){ CROSS.spawnT=Math.max(500, 1050 - CROSS.prog*5 + Math.random()*500);
+    const side=Math.floor(Math.random()*4); let px,py;
+    if(side===0){ px=d.cx-d.w/2; py=d.cy-d.h/2+Math.random()*d.h; }
+    else if(side===1){ px=d.cx+d.w/2; py=d.cy-d.h/2+Math.random()*d.h; }
+    else if(side===2){ px=d.cx-d.w/2+Math.random()*d.w; py=d.cy-d.h/2; }
+    else { px=d.cx-d.w/2+Math.random()*d.w; py=d.cy+d.h/2; }
+    CROSS.piranhas.push({x:px,y:py,hp:5,maxhp:5,hurtT:0,atkT:50,flop:Math.random()*7,alive:true});
+    if(!CROSS.warned){ CROSS.warned=true; banner('🐟 A piranha flops aboard — SLASH it! (two hits)'); }
+  }
+  for(const f of CROSS.piranhas){ if(!f.alive) continue;
+    if(f.hurtT>0) f.hurtT--;
+    const a=Math.atan2(P.y-f.y,P.x-f.x), dd=Math.hypot(P.x-f.x,P.y-f.y);
+    f.x+=Math.cos(a)*0.75; f.y+=Math.sin(a)*0.75; f.flop+=dt*0.02;
+    if(dd<26 && f.atkT<=0){ hurtPlayer(1,'A piranha bites you!'); f.atkT=90; }
+    if(f.atkT>0) f.atkT--;
+  }
+  CROSS.piranhas=CROSS.piranhas.filter(f=>f.alive);
+  if(P.hurtT>0)P.hurtT--;
+}
+function drawCross(){
+  // moving water; the island grows as you near
+  const g=ctx.createLinearGradient(0,0,0,vh); g.addColorStop(0,'#16323b'); g.addColorStop(1,'#0c2029');
+  ctx.fillStyle=g; ctx.fillRect(0,0,vw,vh);
+  ctx.strokeStyle='rgba(150,190,200,.12)'; ctx.lineWidth=2;
+  for(let i=0;i<8;i++){ const wy=((i*90 + (CROSS.t*0.06))% (vh+80))-40; ctx.beginPath(); ctx.ellipse((i*173)%vw, wy, 40,8,0,0,7); ctx.stroke(); }
+  // the island ahead, growing with progress
+  const isz=40+CROSS.prog*1.6, iy=vh*0.16;
+  ctx.fillStyle='#2c3a26'; ctx.beginPath(); ctx.ellipse(vw/2, iy, isz, isz*0.5, 0,0,7); ctx.fill();
+  if(CROSS.prog>40){ const hx=vw/2, hy=iy-isz*0.2; ctx.fillStyle='#3a2b3f'; ctx.fillRect(hx-isz*0.3,hy-isz*0.2,isz*0.6,isz*0.35);
+    ctx.fillStyle='#54324f'; ctx.beginPath(); ctx.moveTo(hx-isz*0.4,hy-isz*0.2); ctx.lineTo(hx,hy-isz*0.55); ctx.lineTo(hx+isz*0.4,hy-isz*0.2); ctx.fill();
+    ctx.fillStyle='#d8b24a'; ctx.fillRect(hx-isz*0.08,hy-isz*0.02,isz*0.16,isz*0.2); }
+  const d=crossDeck();
+  if(!CROSS.sinking){
+    // the boat deck
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(d.cx,d.cy+d.h/2,d.w*0.6,20,0,0,7); ctx.fill();
+    ctx.fillStyle='#6b4a26'; rr(ctx, d.cx-d.w/2, d.cy-d.h/2, d.w, d.h, 26);
+    ctx.fillStyle='#7d5730'; rr(ctx, d.cx-d.w/2+8, d.cy-d.h/2+8, d.w-16, d.h-16, 20);
+    ctx.strokeStyle='rgba(60,40,20,.5)'; ctx.lineWidth=2; for(let i=1;i<4;i++){ ctx.beginPath(); ctx.moveTo(d.cx-d.w/2+10, d.cy-d.h/2+i*d.h/4); ctx.lineTo(d.cx+d.w/2-10, d.cy-d.h/2+i*d.h/4); ctx.stroke(); }
+  }
+  // piranhas
+  for(const f of CROSS.piranhas){ if(!f.alive) continue;
+    ctx.save(); if(f.hurtT>0 && f.hurtT%4<2) ctx.globalAlpha=.5; ctx.translate(f.x,f.y); ctx.rotate(Math.sin(f.flop)*0.5);
+    ctx.fillStyle='#7a8a52'; ctx.beginPath(); ctx.ellipse(0,0,12,7,0,0,7); ctx.fill();
+    ctx.fillStyle='#7a8a52'; ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-18,-6); ctx.lineTo(-18,6); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(6,-2); ctx.lineTo(12,-1); ctx.lineTo(6,2); ctx.fill();   // toothy mouth
+    ctx.fillStyle='#12303a'; ctx.beginPath(); ctx.arc(4,-2,1.6,0,7); ctx.fill(); ctx.restore();
+    if(f.hp<f.maxhp){ ctx.fillStyle='#1c150e'; ctx.fillRect(f.x-12,f.y-16,24,3); ctx.fillStyle='#d43a3a'; ctx.fillRect(f.x-11,f.y-15.5,22*(f.hp/f.maxhp),2); } }
+  // player
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.5;
+  if(CROSS.sinking){ ctx.fillStyle='rgba(20,70,80,.4)'; ctx.beginPath(); ctx.ellipse(vw/2,vh*0.7,14,10,0,0,7); ctx.fill();
+    ctx.fillStyle=AVATARS[chosen<0?0:chosen].skin; ctx.beginPath(); ctx.arc(vw/2,vh*0.7-4,9,0,7); ctx.fill(); }
+  else drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false);
+  ctx.restore();
+  if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke(); }
+  for(const fl of floats){ ctx.globalAlpha=Math.min(1,fl.t/22); ctx.font='bold '+fl.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(fl.txt,fl.x,fl.y); ctx.fillStyle=fl.col; ctx.fillText(fl.txt,fl.x,fl.y); ctx.globalAlpha=1; }
+  // HUD: progress + hull
+  ctx.textAlign='left'; ctx.font='bold 13px Georgia'; ctx.fillStyle='#e8d9a8';
+  ctx.fillStyle='rgba(0,0,0,.4)'; rr(ctx,14,74,180,16,6); ctx.fillStyle='#7ec8e0'; rr(ctx,14,74,180*CROSS.prog/100,16,6);
+  ctx.fillStyle='#cfe6ef'; ctx.fillText('to the island', 20, 103);
+  for(let i=0;i<3;i++){ const px=110+i*24, ok=i<CROSS.hull; ctx.fillStyle=ok?'#8a5a2e':'rgba(90,70,50,.35)'; rr(ctx,px,92,18,12,3);
+    if(!ok){ ctx.strokeStyle='#ff8a5a'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(px+3,95); ctx.lineTo(px+15,101); ctx.stroke(); } }
+  ctx.fillStyle='#e8d9a8'; ctx.fillText('hull', 88, 103);
 }
 // ---------- THE CLIMB RENDERER — a real scene: watch yourself climb ----------
 function drawClimb(){
@@ -2546,6 +2648,7 @@ if(location.hash==='#brew'){ chosen=0; startGame(); startAntidoteBrew(); }
 if(location.hash==='#woods'){ chosen=0; startGame(); P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; woodsInit(); P.x=750; P.y=1150; }
 if(location.hash==='#woodsdock'){ chosen=0; startGame(); P.hasShield=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; woodsInit(); WOODS.pack.forEach(w=>w.alive=false); WOODS.packCleared=true; P.x=750; P.y=485; }
 if(location.hash==='#dive'){ chosen=0; startGame(); P.x=POND.x; P.y=POND.y; P.swimming=true; startDive(); }
+if(location.hash==='#cross'){ chosen=0; startGame(); P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchCrossing(); CROSS.prog=30; for(let k=0;k<3;k++) crossUpdate(1000,0,0); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
 let devBuilt=false;
@@ -2836,6 +2939,17 @@ if(location.hash==='#test-quests'){
   ok(!(WOODS.packCleared), 'the boat waits — wolves still guard the water');
   WOODS.pack.forEach(w=>w.alive=false); woodsUpdate(16);
   ok(WOODS.packCleared===true, 'clearing the pack opens the crossing');
+  // THE PIRANHA CROSSING: 2 slashes/piranha, a SMASH cracks the hull, 3 cracks → sink → swim → arrive
+  startWitchCrossing();
+  ok(scene==='cross' && CROSS.hull===3, 'the crossing starts with a 3-plank hull');
+  CROSS.piranhas.push({x:P.x+20,y:P.y,hp:5,maxhp:5,hurtT:0,atkT:99,flop:0,alive:true});
+  P.weapon='sword'; P.slashT=0; slash(0); P.slashT=0; slash(0);
+  ok(CROSS.piranhas[0].hp<=0, 'two slashes kill a piranha');
+  { const h0=CROSS.hull; P.slashT=0; doSmash(8,130,22); ok(CROSS.hull===h0-1, 'a SMASH cracks the hull'); }
+  P.slashT=0; doSmash(8,130,22); P.slashT=0; doSmash(8,130,22);
+  ok(CROSS.sinking===true, 'three cracks SINK the boat — you swim the rest');
+  for(let k=0;k<40;k++) crossUpdate(100,0,0);
+  ok(scene!=='cross', 'you reach the island shore');
   scene='village'; P.x=800; P.y=1210;
   // red berries + the cursed stone (moved with the arc)
   P.inv.item_red_berry=1; invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
