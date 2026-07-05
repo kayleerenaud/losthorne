@@ -19,6 +19,7 @@ import questHammer from './data/quests/main-07-hammer.js';
 import questFirstCatch from './data/quests/main-08-first-catch.js';
 import questBoatLesson from './data/quests/main-09-boat-lesson.js';
 import questWitchAlarm from './data/quests/main-10-witch-alarm.js';
+import questWitch from './data/quests/main-11-witch.js';
 import npcStrax from './data/npcs/strax.js';
 import npcReba from './data/npcs/reba.js';
 // ============================================================
@@ -304,7 +305,7 @@ function catchTurkey(){
 }
 
 // Quest state lives in engine/quests.js (single questState object).
-Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining, questFindBog, questHammer, questFirstCatch, questBoatLesson, questWitchAlarm], 'quest_main_01_goblins', {
+Quests.init([questGoblins, questBlueberries, questTurkeys, questChampion, questShieldTraining, questFindBog, questHammer, questFirstCatch, questBoatLesson, questWitchAlarm, questWitch], 'quest_main_01_goblins', {
   banner: (t)=>{ if(t) banner(t); },
   addCoins: (n)=>{ P.coins+=n; },
   itemCount: (id)=>P.inv[id]||0,
@@ -396,6 +397,13 @@ function contextAction(){
     return {icon:'⬆️', label: DIVE.breathing?'(catching breath)':'Resurface', kind:'resurface'};
   }
   if(scene==='brew') return brewAction();
+  if(scene==='woods'){
+    if(woodsDockNear() && WOODS.packCleared) return {icon:'🛶', label:'board the boat', kind:'crosslake'};
+    if(woodsDockNear()) return {icon:'🛶', label:'clear the wolves first', kind:'none'};
+    if(woodsEnemyNear()) return {icon:'💥', label:'smash', kind:'smash'};
+    const av=AVATARS[chosen<0?0:chosen];
+    return (av.item==='flute'||av.item==='lute')? {icon:'🎵', label:'play '+av.item, kind:'music'} : {icon:'💤', label:'rest', kind:'rest'};
+  }
   if(scene==='fishing'){
     if(fish.state==='idle') return {icon:'🎣', label:'cast', kind:'cast'};
     if(fish.state==='waiting') return {icon:'👀', label:'watch…', kind:'none'};
@@ -520,6 +528,7 @@ function pressButton(kind){
     else if(a.kind==='grab'){ catchTurkey(); }
     else if(a.kind==='ruins'){ banner('🗿 Stone trolls, frozen mid-stride. The elders say they wandered into the sunrise… and never walked home.'); }
     else if(a.kind==='well'){ tossCoinWell(); }
+    else if(a.kind==='crosslake'){ startWitchCrossing(); }
     else if(a.kind==='dive'){ startDive(); }
     else if(a.kind==='resurface'){ resurface(); }
     else if(a.kind==='sign'){ banner(a.sign.txt); }
@@ -586,6 +595,11 @@ function eachTarget(cb){
     return;
   }
   if(scene==='cave'){ if(MTN.troll.alive) cb(MTN.troll,'troll'); return; }
+  if(scene==='woods'){
+    for(const g of WOODS.goblins){ if(g.alive) cb(g,'gob'); }
+    for(const w of WOODS.pack){ if(w.alive) cb(w,'wolf'); }
+    return;
+  }
   if(scene!=='village') return;
   for(const g of goblins){ if(g.alive) cb(g,'gob'); }
   for(const d of dummies){ if(d.hp>0) cb(d,'dum'); }
@@ -877,6 +891,11 @@ function update(dt){
       if(MTN.climbed && P.y>700 && P.y<965) P.y = (P.y<832)? 700 : 965;
     } else if(scene==='cave'){
       P.x=Math.max(60,Math.min(840,P.x)); P.y=Math.max(70,Math.min(500,P.y));
+    } else if(scene==='woods'){
+      P.x=Math.max(30,Math.min(FW-30,P.x)); P.y=Math.max(30,Math.min(FH-30,P.y));
+      // the lake blocks you on foot — the dock is as far north as you go
+      if(onLake(P.x,P.y)){ const ex=(P.x-WLAKE.x)/(WLAKE.rx+8), ey=(P.y-WLAKE.y)/(WLAKE.ry+8), len=Math.hypot(ex,ey)||1e-6;
+        P.x=WLAKE.x+(ex/len)*(WLAKE.rx+8); P.y=WLAKE.y+(ey/len)*(WLAKE.ry+8); }
     } else {
     P.x=Math.max(30,Math.min(W-30,P.x)); P.y=Math.max(30,Math.min(H-30,P.y));
     for(const t of trees){ const d=Math.hypot(t.x-P.x,t.y-P.y); if(d<t.r+12){ const a=Math.atan2(P.y-t.y,P.x-t.x); P.x=t.x+Math.cos(a)*(t.r+12); P.y=t.y+Math.sin(a)*(t.r+12);} }
@@ -938,6 +957,16 @@ function update(dt){
   giverWalkUpdate(dt);
   dorganAlarmUpdate(dt);
   mountainsUpdate(dt);
+  woodsUpdate(dt);
+
+  // travel: NORTH into the deep woods (village ⇄ woods) — open once you're on the Witch's trail
+  { const woodsOpen = questState.currentId==='quest_main_11_witch' || questState.flags.flag_witch_cured;
+    if(scene==='village' && P.y<28 && P.x>620 && P.x<980){
+      if(woodsOpen){ scene='woods'; woodsInit(); P.x=750; P.y=FH-70; banner('🌲 The trees close overhead. This is the DEEP woods — and something is watching.'); }
+      else { P.y=32; banner('🌲 The north forest thins into darker woods… no reason to go deeper yet.'); }
+    }
+    if(scene==='woods' && P.y>FH-16){ scene='village'; P.x=800; P.y=60; banner('🏘 You slip back out of the deep woods, into home air.'); }
+  }
 
   // travel: the southern trail (village ⇄ mountains)
   if(scene==='village' && P.y>H-46 && P.x>640 && P.x<960){
@@ -1002,6 +1031,8 @@ function update(dt){
 
   // quest runtime (pending next-quest timers etc.)
   Quests.update(dt);
+  // the Witch quest auto-activates — Dorgan already sent you north, no NPC hands it over
+  if(questState.currentId==='quest_main_11_witch' && questState.stage==='offer') Quests.acceptOffer('auto');
 
   // goblins
   if(scene==='village') for(const g of goblins){ if(!g.alive) continue;
@@ -1029,6 +1060,7 @@ function draw(){
   else if(scene==='brew'){ drawBrew(); }
   else if(scene==='climb'){ drawClimb(); }
   else if(scene==='mountains'){ drawMountains(); }
+  else if(scene==='woods'){ drawWoods(); }
   else if(scene==='cave'){ drawCave(); }
   else if(scene!=='village'){ drawInterior(); }
   else {
@@ -2215,6 +2247,135 @@ function drawMountains(){
   // fire minigame overlay (Strax's lesson happens outdoors)
   if(MTN.fire.game){ drawFireGame(); }
 }
+// ============================================================
+// THE DEEP WOODS — the Witch's territory (goblins + one wolf pack, never both at once)
+// ============================================================
+const FW=1500, FH=1500;
+const WLAKE={x:750,y:200,rx:560,ry:250};   // the black lake (island in the centre)
+const WISLE={x:750,y:200,rx:150,ry:95};    // the island with the Witch's hut
+const WDOCK={x:750,y:475};                  // board the boat here (south shore)
+const WOODS={ entered:false, goblins:[], pack:[], packCleared:false, ftrees:[], gobRespawnT:0, rotT:0, shift:0, lastOneT:0 };
+function woodsInit(){
+  if(WOODS.entered) return; WOODS.entered=true;
+  WOODS.goblins=[]; [[520,1180],[900,1080],[660,980],[1040,1020],[420,1280],[1080,1240],[780,1320],[600,1120]]
+    .forEach(g=>WOODS.goblins.push({x:g[0],y:g[1],hp:6,maxhp:6,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}));
+  WOODS.pack=[]; for(let i=0;i<5;i++){ const a=i/5*6.283;
+    WOODS.pack.push({x:750+Math.cos(a)*90,y:660+Math.sin(a)*90,hp:18,maxhp:18,dir:Math.random()*7,t:0,hurtT:0,atkT:0,alive:true,showBar:false}); }
+  WOODS.ftrees=[]; for(let i=0;i<44;i++){ const y=560+Math.random()*(FH-620);
+    WOODS.ftrees.push({x:34+Math.random()*(FW-68), y, r:22+Math.random()*15}); }
+}
+function woodsGoblinEngaged(){ return WOODS.goblins.some(g=>g.alive && Math.hypot(P.x-g.x,P.y-g.y)<210); }
+function woodsPackAlive(){ return WOODS.pack.filter(w=>w.alive).length; }
+function onLake(x,y){ const ex=(x-WLAKE.x)/WLAKE.rx, ey=(y-WLAKE.y)/WLAKE.ry; return ex*ex+ey*ey<1; }
+function woodsEnemyNear(){ if(scene!=='woods') return false;
+  for(const g of WOODS.goblins){ if(g.alive && Math.hypot(g.x-P.x,g.y-P.y)<200) return true; }
+  for(const w of WOODS.pack){ if(w.alive && Math.hypot(w.x-P.x,w.y-P.y)<200) return true; }
+  return false; }
+function woodsDockNear(){ return scene==='woods' && Math.hypot(P.x-WDOCK.x,P.y-WDOCK.y)<70; }
+function woodsUpdate(dt){
+  if(scene!=='woods') return;
+  woodsInit();
+  // GOBLINS — roam and bite (as in the village)
+  for(const g of WOODS.goblins){ if(!g.alive) continue;
+    if(g.hurtT>0){ g.hurtT--; continue; }
+    const d=Math.hypot(P.x-g.x,P.y-g.y);
+    if(d<200 && !blocked()){ const a=Math.atan2(P.y-g.y,P.x-g.x); g.x+=Math.cos(a)*1.5; g.y+=Math.sin(a)*1.5; g.dir=a;
+      if(d<30 && g.atkT<=0){ hurtPlayer(1,'A goblin bites you!'); g.atkT=70; } }
+    else { g.t+=dt; if(g.t>2200){ g.t=0; g.dir=Math.random()*7; } g.x+=Math.cos(g.dir)*.4; g.y+=Math.sin(g.dir)*.4; }
+    g.x=Math.max(40,Math.min(FW-40,g.x)); g.y=Math.max(520,Math.min(FH-30,g.y)); }
+  if(WOODS.goblins.every(g=>!g.alive)){ WOODS.gobRespawnT+=dt;
+    if(WOODS.gobRespawnT>30000){ WOODS.gobRespawnT=0; WOODS.entered=false; woodsInit(); banner('🌲 More goblins slink out of the deep woods…'); } }
+  else WOODS.gobRespawnT=0;
+  // WOLF PACK — guards the lake, but STANDS DOWN while goblins are on you (never both at once)
+  const gobBusy=woodsGoblinEngaged(), alive=woodsPackAlive();
+  if(alive===0){ if(!WOODS.packCleared){ WOODS.packCleared=true; banner('🐺 The witch’s wolves fall — the water’s edge is clear.'); } }
+  else if(alive===1 && !WOODS.packCleared){ WOODS.lastOneT+=dt;
+    if(WOODS.lastOneT>5000){ for(const w of WOODS.pack){ w.alive=true; w.hp=w.maxhp; w.showBar=true; } WOODS.lastOneT=0; banner('🐺 AWOOOO! The last wolf HOWLS — the pack rises! Kill them ALL!'); } }
+  else WOODS.lastOneT=0;
+  const hunters=WOODS.pack.filter(w=>w.alive && w.hurtT<=0);
+  WOODS.rotT+=dt; if(WOODS.rotT>2600){ WOODS.rotT=0; WOODS.shift++; }
+  const byDist=hunters.slice().sort((a,b)=>Math.hypot(P.x-a.x,P.y-a.y)-Math.hypot(P.x-b.x,P.y-b.y));
+  const n=Math.max(1,byDist.length), attackers=new Set([byDist[WOODS.shift%n], byDist[(WOODS.shift+1)%n]]);
+  let ci=0;
+  for(const w of WOODS.pack){ if(!w.alive) continue;
+    if(w.hurtT>0){ w.hurtT--; continue; }
+    const d=Math.hypot(P.x-w.x,P.y-w.y);
+    if(d<240 && !gobBusy && !blocked()){                       // <-- the aggro-gate: quiet while goblins fight
+      const a=Math.atan2(P.y-w.y,P.x-w.x);
+      if(attackers.has(w)){ w.x+=Math.cos(a)*1.85; w.y+=Math.sin(a)*1.85; w.dir=a;
+        if(d<34 && w.atkT<=0){ hurtPlayer(2,'Wolf fangs find you.'); w.atkT=60; } }
+      else { const ring=Math.atan2(w.y-P.y,w.x-P.x)+0.02*(ci%2?1:-1)*dt/16;
+        const tx=P.x+Math.cos(ring)*135, ty=P.y+Math.sin(ring)*135, da=Math.atan2(ty-w.y,tx-w.x);
+        if(Math.hypot(tx-w.x,ty-w.y)>6){ w.x+=Math.cos(da)*1.3; w.y+=Math.sin(da)*1.3; } w.dir=a; ci++; }
+    } else { w.t+=dt; if(w.t>1900){ w.t=0; w.dir=Math.random()*7; } w.x+=Math.cos(w.dir)*.4; w.y+=Math.sin(w.dir)*.4; }
+    if(w.atkT>0) w.atkT--;
+    w.y=Math.max(500,w.y); if(onLake(w.x,w.y)) w.y=WLAKE.y+WLAKE.ry;   // wolves keep off the water
+  }
+}
+function drawWoods(){
+  const camX=Math.max(0,Math.min(FW-vw,P.x-vw/2)), camY=Math.max(0,Math.min(FH-vh,P.y-vh/2));
+  const grd=ctx.createLinearGradient(0,-camY,0,FH-camY);
+  grd.addColorStop(0,'#17241a'); grd.addColorStop(.5,'#1d2c1f'); grd.addColorStop(1,'#25311f');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
+  ctx.save(); ctx.translate(-camX,-camY);
+  // winding path from the south up to the dock
+  ctx.strokeStyle='#3a3526'; ctx.lineWidth=44; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(750,FH-10); ctx.quadraticCurveTo(640,1050,760,760); ctx.quadraticCurveTo(820,560,750,WDOCK.y); ctx.stroke();
+  // the LAKE — black water, an island in the middle
+  ctx.fillStyle='#12222a'; ctx.beginPath(); ctx.ellipse(WLAKE.x,WLAKE.y,WLAKE.rx,WLAKE.ry,0,0,7); ctx.fill();
+  ctx.fillStyle='#193039'; ctx.beginPath(); ctx.ellipse(WLAKE.x-18,WLAKE.y-14,WLAKE.rx*.82,WLAKE.ry*.8,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(150,190,200,.16)'; ctx.lineWidth=2;
+  for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(WLAKE.x-60+i*40,WLAKE.y-30+i*22,40,10,0,0,7); ctx.stroke(); }
+  // island
+  ctx.fillStyle='#2c3a26'; ctx.beginPath(); ctx.ellipse(WISLE.x,WISLE.y,WISLE.rx,WISLE.ry,0,0,7); ctx.fill();
+  ctx.fillStyle='#35452c'; ctx.beginPath(); ctx.ellipse(WISLE.x,WISLE.y-6,WISLE.rx*.8,WISLE.ry*.7,0,0,7); ctx.fill();
+  // the witch's hut
+  { const hx=WISLE.x, hy=WISLE.y-6;
+    ctx.fillStyle='#3a2b3f'; ctx.fillRect(hx-34,hy-6,68,40);
+    ctx.fillStyle='#54324f'; ctx.beginPath(); ctx.moveTo(hx-44,hy-6); ctx.lineTo(hx,hy-44); ctx.lineTo(hx+44,hy-6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#d8b24a'; ctx.fillRect(hx-8,hy+12,16,22);   // glowing door
+    ctx.fillStyle='#caa23a'; ctx.beginPath(); ctx.arc(hx-20,hy+4,4,0,7); ctx.arc(hx+20,hy+4,4,0,7); ctx.fill();   // lit windows
+    ctx.fillStyle='#b8a0c8'; ctx.font='12px Georgia'; ctx.textAlign='center'; ctx.fillText('🛖', hx, hy-50); }
+  // the DOCK
+  ctx.fillStyle='#5a462c'; ctx.fillRect(WDOCK.x-12,WDOCK.y-6,24,70);
+  for(let i=0;i<3;i++){ ctx.fillStyle='#6b552f'; ctx.fillRect(WDOCK.x-20,WDOCK.y+i*20,40,7); }
+  { const b=woodsDockNear(); ctx.fillStyle=b?'#ffe27a':'rgba(255,225,140,.5)'; ctx.font='bold 12px Georgia'; ctx.textAlign='center';
+    ctx.fillText(WOODS.packCleared?'🛶 board the boat →':'…clear the wolves first', WDOCK.x, WDOCK.y-16); }
+  // trees (behind + around; drawn simply)
+  for(const t of WOODS.ftrees){ ctx.fillStyle='rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(t.x+3,t.y+5,t.r*.9,t.r*.5,0,0,7); ctx.fill();
+    ctx.fillStyle='#16240f'; ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,7); ctx.fill();
+    ctx.fillStyle='#20360f'; ctx.beginPath(); ctx.arc(t.x-t.r*.25,t.y-t.r*.25,t.r*.7,0,7); ctx.fill(); }
+  // goblins
+  for(const g of WOODS.goblins){ if(!g.alive) continue;
+    ctx.save(); if(g.hurtT>0 && g.hurtT%4<2) ctx.globalAlpha=.5;
+    ctx.fillStyle='#5a7a3a'; ctx.beginPath(); ctx.ellipse(g.x,g.y+4,12,14,0,0,7); ctx.fill();
+    ctx.fillStyle='#6b8a44'; ctx.beginPath(); ctx.arc(g.x,g.y-10,8,0,7); ctx.fill();
+    ctx.fillStyle='#e04545'; ctx.beginPath(); ctx.arc(g.x-3,g.y-11,1.6,0,7); ctx.arc(g.x+3,g.y-11,1.6,0,7); ctx.fill();
+    ctx.restore();
+    if(g.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(g.x-14,g.y-26,28,4); ctx.fillStyle='#d43a3a'; ctx.fillRect(g.x-13,g.y-25,26*(g.hp/g.maxhp),2); } }
+  // wolves
+  for(const w of WOODS.pack){ if(!w.alive) continue;
+    ctx.save(); if(w.hurtT>0 && w.hurtT%4<2) ctx.globalAlpha=.5;
+    ctx.fillStyle='#565d66'; ctx.beginPath(); ctx.ellipse(w.x,w.y,15,9,Math.atan2(Math.sin(w.dir),Math.cos(w.dir)),0,7); ctx.fill();
+    const hx=w.x+Math.cos(w.dir)*14, hy=w.y+Math.sin(w.dir)*14;
+    ctx.beginPath(); ctx.arc(hx,hy,6.5,0,7); ctx.fill();
+    ctx.fillStyle='#ffd42a'; ctx.fillRect(hx+2,hy-2,2.4,2.4); ctx.restore();
+    if(w.showBar){ ctx.fillStyle='#1c150e'; ctx.fillRect(w.x-16,w.y-24,32,5); ctx.fillStyle='#d43a3a'; ctx.fillRect(w.x-15,w.y-23,30*(w.hp/w.maxhp),3); } }
+  // player
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.45;
+  if(P.shieldUp){ ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke(); }
+  drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false);
+  ctx.restore();
+  if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke(); }
+  if(P.smashT>0){ const pr=(P.smashT0-P.smashT)/P.smashT0; ctx.strokeStyle='rgba(255,190,90,'+(1-pr)*.9+')'; ctx.lineWidth=7-pr*5; ctx.beginPath(); ctx.arc(P.x,P.y,25+pr*(P.smashR-20),0,7); ctx.stroke(); }
+  for(const f of floats){ ctx.globalAlpha=Math.min(1,f.t/22); ctx.font='bold '+f.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y); ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); ctx.globalAlpha=1; }
+  ctx.restore();
+}
+function startWitchCrossing(){
+  // STAGE 4 STUB — the piranha boat crossing lands in Stage 5.
+  banner('🛶 You shove the little boat off the dock toward the island… (the crossing — coming next!)');
+}
 // ---------- THE CLIMB RENDERER — a real scene: watch yourself climb ----------
 function drawClimb(){
   const grd=ctx.createLinearGradient(0,0,0,vh);
@@ -2382,6 +2543,8 @@ if(location.hash==='#climb'){ chosen=0; startGame(); mtnInit(); startClimb(); }
 if(location.hash==='#boat'){ chosen=0; startGame(); startBoatLesson(); }
 if(location.hash==='#witchalarm'){ chosen=0; startGame(); P.weapons.hammer=true; P.x=820; P.y=1150; Quests.debugJump('quest_main_10_witch_alarm','offer'); }
 if(location.hash==='#brew'){ chosen=0; startGame(); startAntidoteBrew(); }
+if(location.hash==='#woods'){ chosen=0; startGame(); P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; woodsInit(); P.x=750; P.y=1150; }
+if(location.hash==='#woodsdock'){ chosen=0; startGame(); P.hasShield=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; woodsInit(); WOODS.pack.forEach(w=>w.alive=false); WOODS.packCleared=true; P.x=750; P.y=485; }
 if(location.hash==='#dive'){ chosen=0; startGame(); P.x=POND.x; P.y=POND.y; P.swimming=true; startDive(); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
@@ -2661,6 +2824,19 @@ if(location.hash==='#test-quests'){
   { const anti0=P.inv.item_antidote; invSel='item_antidote'; $('invUse').onclick(); invSel=null;
     ok(P.inv.item_antidote===anti0, 'the antidote is NOT for you — drinking does nothing and it isn’t consumed'); }
   openDialog(dorgan); while(dialogOpen) advanceDialog();   // Dorgan's send-off into the woods
+  // Q11 — THE DEEP WOODS: the Witch quest auto-activates; goblins + one wolf pack, never both
+  Quests.update(1600);
+  ok(questState.currentId==='quest_main_11_witch', 'the Witch quest becomes current');
+  Quests.acceptOffer('auto');
+  ok(questState.stage==='active', 'it auto-activates — Dorgan already sent you north');
+  scene='woods'; WOODS.entered=false; woodsInit(); P.x=750; P.y=1150;
+  ok(WOODS.goblins.length>0 && WOODS.pack.length===5, 'the deep woods: goblins + a single 5-wolf pack');
+  WOODS.goblins[0].alive=true; WOODS.goblins[0].x=P.x+40; WOODS.goblins[0].y=P.y;
+  ok(woodsGoblinEngaged()===true, 'goblins engage when you’re close');
+  ok(!(WOODS.packCleared), 'the boat waits — wolves still guard the water');
+  WOODS.pack.forEach(w=>w.alive=false); woodsUpdate(16);
+  ok(WOODS.packCleared===true, 'clearing the pack opens the crossing');
+  scene='village'; P.x=800; P.y=1210;
   // red berries + the cursed stone (moved with the arc)
   P.inv.item_red_berry=1; invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
   ok($('deathTitle').textContent==='The red berries', 'eating red berries from the satchel = death');
