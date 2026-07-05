@@ -50,6 +50,16 @@
 
 *Updated at every checkpoint.*
 
+- **Version:** v0.25 — THE WITCH ARC (fully built, story order) (reorg steps 6–8,10 still queued)
+- **v0.25 checkpoint (2026-07-05, Kaylee "deploy it all in story order"):** the whole Witch arc, 6 stages, each committed + smoke-tested (~150 assertions green).
+  - **S1 — chain reorder:** troll rescue → FISHING → BOATING (new quest_09) → hammer (07, "heard from Bog", jokingly buys it, teaches SWING+SMASH) → witch. Rewired next-pointers.
+  - **S2 — the alarm:** Dorgan sprints the square shouting about the north woods (the WITCH); the Chief asks "I'll do it / need more time" + stock FOOD. quest_10. New item_antidote (drinking = nothing, not consumed).
+  - **S3 — potion minigame** (scene='brew'): STRIKE→ light fire, STOKE→ cook in the green, ADD 3 ingredients, STIR → the antidote. Taps fire on press.
+  - **S4 — deep woods** (scene='woods'): new map north of the village, goblins + one wolf pack with an AGGRO-GATE (wolves stand down while goblins fight you), a black lake with the island hut + a dock. quest_11 (auto-activates).
+  - **S5 — piranha crossing** (scene='cross'): auto-drift while piranhas leap aboard (2 slashes each); a SMASH cracks the hull; 3 cracks → sink → swim the rest.
+  - **S6 — the hut** (scene='hut'): a CAT that SHIFTS (steel only makes her change form); gather 3 hidden ingredients while she harries you (damage never lands); THROW the antidote → she becomes JESSIE, who promises future aid. New npc_jessie; flag_witch_cured completes quest_11; turn in at the Chief.
+  - **Files:** 3 new quests (09/10/11), items.js (antidote), 5 new scenes + systems in main.js (brew/woods/cross/hut), npcs/jessie.js, DESIGN §5/§9/§10. Dev hashes #witchalarm #brew #woods #cross #hut.
+  - **Guesses (tuning, confirm w/ Kaylee):** brew timings, piranha hp=5 (2 sword hits) + hull=3, woods layout/aggro-range, the 3 antidote ingredients (🍄 wolfsbane 🦴), hut ingredient count=3.
 - **Version:** v0.24 — STORY-FIRST DIALOGUE + WITCH ARC SPEC'D (reorg steps 6–8,10 still queued)
 - **v0.24 checkpoint (2026-07-04, Kaylee):** one bug fix + captured a big new arc as canon.
   - **BUG FIX — NPC menu upstaged story dialogue:** an NPC's merchant menu (buy/sell) rendered under EVERY dialogue, even story moments (Modo selling weapons mid shield-training pitch). Now `openDialog` tracks `dStoryTalk` (true when the lines come from `Quests.dialogueFor`), and `renderShop` hides the `d.shop`/`d.buys` menus while story is being told. KEPT visible: Bog's `d.actions` (fishing/boat), the quest CHOICE buttons (appendQuestChoice), and a shopkeeper's wares during a deliver-SCOLD (so you can still buy). Verified by screenshot (Modo shows clean story, then full shop when idle) + smoke test green.

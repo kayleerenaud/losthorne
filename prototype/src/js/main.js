@@ -22,6 +22,7 @@ import questWitchAlarm from './data/quests/main-10-witch-alarm.js';
 import questWitch from './data/quests/main-11-witch.js';
 import npcStrax from './data/npcs/strax.js';
 import npcReba from './data/npcs/reba.js';
+import npcJessie from './data/npcs/jessie.js';
 // ============================================================
 // LOSTHORNE: LAST LIGHT — playable prototype slice
 // Top-down Zelda-style • two-thumb controls • mocked login/rooms
@@ -124,7 +125,7 @@ for(let i=0;i<14;i++) trees.push({x:80+Math.random()*(W-160), y:700+Math.random(
 [[560,940],[1050,760]].forEach(b=>bushes.push({x:b[0],y:b[1],type:'red',taken:false,respawn:0}));
 
 // NPCs are built from data files; dialogue & shops resolved at talk-time from raw data.
-const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog, npcStrax, npcReba].map(d=>({
+const NPCS = [npcChief, npcErik, npcDorgan, npcModo, npcBog, npcStrax, npcReba, npcJessie].map(d=>({
   id:d.id, nm:d.name, x:d.pos.x, y:d.pos.y, col:d.look.outfit, hat:!!d.look.hat, raw:d,
 }));
 function hasFishingGear(){ return (P.inv.item_rod||0)>0 && ((P.inv.item_hook_basic||0)>0 || (P.inv.item_hook_fine||0)>0); }
@@ -402,6 +403,11 @@ function contextAction(){
     if(CROSS.piranhas.length>0) return {icon:'💥', label:'smash (cracks hull!)', kind:'smash'};
     return {icon:'🛶', label:'crossing…', kind:'none'};
   }
+  if(scene==='hut'){
+    if(HUT.jessie) return {icon:'✨', label:'…', kind:'none'};
+    if(HUT.ready) return {icon:'🧪', label:'THROW the antidote!', kind:'throwpotion'};
+    return {icon:'🔎', label:'find 3 ingredients ('+HUT.got+'/3)', kind:'none'};
+  }
   if(scene==='woods'){
     if(woodsDockNear() && WOODS.packCleared) return {icon:'🛶', label:'board the boat', kind:'crosslake'};
     if(woodsDockNear()) return {icon:'🛶', label:'clear the wolves first', kind:'none'};
@@ -534,6 +540,7 @@ function pressButton(kind){
     else if(a.kind==='ruins'){ banner('🗿 Stone trolls, frozen mid-stride. The elders say they wandered into the sunrise… and never walked home.'); }
     else if(a.kind==='well'){ tossCoinWell(); }
     else if(a.kind==='crosslake'){ startWitchCrossing(); }
+    else if(a.kind==='throwpotion'){ throwAntidote(); }
     else if(a.kind==='dive'){ startDive(); }
     else if(a.kind==='resurface'){ resurface(); }
     else if(a.kind==='sign'){ banner(a.sign.txt); }
@@ -606,12 +613,14 @@ function eachTarget(cb){
     return;
   }
   if(scene==='cross'){ for(const f of CROSS.piranhas){ if(f.alive) cb(f,'piranha'); } return; }
+  if(scene==='hut'){ if(!HUT.jessie) cb({x:HUT.wx,y:HUT.wy},'witch'); return; }
   if(scene!=='village') return;
   for(const g of goblins){ if(g.alive) cb(g,'gob'); }
   for(const d of dummies){ if(d.hp>0) cb(d,'dum'); }
   if(champion && champion.alive) cb(champion,'champ');
 }
 function hitTarget(t,kind,dmg,ang){
+  if(kind==='witch'){ witchShapeshift(); return; }   // steel never touches her — she just shifts
   t.hp-=dmg; t.hurtT=10; t.showBar=true;
   // damage number: bigger hits look bigger (smash/strong arrows pop)
   addFloat(t.x, t.y-30, '-'+dmg, dmg>=8?'#ff7b47':dmg>=3?'#ffb347':'#f0e6d0', dmg>=8?26:dmg>=3?21:15);
@@ -651,7 +660,7 @@ function slash(ang){
   eachTarget((t,kind)=>{
     const d=Math.hypot(t.x-P.x,t.y-P.y), a=Math.atan2(t.y-P.y,t.x-P.x);
     let diff=Math.abs(a-ang); if(diff>Math.PI) diff=2*Math.PI-diff;
-    if(d<w.range && (diff<1.15 || scene==='cross')) hitTarget(t,kind,w.dmg+dmgBonus(),a);   // forgiving on the pitching deck
+    if(d<w.range && (diff<1.15 || scene==='cross' || scene==='hut')) hitTarget(t,kind,w.dmg+dmgBonus(),a);   // forgiving on the deck / in the hut
   });
 }
 // SMASH is charged: hold 0.35s–2.4s = mini smash, hold 2.4s+ = FULL smash.
@@ -838,7 +847,11 @@ function advanceDialog(){
   } else renderDialog();
 }
 function closeDialog(){ dialogOpen=false; $('dialog').classList.add('hidden');
-  if(dNpc && dNpc.id==='npc_strax' && !MTN.fire.learned && !MTN.fire.game) fireGameStart('strax'); }
+  if(dNpc && dNpc.id==='npc_strax' && !MTN.fire.learned && !MTN.fire.game) fireGameStart('strax');
+  if(dNpc && dNpc.id==='npc_jessie' && scene==='hut'){   // curse broken — she slips away, you head home to the Chief
+    scene='village'; P.x=800; P.y=1210;
+    banner('🌅 Jessie steps into the trees, already humming. You carry her thanks home — the Chief will want to hear THIS.');
+  } }
 // Dorgan brews the ANTIDOTE with you — a fire→cook→mix→stir minigame (scene='brew', code below).
 function startAntidoteBrew(){
   if(dialogOpen) closeDialog();
@@ -879,6 +892,7 @@ function update(dt){
   if(scene==='dive'){ diveUpdate(dt,mx,my); updFloats(); return; }
   if(scene==='brew'){ brewUpdate(dt); updFloats(); return; }
   if(scene==='cross'){ crossUpdate(dt,mx,my); if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; updFloats(); return; }
+  if(scene==='hut'){ hutUpdate(dt,mx,my); if(P.slashT>0)P.slashT--; if(P.smashT>0)P.smashT--; updFloats(); return; }
   // THE SHIELD: hold = up, but a shield arm TIRES (~3s), then it must rest — no more spam-and-hold
   if(P.shieldCd>0) P.shieldCd-=dt;
   { const want=shieldHoldRaw();
@@ -1075,6 +1089,7 @@ function draw(){
   else if(scene==='mountains'){ drawMountains(); }
   else if(scene==='woods'){ drawWoods(); }
   else if(scene==='cross'){ drawCross(); }
+  else if(scene==='hut'){ drawHut(); }
   else if(scene==='cave'){ drawCave(); }
   else if(scene!=='village'){ drawInterior(); }
   else {
@@ -2399,9 +2414,8 @@ function startWitchCrossing(){
 function crossSink(){ if(CROSS.sinking) return; CROSS.sinking=true; CROSS.piranhas.length=0;
   banner('💥🌊 The hull SPLITS! You dive over the side and SWIM the rest of the way!'); }
 function crossArrive(){
-  // STAGE 5 STUB — Stage 6 swaps in the Witch's hut + fight.
-  scene='woods'; P.x=WDOCK.x; P.y=WDOCK.y+34;
-  banner('🛶 The boat grinds onto the island shore. The hut waits, its door glowing… (the WITCH — coming next!)');
+  banner('🛶 The boat grinds onto the island shore. The hut door glows ahead…');
+  startWitchHut();
 }
 function crossUpdate(dt,mx,my){
   if(scene!=='cross') return;
@@ -2477,6 +2491,102 @@ function drawCross(){
   for(let i=0;i<3;i++){ const px=110+i*24, ok=i<CROSS.hull; ctx.fillStyle=ok?'#8a5a2e':'rgba(90,70,50,.35)'; rr(ctx,px,92,18,12,3);
     if(!ok){ ctx.strokeStyle='#ff8a5a'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(px+3,95); ctx.lineTo(px+15,101); ctx.stroke(); } }
   ctx.fillStyle='#e8d9a8'; ctx.fillText('hull', 88, 103);
+}
+// ---------- THE WITCH'S HUT (scene='hut') — the shapeshifter + the Jessie reveal ----------
+const HUT_FORMS=[['🐈','cat'],['🐸','toad'],['🦉','owl'],['🐍','adder'],['🦇','bat'],['🦎','newt']];
+const HUT={ ings:[], got:0, wx:0, wy:0, form:0, shiftT:0, lungeT:0, ready:false, jessie:false, transformT:0, revealed:false, t:0 };
+function hutRoom(){ const w=Math.min(vw-70,520), h=Math.min(vh-130,430); return {x:(vw-w)/2, y:(vh-h)/2+18, w, h}; }
+function witchFormName(){ return HUT_FORMS[HUT.form][1]; }
+function startWitchHut(){
+  scene='hut'; HUT.got=0; HUT.form=0; HUT.shiftT=0; HUT.lungeT=1700; HUT.ready=false; HUT.jessie=false; HUT.transformT=0; HUT.revealed=false; HUT.t=0;
+  const d=hutRoom();
+  HUT.ings=[ {x:d.x+46,y:d.y+58,ic:'🍄',got:false},{x:d.x+d.w-46,y:d.y+72,ic:'🌿',got:false},{x:d.x+d.w*0.5,y:d.y+d.h-40,ic:'🦴',got:false} ];
+  HUT.wx=d.x+d.w*0.5; HUT.wy=d.y+d.h*0.42; P.x=d.x+d.w*0.28; P.y=d.y+d.h-24;
+  banner('🛖 Inside: a CAT on the hearth, watching you… until it SHIFTS. That is no cat — it’s the WITCH! Steel won’t touch her. Find the 3 ingredients hidden here.');
+}
+function witchShapeshift(){
+  if(HUT.jessie) return;
+  HUT.form=(HUT.form+1)%HUT_FORMS.length; HUT.shiftT=0; HUT.lungeT=Math.max(HUT.lungeT,700);
+  addFloat(HUT.wx,HUT.wy-30,'✨ SHIFT!','#d9b8ff',18);
+  banner('✨ Your blow passes THROUGH — she just SHIFTS into a '+witchFormName()+'! Steel won’t end this… there must be another way.');
+}
+function throwAntidote(){
+  if(!HUT.ready || HUT.jessie) return;
+  HUT.jessie=true; HUT.ready=false; HUT.transformT=1500;
+  P.inv.item_antidote=Math.max(0,(P.inv.item_antidote||0)-1);
+  addFloat(HUT.wx,HUT.wy-30,'🧪✨','#c9f0a0',24);
+  banner('🧪 The antidote bursts over her — she SHRIEKS, and every borrowed shape tears away at once…');
+}
+function jessieReveal(){
+  const jess=NPCS.find(n=>n.id==='npc_jessie');
+  dialogOpen=true; dNpc=jess; dIdx=0; dLines=jess.raw.reveal; dStoryTalk=true;
+  banner('✨ …the shapes fall away — and a young woman stands where the beast was.');
+  renderDialog(); $('dialog').classList.remove('hidden');
+}
+function hutUpdate(dt,mx,my){
+  if(scene!=='hut') return;
+  HUT.t+=dt;
+  if(HUT.jessie){
+    if(HUT.transformT>0){ HUT.transformT-=dt; HUT.shiftT+=dt; if(HUT.shiftT>85){ HUT.shiftT=0; HUT.form=(HUT.form+1)%HUT_FORMS.length; }
+      if(HUT.transformT<=0 && !HUT.revealed){ HUT.revealed=true; questState.flags.flag_witch_cured=true; jessieReveal(); } }
+    if(P.hurtT>0)P.hurtT--; return;
+  }
+  if(dialogOpen){ if(P.hurtT>0)P.hurtT--; return; }
+  const d=hutRoom();
+  P.x=Math.max(d.x+14,Math.min(d.x+d.w-14,P.x+mx*2.4)); P.y=Math.max(d.y+14,Math.min(d.y+d.h-14,P.y+my*2.4));
+  if(mx||my) P.dir=Math.atan2(my,mx);
+  if(!HUT.ready) for(const ing of HUT.ings){ if(!ing.got && Math.hypot(ing.x-P.x,ing.y-P.y)<28){ ing.got=true; HUT.got++;
+    addFloat(P.x,P.y-30,ing.ic+' +1','#c9f0a0',18);
+    if(HUT.got>=3){ HUT.ready=true; banner('🧪 THREE! The antidote GLOWS — get near her and THROW it!'); }
+    else banner('🧪 An ingredient! ('+HUT.got+'/3) — keep looking, mind the beast!'); } }
+  const a=Math.atan2(P.y-HUT.wy,P.x-HUT.wx), dist=Math.hypot(P.x-HUT.wx,P.y-HUT.wy);
+  HUT.wx+=Math.cos(a)*1.15; HUT.wy+=Math.sin(a)*1.15;
+  HUT.wx=Math.max(d.x+14,Math.min(d.x+d.w-14,HUT.wx)); HUT.wy=Math.max(d.y+14,Math.min(d.y+d.h-14,HUT.wy));
+  HUT.lungeT-=dt;
+  if(dist<38 && HUT.lungeT<=0){ HUT.lungeT=1400;
+    if(P.shieldUp){ banner('🛡️ You catch her lunge on the shield — she recoils, hissing!'); addFloat(P.x,P.y-30,'🛡️','#cfd4da',18); }
+    else { banner('✨ She rakes you — but the curse-magic washes right off. It can’t land!'); addFloat(P.x,P.y-30,'✨','#d9b8ff',18); P.hurtT=18; } }
+  HUT.shiftT+=dt; if(HUT.shiftT>4200){ HUT.shiftT=0; HUT.form=(HUT.form+1)%HUT_FORMS.length; }
+  if(P.hurtT>0)P.hurtT--;
+}
+function drawHut(){
+  const d=hutRoom();
+  ctx.fillStyle='#0e0a12'; ctx.fillRect(0,0,vw,vh);
+  ctx.fillStyle='#2a2130'; rr(ctx,d.x-12,d.y-12,d.w+24,d.h+24,14);
+  ctx.fillStyle='#3a2f42'; rr(ctx,d.x,d.y,d.w,d.h,8);
+  ctx.fillStyle='#463954'; rr(ctx,d.x+6,d.y+6,d.w-12,d.h-12,6);
+  // hearth
+  ctx.fillStyle='#241a2a'; ctx.fillRect(d.x+d.w/2-40,d.y+2,80,26);
+  ctx.fillStyle='rgba(255,140,60,'+(0.5+0.3*Math.sin(HUT.t/120))+')'; ctx.beginPath(); ctx.ellipse(d.x+d.w/2,d.y+16,26,10,0,0,7); ctx.fill();
+  // shelves + jars
+  ctx.fillStyle='#2c2233'; ctx.fillRect(d.x+4,d.y+40,14,d.h-80); ctx.fillRect(d.x+d.w-18,d.y+40,14,d.h-80);
+  for(let i=0;i<4;i++){ ctx.fillStyle=['#6a8f5a','#8a5a8f','#5a6a8f','#8f7a4a'][i]; ctx.beginPath(); ctx.arc(d.x+11,d.y+70+i*68,5,0,7); ctx.arc(d.x+d.w-11,d.y+80+i*64,5,0,7); ctx.fill(); }
+  // table + cupboard the ingredients hide by
+  ctx.fillStyle='#3a2c1e'; rr(ctx,d.x+d.w*0.5-30,d.y+d.h-58,60,26,4);
+  ctx.fillStyle='#4a3550'; rr(ctx,d.x+20,d.y+42,54,30,5);
+  // ingredients (glow until grabbed)
+  for(const ing of HUT.ings){ if(ing.got) continue; const gl=0.4+0.4*Math.abs(Math.sin(HUT.t/160+ing.x));
+    ctx.fillStyle='rgba(180,240,150,'+gl*0.5+')'; ctx.beginPath(); ctx.arc(ing.x,ing.y,16,0,7); ctx.fill();
+    ctx.font='20px serif'; ctx.textAlign='center'; ctx.fillText(ing.ic, ing.x, ing.y+7); }
+  // the witch / Jessie
+  if(HUT.jessie && HUT.revealed){
+    drawPerson(HUT.wx,HUT.wy,0,{hair:'#3a2a20',outfit:'#b0498a',skin:'#e8c0a0'},false,false);
+    for(let i=0;i<3;i++){ ctx.fillStyle='rgba(230,200,255,.6)'; ctx.beginPath(); ctx.arc(HUT.wx+(i-1)*14,HUT.wy-32-i*3,2,0,7); ctx.fill(); }
+  } else {
+    const shifting=HUT.jessie && HUT.transformT>0;
+    ctx.save(); if(shifting) ctx.globalAlpha=0.4+0.5*Math.abs(Math.sin(HUT.t/40));
+    ctx.fillStyle='rgba(120,60,140,.3)'; ctx.beginPath(); ctx.arc(HUT.wx,HUT.wy,20,0,7); ctx.fill();
+    ctx.font='30px serif'; ctx.textAlign='center'; ctx.fillText(HUT_FORMS[HUT.form][0], HUT.wx, HUT.wy+10); ctx.restore();
+  }
+  // player
+  ctx.save(); if(P.hurtT>0 && P.hurtT%6<3) ctx.globalAlpha=.5;
+  if(P.shieldUp){ ctx.strokeStyle='rgba(200,215,235,.9)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(P.x,P.y,34,0,7); ctx.stroke(); }
+  drawPerson(P.x,P.y,P.dir,AVATARS[chosen<0?0:chosen],false,false); ctx.restore();
+  if(P.slashT>0 && !P.smashT){ ctx.strokeStyle='rgba(240,230,200,'+(P.slashT/14*.9)+')'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(P.x,P.y,44,P.dir-.8,P.dir+.8); ctx.stroke(); }
+  for(const fl2 of floats){ ctx.globalAlpha=Math.min(1,fl2.t/22); ctx.font='bold '+fl2.size+'px Georgia'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3; ctx.strokeText(fl2.txt,fl2.x,fl2.y); ctx.fillStyle=fl2.col; ctx.fillText(fl2.txt,fl2.x,fl2.y); ctx.globalAlpha=1; }
+  ctx.textAlign='left'; ctx.font='bold 13px Georgia'; ctx.fillStyle='#e8d9a8';
+  if(!HUT.jessie) ctx.fillText(HUT.ready?'🧪 antidote READY — THROW it on her!':('🧪 ingredients hidden here: '+HUT.got+'/3'), 16, 104);
 }
 // ---------- THE CLIMB RENDERER — a real scene: watch yourself climb ----------
 function drawClimb(){
@@ -2649,6 +2759,7 @@ if(location.hash==='#woods'){ chosen=0; startGame(); P.hasShield=true; P.weapons
 if(location.hash==='#woodsdock'){ chosen=0; startGame(); P.hasShield=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; woodsInit(); WOODS.pack.forEach(w=>w.alive=false); WOODS.packCleared=true; P.x=750; P.y=485; }
 if(location.hash==='#dive'){ chosen=0; startGame(); P.x=POND.x; P.y=POND.y; P.swimming=true; startDive(); }
 if(location.hash==='#cross'){ chosen=0; startGame(); P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchCrossing(); CROSS.prog=30; for(let k=0;k<3;k++) crossUpdate(1000,0,0); }
+if(location.hash==='#hut'){ chosen=0; startGame(); P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchHut(); }
 // ---------- DEV TESTING MENU — preview-only, never part of normal play ----------
 // Open via #dev in the URL, or the tiny 🛠 button on the title screen (prototype phase only).
 let devBuilt=false;
@@ -2949,7 +3060,22 @@ if(location.hash==='#test-quests'){
   P.slashT=0; doSmash(8,130,22); P.slashT=0; doSmash(8,130,22);
   ok(CROSS.sinking===true, 'three cracks SINK the boat — you swim the rest');
   for(let k=0;k<40;k++) crossUpdate(100,0,0);
-  ok(scene!=='cross', 'you reach the island shore');
+  ok(scene==='hut', 'you reach the island — inside the Witch’s hut');
+  // THE WITCH: steel only SHIFTS her; gather 3 ingredients; throw the antidote → JESSIE
+  ok(!HUT.jessie, 'a shapeshifting Witch waits');
+  P.x=HUT.wx; P.y=HUT.wy+20; { const f0=HUT.form; P.weapon='sword'; P.slashT=0; slash(-Math.PI/2);
+    ok(HUT.form!==f0 && HUT.jessie===false, 'attacking her only SHIFTS her form — never damages'); }
+  HUT.ings.forEach(i=>i.got=true); HUT.got=3; HUT.ready=true;
+  throwAntidote();
+  ok(HUT.jessie===true, 'antidote thrown → the transformation begins');
+  for(let k=0;k<40;k++) hutUpdate(100,0,0);
+  ok(questState.flags.flag_witch_cured===true && dialogOpen && dNpc.id==='npc_jessie', 'the curse breaks — JESSIE is revealed and speaks');
+  while(dialogOpen) advanceDialog();
+  ok(scene==='village', 'her thanks in hand, you head home');
+  Quests.update(16);
+  ok(questState.stage==='complete', 'the Witch quest completes (flag_witch_cured)');
+  openDialog(chief); while(dialogOpen) advanceDialog();
+  ok(questState.completed.includes('quest_main_11_witch'), 'the Chief hears the tale — THE WITCH ARC IS DONE');
   scene='village'; P.x=800; P.y=1210;
   // red berries + the cursed stone (moved with the arc)
   P.inv.item_red_berry=1; invSel='item_red_berry'; P.inv.item_red_berry--; useItem('item_red_berry'); invSel=null;
