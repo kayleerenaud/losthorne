@@ -807,9 +807,9 @@ function hurtPlayer(n,why){
   P.hp-=n; P.hurtT=45;
   if(P.hp<=0) die(why||'A goblin got the better of you.');
 }
-let deathScene='village';
+let deathScene='village', deathY=0, deathClimbed=false;
 function die(msg,title){
-  deathScene=scene;
+  deathScene=scene; deathY=P.y; deathClimbed=MTN.climbed;
   pot.type=null; pot.t=0;   // you don't keep a potion through death
   $('deathTitle').textContent = title||'You have fallen';
   $('deathMsg').textContent = msg+' You wake at the edge of the territory.';
@@ -818,9 +818,15 @@ function die(msg,title){
 }
 $('btnRespawn').onclick=()=>{
   P.hp=5; hungerT=0; P.hurtT=60;   // 2½ hearts — food still matters
-  if(deathScene==='mountains'||deathScene==='cave'||deathScene==='climb'){
-    scene='mountains'; P.x=750; P.y=70;
-    if(MTN.troll.alive && MTN.packs[1] && MTN.packs[1].cleared){ birdsSpawn(3); banner('🐦 Fresh birds flutter over the plateau — eat before facing the troll again.'); }
+  // died UP TOP (summit plateau, the climb, or the troll cave) → wake at the BASE of the mountain
+  // (the foot of the cliff) so you just re-climb — not all the way back at the forest edge. (Kaylee 2026-07-06)
+  const upTop = deathScene==='cave' || deathScene==='climb' || (deathScene==='mountains' && deathClimbed && deathY>615);
+  if(upTop){
+    scene='mountains'; P.x=750; P.y=660;
+    banner('🏔 You wake at the FOOT of the cliff — the climb waits. Steel yourself and go again.');
+    if(MTN.troll.alive && MTN.packs[1] && MTN.packs[1].cleared) birdsSpawn(3);
+  } else if(deathScene==='mountains'){
+    scene='mountains'; P.x=750; P.y=70;   // died down in the woods → back to the trailhead
   } else { scene='village'; P.x=800; P.y=1210; }
   show('gameWrap'); running=true; loop(); };
 
@@ -3114,10 +3120,15 @@ if(location.hash==='#test-quests'){
   $('btnRespawn').click(); scene='village'; P.x=800; P.y=1210;
   // hook windows: fine hook is much tighter
   ok(HOOKS.fine.hi-HOOKS.fine.lo < (HOOKS.basic.hi-HOOKS.basic.lo)/2, 'fine hook green window is less than half the basic one');
-  // territory respawn: die in the mountains → wake at the mountain entry
-  scene='mountains';
+  // territory respawn: die down in the WOODS → wake at the mountain trailhead
+  scene='mountains'; P.x=750; P.y=300; MTN.climbed=false;
   die('test'); $('btnRespawn').click();
-  ok(scene==='mountains' && P.y===70 && P.hp===5, 'mountain deaths respawn at the mountain entry with 2½ hearts');
+  ok(scene==='mountains' && P.y===70 && P.hp===5, 'forest deaths respawn at the trailhead with 2½ hearts');
+  // die UP on the summit (before the troll cave) → wake at the BASE of the mountain (foot of the cliff)
+  scene='mountains'; P.x=750; P.y=980; MTN.climbed=true;
+  die('test'); $('btnRespawn').click();
+  ok(scene==='mountains' && P.y===660, 'summit deaths respawn at the foot of the cliff, NOT the forest edge');
+  MTN.climbed=false;
   scene='village'; P.x=800; P.y=1210;
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();
