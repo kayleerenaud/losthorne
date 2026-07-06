@@ -6728,6 +6728,14 @@
       P.x = 1195;
       P.y = 1085;
     };
+    const gearTroll = () => {
+      P.weapons.sword = true;
+      P.weapons.hammer = true;
+      P.hasShield = true;
+      P.inv.item_hammer = 1;
+      P.inv.item_shield = 1;
+      questState.flags.flag_champion_defeated = true;
+    };
     mk("▶ Bog: FISHING", () => {
       bogReady();
       Quests.debugJump("quest_main_08_first_catch", "active");
@@ -6740,8 +6748,7 @@
       banner("🛶 Talk to Bog — take the oars!");
     });
     mk("▶ Q7: HAMMER lesson", () => {
-      P.weapons.hammer = true;
-      P.hasShield = true;
+      gearTroll();
       Quests.debugJump("quest_main_07_hammer", "offer");
       scene = "village";
       P.x = 1e3;
@@ -6749,21 +6756,19 @@
       banner("🔨 Talk to Modo about the hammer");
     });
     mk("▶ WITCH: alarm+Chief", () => {
-      P.weapons.hammer = true;
-      P.hasShield = true;
+      gearTroll();
       Quests.debugJump("quest_main_10_witch_alarm", "offer");
       scene = "village";
       P.x = 800;
       P.y = 1180;
     });
     mk("▶ WITCH: brew potion", () => {
-      P.hasShield = true;
+      gearTroll();
       Quests.debugJump("quest_main_10_witch_alarm", "active");
       startAntidoteBrew();
     });
     mk("▶ WITCH: deep woods", () => {
-      P.hasShield = true;
-      P.weapons.sword = true;
+      gearTroll();
       P.inv.item_antidote = 1;
       Quests.debugJump("quest_main_11_witch", "active");
       scene = "woods";
@@ -6773,15 +6778,13 @@
       P.y = 1150;
     });
     mk("▶ WITCH: piranha boat", () => {
-      P.hasShield = true;
-      P.weapons.sword = true;
+      gearTroll();
       P.inv.item_antidote = 1;
       Quests.debugJump("quest_main_11_witch", "active");
       startWitchCrossing();
     });
     mk("▶ WITCH: the hut", () => {
-      P.hasShield = true;
-      P.weapons.sword = true;
+      gearTroll();
       P.inv.item_antidote = 1;
       Quests.debugJump("quest_main_11_witch", "active");
       startWitchHut();
@@ -6789,11 +6792,14 @@
     mk("+200 coins", () => {
       P.coins += 200;
     });
-    mk("give sword/bow/shield", () => {
+    mk("give all weapons+shield", () => {
       P.weapons.sword = true;
       P.weapons.bow = true;
+      P.weapons.hammer = true;
       P.arrows += 10;
       P.hasShield = true;
+      P.inv.item_hammer = 1;
+      P.inv.item_shield = 1;
     });
     mk("open both shops", () => {
       questState.flags.flag_dorgan_shop_open = true;

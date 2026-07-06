@@ -2874,16 +2874,18 @@ function buildDevMenu(){
   mk('jump: boat scene (raw)', ()=>{ startBoatLesson(); });
   // --- Bog's lessons (in quest context) + the WITCH ARC ---
   const bogReady=()=>{ questState.flags.flag_bog_rescued=true; P.inv.item_rod=1; P.inv.item_hook_basic=1; scene='village'; P.x=1195; P.y=1085; };
+  // the full post-troll loadout — sword, Troll's HAMMER (weapon + the item in the satchel), shield
+  const gearTroll=()=>{ P.weapons.sword=true; P.weapons.hammer=true; P.hasShield=true; P.inv.item_hammer=1; P.inv.item_shield=1; questState.flags.flag_champion_defeated=true; };
   mk('▶ Bog: FISHING', ()=>{ bogReady(); Quests.debugJump('quest_main_08_first_catch','active'); banner('🛶 Talk to Bog — row out fishing!'); });
   mk('▶ Bog: BOATING', ()=>{ bogReady(); questState.flags.flag_fished_once=true; Quests.debugJump('quest_main_09_boat_lesson','active'); banner('🛶 Talk to Bog — take the oars!'); });
-  mk('▶ Q7: HAMMER lesson', ()=>{ P.weapons.hammer=true; P.hasShield=true; Quests.debugJump('quest_main_07_hammer','offer'); scene='village'; P.x=1000; P.y=1255; banner('🔨 Talk to Modo about the hammer'); });
-  mk('▶ WITCH: alarm+Chief', ()=>{ P.weapons.hammer=true; P.hasShield=true; Quests.debugJump('quest_main_10_witch_alarm','offer'); scene='village'; P.x=800; P.y=1180; });
-  mk('▶ WITCH: brew potion', ()=>{ P.hasShield=true; Quests.debugJump('quest_main_10_witch_alarm','active'); startAntidoteBrew(); });
-  mk('▶ WITCH: deep woods', ()=>{ P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; WOODS.entered=false; woodsInit(); P.x=750; P.y=1150; });
-  mk('▶ WITCH: piranha boat', ()=>{ P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchCrossing(); });
-  mk('▶ WITCH: the hut', ()=>{ P.hasShield=true; P.weapons.sword=true; P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchHut(); });
+  mk('▶ Q7: HAMMER lesson', ()=>{ gearTroll(); Quests.debugJump('quest_main_07_hammer','offer'); scene='village'; P.x=1000; P.y=1255; banner('🔨 Talk to Modo about the hammer'); });
+  mk('▶ WITCH: alarm+Chief', ()=>{ gearTroll(); Quests.debugJump('quest_main_10_witch_alarm','offer'); scene='village'; P.x=800; P.y=1180; });
+  mk('▶ WITCH: brew potion', ()=>{ gearTroll(); Quests.debugJump('quest_main_10_witch_alarm','active'); startAntidoteBrew(); });
+  mk('▶ WITCH: deep woods', ()=>{ gearTroll(); P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); scene='woods'; WOODS.entered=false; woodsInit(); P.x=750; P.y=1150; });
+  mk('▶ WITCH: piranha boat', ()=>{ gearTroll(); P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchCrossing(); });
+  mk('▶ WITCH: the hut', ()=>{ gearTroll(); P.inv.item_antidote=1; Quests.debugJump('quest_main_11_witch','active'); startWitchHut(); });
   mk('+200 coins', ()=>{ P.coins+=200; });
-  mk('give sword/bow/shield', ()=>{ P.weapons.sword=true; P.weapons.bow=true; P.arrows+=10; P.hasShield=true; });
+  mk('give all weapons+shield', ()=>{ P.weapons.sword=true; P.weapons.bow=true; P.weapons.hammer=true; P.arrows+=10; P.hasShield=true; P.inv.item_hammer=1; P.inv.item_shield=1; });
   mk('open both shops', ()=>{ questState.flags.flag_dorgan_shop_open=true; questState.flags.flag_erik_turkey_stock=true; });
   mk('give 4 blueberries', ()=>{ P.inv.item_blueberry=(P.inv.item_blueberry||0)+4; });
   mk('heal full', ()=>{ P.hp=P.maxhp; hungerT=0; });
