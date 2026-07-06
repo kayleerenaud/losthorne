@@ -353,8 +353,13 @@
     name: "Chief Bonbottom",
     pos: { x: 800, y: 1140 },
     look: { outfit: "#7d2f2f", hat: true },
-    // Lines when no quest business is pending (quest dialogue lives with each quest).
-    idleLines: ["The village is safe and the fires are warm, thanks to you. Explore! Adventure will come knocking soon enough."]
+    // When the WHOLE story is done — truly rest-and-explore.
+    idleLines: ["The village is safe and the fires are warm, thanks to you. Rest easy, warrior — you've earned the quiet."],
+    // When a quest is still afoot elsewhere in the village — don't give false closure; nudge them onward.
+    idleLinesBusy: [
+      "Don't settle in yet, warrior — the village still has need of you. Someone's been asking after you… follow it up.",
+      "Adventure's already stirring. Ask around — a friend of ours is waiting on you."
+    ]
   };
 
   // prototype/src/js/data/npcs/erik.js
@@ -1309,6 +1314,7 @@
     if (d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
     if (d.linesNoGear && !hasFishingGear()) return d.linesNoGear;
     if (d.id === "npc_strax" && MTN.fire.learned && d.linesAfter) return d.linesAfter;
+    if (d.id === "npc_chief_bonbottom" && d.idleLinesBusy && !questState.completed.includes("quest_main_11_witch")) return d.idleLinesBusy;
     return d.lines || d.idleLines;
   }
   var confirmYes = null;
@@ -5050,8 +5056,8 @@
       const d = Math.hypot(P.x - giverWalk.x, P.y - giverWalk.y);
       if (d > 60) {
         const a = Math.atan2(P.y - giverWalk.y, P.x - giverWalk.x);
-        giverWalk.x += Math.cos(a) * 1.8 * (dt / 16);
-        giverWalk.y += Math.sin(a) * 1.8 * (dt / 16);
+        giverWalk.x += Math.cos(a) * 2.3 * (dt / 16);
+        giverWalk.y += Math.sin(a) * 2.3 * (dt / 16);
       } else if (!giverWalk.spoke) {
         giverWalk.spoke = true;
         giverWalkDone[qid] = true;
@@ -7033,6 +7039,23 @@
     ok(questState.stage === "afterReward", "reaching the jetty AUTO-advances the chain — no loophole to stall on");
     Quests.update(2600);
     ok(questState.currentId === "quest_main_07_hammer", "Modo now wants to see that hammer");
+    {
+      scene = "village";
+      P.x = 800;
+      P.y = 1200;
+      giverWalk = null;
+      dialogOpen = false;
+      let delivered = false;
+      for (let f = 0; f < 600 && !delivered; f++) {
+        giverWalkUpdate(16);
+        if (dialogOpen && dNpc && dNpc.id === "npc_modo") delivered = true;
+      }
+      ok(delivered, "Modo WALKS OUT and delivers the hammer quest (no stall after Bog)");
+      dialogOpen = false;
+      $("dialog").classList.add("hidden");
+      giverWalk = null;
+    }
+    ok(npcLines(chief) === chief.raw.idleLinesBusy, 'mid-story the Chief nudges you onward — no false "explore & wait, nothing happens"');
     openDialog(modo);
     ok(dLines[0].includes("Bog"), "Modo heard it from Bog");
     ok([...$("shopBox").children].length === 0, "story-first: no weapon shop during the hammer pitch");

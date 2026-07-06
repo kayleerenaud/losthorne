@@ -137,6 +137,9 @@ function npcLines(n){ const d=n.raw;
   if(d.shopRequiresFlag && !questState.flags[d.shopRequiresFlag] && d.linesLocked) return d.linesLocked;
   if(d.linesNoGear && !hasFishingGear()) return d.linesNoGear;
   if(d.id==='npc_strax' && MTN.fire.learned && d.linesAfter) return d.linesAfter;
+  // the Chief shouldn't say "rest and explore" while a quest is still afoot — that reads as "nothing's
+  // happening" and strands players. Nudge them onward until the whole story is actually done. (Kaylee 2026-07-06)
+  if(d.id==='npc_chief_bonbottom' && d.idleLinesBusy && !questState.completed.includes('quest_main_11_witch')) return d.idleLinesBusy;
   return d.lines || d.idleLines;
 }
 // CONFIRM before spending — no accidental buy/sell on a stray tap (Kaylee 2026-07-06)
@@ -2154,7 +2157,7 @@ function giverWalkUpdate(dt){
     if(!giverWalk || giverWalk.npcId!==giverId){ const h=giverHome(giverId); if(!h) return; giverWalk={npcId:giverId,x:h.x,y:h.y,spoke:false,returning:false}; }
     if(dialogOpen) return;
     const d=Math.hypot(P.x-giverWalk.x,P.y-giverWalk.y);
-    if(d>60){ const a=Math.atan2(P.y-giverWalk.y,P.x-giverWalk.x); giverWalk.x+=Math.cos(a)*1.8*(dt/16); giverWalk.y+=Math.sin(a)*1.8*(dt/16); }
+    if(d>60){ const a=Math.atan2(P.y-giverWalk.y,P.x-giverWalk.x); giverWalk.x+=Math.cos(a)*2.3*(dt/16); giverWalk.y+=Math.sin(a)*2.3*(dt/16); }
     else if(!giverWalk.spoke){ giverWalk.spoke=true; giverWalkDone[qid]=true; giverWalk.returning=true; openDialog(NPCS.find(n=>n.id===giverId)); }
   } else if(giverWalk && !dialogOpen){
     giverWalk.returning=true;
@@ -3096,6 +3099,13 @@ if(location.hash==='#test-quests'){
   // Q: Modo HEARS FROM BOG about the hammer, teaches SWING + SMASH
   Quests.update(2600);
   ok(questState.currentId==='quest_main_07_hammer', 'Modo now wants to see that hammer');
+  // the giver-walk must actually DELIVER it (Modo walks out) — real play relies on this; if it stalls,
+  // testers get stuck "exploring and waiting" after Bog
+  { scene='village'; P.x=800; P.y=1200; giverWalk=null; dialogOpen=false; let delivered=false;
+    for(let f=0; f<600 && !delivered; f++){ giverWalkUpdate(16); if(dialogOpen && dNpc && dNpc.id==='npc_modo') delivered=true; }
+    ok(delivered, 'Modo WALKS OUT and delivers the hammer quest (no stall after Bog)');
+    dialogOpen=false; $('dialog').classList.add('hidden'); giverWalk=null; }
+  ok(npcLines(chief)===chief.raw.idleLinesBusy, 'mid-story the Chief nudges you onward — no false "explore & wait, nothing happens"');
   openDialog(modo); ok(dLines[0].includes('Bog'), 'Modo heard it from Bog');
   ok([...$('shopBox').children].length===0, 'story-first: no weapon shop during the hammer pitch'); while(dialogOpen) advanceDialog();
   P.weapon='hammer'; P.x=660; P.y=1265;
