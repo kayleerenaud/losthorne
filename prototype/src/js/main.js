@@ -488,8 +488,7 @@ function contextAction(){
       if(Math.hypot(P.x-400,P.y-120)<62) return {icon:'🤲', label:'pet Biscuit', kind:'pet', horse:'biscuit'};
     }
     if(npcNearby()) return {icon:'💬', label:NPCS.find(x=>x.id===scene).nm.split(' ')[0], kind:'talk'};
-    if(interiorDoorNear()) return {icon:'🚪', label:'leave', kind:'leave'};
-    return {icon:'🚪', label:'to the door', kind:'none'};
+    return {icon:'🚪', label:'leave', kind:'leave'};   // ALWAYS leavable — never trap the player in a shop
   }
   if(P.swimming) return {icon:'🤿', label:'DIVE', kind:'dive'};
   const n=npcNearby(); if(n) return {icon:'💬', label:n.nm.split(' ')[0], kind:'talk'};
