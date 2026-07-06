@@ -139,6 +139,11 @@ function npcLines(n){ const d=n.raw;
   if(d.id==='npc_strax' && MTN.fire.learned && d.linesAfter) return d.linesAfter;
   return d.lines || d.idleLines;
 }
+// CONFIRM before spending — no accidental buy/sell on a stray tap (Kaylee 2026-07-06)
+let confirmYes=null;
+function confirmAction(msg,onYes){ $('confirm').querySelector('.cmsg').innerHTML=msg; $('confirm').classList.remove('hidden'); confirmYes=onYes; }
+$('confYes').onclick=(ev)=>{ ev.stopPropagation(); $('confirm').classList.add('hidden'); const f=confirmYes; confirmYes=null; if(f) f(); };
+$('confNo').onclick=(ev)=>{ ev.stopPropagation(); $('confirm').classList.add('hidden'); confirmYes=null; };
 // generic buy flow — behavior comes from the item's effect kind (data-driven)
 function buyItem(entry){
   const price=PRICES[entry.item], def=ITEM_DEFS[entry.item], e=def.effect;
@@ -184,7 +189,9 @@ function renderShop(){
       const owned = def.effect.kind==='unlock_weapon' && P.weapons[def.effect.weapon];
       b.textContent = owned? '✔ '+def.nm+' — owned' : entry.label.replace('{price}',price);
       if(owned){ b.disabled=true; b.style.opacity=.55; }
-      b.onclick=(ev)=>{ ev.stopPropagation(); buyItem(entry); };
+      b.onclick=(ev)=>{ ev.stopPropagation();
+        if(P.coins<price){ banner('🪙 Not enough coins for that.'); return; }
+        confirmAction('Buy '+def.ic+' '+def.nm+'<br>for '+price+' 🪙?', ()=>buyItem(entry)); };
       box.appendChild(b);
     }
   }
@@ -382,7 +389,7 @@ function contextAction(){
     if(cliffBaseNear()) return {icon:'🧗', label:'climb the cliff', kind:'climb'};
     if(MTN.climbed && plateauEdgeNear()) return {icon:'🧗', label:'climb down', kind:'climbdown'};
     if(caveMouthNear()) return {icon:'🚪', label:'the cave…', kind:'cave'};
-    if(mtnEnemyNear()) return {icon:'💥', label:'smash', kind:'smash'};
+    if(mtnEnemyNear() && P.weapon==='hammer') return {icon:'💥', label:'smash', kind:'smash'};
     const av=AVATARS[chosen<0?0:chosen];
     return (av.item==='flute'||av.item==='lute')? {icon:'🎵', label:'play '+av.item, kind:'music'} : {icon:'💤', label:'rest', kind:'rest'};
   }
@@ -404,7 +411,7 @@ function contextAction(){
   if(scene==='brew') return brewAction();
   if(scene==='cross'){
     if(CROSS.sinking) return {icon:'🏊', label:'swim!', kind:'none'};
-    if(CROSS.piranhas.length>0) return {icon:'💥', label:'smash (cracks hull!)', kind:'smash'};
+    if(CROSS.piranhas.length>0) return P.weapon==='hammer' ? {icon:'💥', label:'smash (cracks hull!)', kind:'smash'} : {icon:'🗡️', label:'slash them!', kind:'none'};
     return {icon:'🛶', label:'crossing…', kind:'none'};
   }
   if(scene==='hut'){
@@ -415,7 +422,7 @@ function contextAction(){
   if(scene==='woods'){
     if(woodsDockNear() && WOODS.packCleared) return {icon:'🛶', label:'board the boat', kind:'crosslake'};
     if(woodsDockNear()) return {icon:'🛶', label:'clear the wolves first', kind:'none'};
-    if(woodsEnemyNear()) return {icon:'💥', label:'smash', kind:'smash'};
+    if(woodsEnemyNear() && P.weapon==='hammer') return {icon:'💥', label:'smash', kind:'smash'};
     const av=AVATARS[chosen<0?0:chosen];
     return (av.item==='flute'||av.item==='lute')? {icon:'🎵', label:'play '+av.item, kind:'music'} : {icon:'💤', label:'rest', kind:'rest'};
   }
@@ -440,7 +447,7 @@ function contextAction(){
   if(Math.hypot(WELL.x-P.x,WELL.y-P.y)<58) return {icon:'🪙', label:'toss a coin', kind:'well'};
   { const sp=SIGNPOSTS.find(s=>Math.hypot(s.x-P.x,s.y-P.y)<60); if(sp) return {icon:'🪧', label:'read the sign', kind:'sign', sign:sp}; }
   if(turkeyNearby()) return {icon:'🤲', label:'GRAB!', kind:'grab'};
-  if(enemyNearby()) return {icon:'💥', label:'smash', kind:'smash'};
+  if(enemyNearby() && P.weapon==='hammer') return {icon:'💥', label:'smash', kind:'smash'};
   const av=AVATARS[chosen<0?0:chosen];
   const musical = av.item==='flute'||av.item==='lute';
   return musical? {icon:'🎵', label:'play '+av.item, kind:'music'} : {icon:'💤', label:'rest', kind:'rest'};
@@ -567,13 +574,14 @@ function attackRelease(x,y){
   if(invOpen) return;
   if(swp.reelHold){ swp.reelHold=false; return; }     // reel hold released — the minigame reads the hold, nothing fires
   if(scene==='boat'||scene==='climb') return;         // those scenes read holds themselves
-  if(scene==='fishing'){ if(fish.state==='idle') fishingEnd(); return; }  // ⛵ attack button = row back
+  if(scene==='fishing'){ if(fish.state!=='idle') banner('🎣 You reel in the line and row back to shore.'); fishingEnd(); return; }  // ⛵ attack button = row back — works even mid-cast now
   const dx=x-swp.sx, dy=y-swp.sy, dist=Math.hypot(dx,dy);
   const dur=performance.now()-swp.t0;
-  if(swp.smashOnly){                       // the 💥 button: hold to charge
+  if(swp.smashOnly){                       // the 💥 button: HAMMER smash only
+    if(P.weapon!=='hammer'){ slash(P.dir); return; }
     if(dur>=SMASH_FULL_MS) fullSmash();
     else if(dur>=350) miniSmash();
-    else banner('💥 HOLD the button to charge a smash — keep holding for the BIG one!');
+    else banner('💥 HOLD to charge a hammer SMASH — keep holding for the BIG one!');
     return;
   }
   if(P.weapon==='bow'){
@@ -581,14 +589,14 @@ function attackRelease(x,y){
     else fireArrow(P.dir,75);
     return;
   }
-  if(dist>18){ slash(Math.atan2(dy,dx)); return; }   // aimed slice
-  if(P.hasShield){                                    // SHIELD OWNERS: holding = shield ONLY. Release = NOTHING. (smash lives on 💥)
+  if(dist>18){ slash(Math.atan2(dy,dx)); return; }   // aimed attack
+  if(P.hasShield){                                    // SHIELD OWNERS: holding = shield ONLY. Release = NOTHING.
     if(dur<350) slash(P.dir);                         // a quick tap still attacks
     return;
   }
-  if(dur>=SMASH_FULL_MS) fullSmash();       // pre-shield: hold = charge smash
-  else if(dur>=350) miniSmash();            // partial charge = mini smash
-  else slash(P.dir);                        // tap = quick attack
+  // SMASH is a HAMMER move now — fists just punch, sword stabs, no charge (Kaylee 2026-07-06)
+  if(P.weapon==='hammer'){ if(dur>=SMASH_FULL_MS) fullSmash(); else if(dur>=350) miniSmash(); else slash(P.dir); }
+  else slash(P.dir);
 }
 cvs.addEventListener('touchstart',e=>{ for(const t of e.changedTouches) pointerDown(pt(t),t.identifier); e.preventDefault(); },{passive:false});
 cvs.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) pointerMove(pt(t),t.identifier); e.preventDefault(); },{passive:false});
@@ -690,6 +698,7 @@ function doSmash(dmg,radius,fx){
 // derived: is the current right-side hold a smash charge?
 function chargeInfo(){
   if(!swp.active) return null;
+  if(P.weapon!=='hammer') return null;   // SMASH is a HAMMER move only (Kaylee 2026-07-06): fists punch, sword stabs
   if(P.weapon==='bow' && !swp.smashOnly) return null;
   if(P.hasShield && !swp.smashOnly) return null;   // shield owners charge smashes ONLY on the 💥 button
   const dist=Math.hypot(swp.cx-swp.sx,swp.cy-swp.sy);
@@ -776,10 +785,14 @@ $('invClose').onclick=closeInv;
 $('invBack').onclick=()=>{ invSel=null; renderInv(); };
 $('invSell').onclick=()=>{
   if(!invSel) return; const price=SELL_PRICES[invSel]; if(!price || (P.inv[invSel]||0)<1) return;
-  P.inv[invSel]--; P.coins+=price;
-  banner('💰 Sold '+ITEM_DEFS[invSel].nm+' for '+price+' 🪙. Erik counts it into the ledger.');
-  if((P.inv[invSel]||0)<1) invSel=null;   // sold the last one → back to the grid
-  renderInv();
+  const id=invSel;   // capture — confirm is async
+  confirmAction('Sell '+ITEM_DEFS[id].ic+' '+ITEM_DEFS[id].nm+'<br>for '+price+' 🪙?', ()=>{
+    if((P.inv[id]||0)<1) return;
+    P.inv[id]--; P.coins+=price;
+    banner('💰 Sold '+ITEM_DEFS[id].nm+' for '+price+' 🪙. Erik counts it into the ledger.');
+    if((P.inv[id]||0)<1) invSel=null;   // sold the last one → back to the grid
+    renderInv();
+  });
 };
 $('invUse').onclick=()=>{ if(!invSel || P.inv[invSel]<1) return;
   const e=ITEM_DEFS[invSel].effect;
@@ -1590,13 +1603,20 @@ function fishingCatch(){
   banner((big?'🐠 A BIG one!':'🐟 Caught one!')+'  ('+fish.catches.length+' aboard) — cast again or ⛵ row back');
 }
 function fishingEnd(){
+  const caught=fish.catches.length;
+  const firstTrip = !questState.flags.flag_fished_once;
   const yours=[];
-  fish.catches.forEach((f,i)=>{ if(i%2===1) yours.push(f); });  // Bog takes the 1st of each pair — odd one is his
-  for(const f of yours) P.inv[f]=(P.inv[f]||0)+1;
-  const bogN=fish.catches.length-yours.length;
-  questState.flags.flag_fished_once=true;
+  if(firstTrip){                                     // Bog's thank-you: FIRST trip is FREE — keep the whole catch
+    for(const f of fish.catches){ yours.push(f); P.inv[f]=(P.inv[f]||0)+1; }
+  } else {                                           // after that, the deal: Bog keeps the larger half (1st of each pair)
+    fish.catches.forEach((f,i)=>{ if(i%2===1){ yours.push(f); P.inv[f]=(P.inv[f]||0)+1; } });
+  }
+  const bogN=caught-yours.length;
+  if(caught>0) questState.flags.flag_fished_once=true;   // only a REAL catch counts — rowing back empty doesn't
   scene='village'; P.x=1195; P.y=1100;
-  banner('⛵ Ashore! Catch: '+fish.catches.length+' — Bog keeps '+bogN+', you keep '+yours.length+'. He can teach boat-driving now!');
+  if(caught===0) banner('⛵ You row back empty-handed. Bog: “The fish won that round. Come try again, warrior.”');
+  else if(firstTrip) banner('⛵ Ashore — and this catch is ON BOG! You keep ALL '+yours.length+'. “First trip’s free, savior. After this, Bog keeps the bigger half.”');
+  else banner('⛵ Ashore! Catch: '+caught+' — Bog keeps '+bogN+', you keep '+yours.length+'.');
   fish.state='idle'; fish.catches.length=0; fish.hookChosen=false;   // re-offer the hook choice next trip
 }
 function fishingUpdate(dt){
@@ -2862,10 +2882,10 @@ if(location.hash==='#test-quests'){
   ok(invOpen && sellMode, 'the Sell button opens the satchel in sell mode');
   invSel='item_wild_turkey'; renderInv();
   ok(!$('invSell').classList.contains('hidden') && $('invUse').classList.contains('hidden'), 'sell mode shows a Sell offer, hides Use');
-  $('invSell').click();
+  $('invSell').click(); $('confYes').click();   // sell now asks to confirm first
   ok(P.inv.item_wild_turkey===0 && P.coins===225, 'accepted the turkey offer → +15 (225)');
   invSel='item_pearl'; renderInv();
-  $('invSell').click();
+  $('invSell').click(); $('confYes').click();
   ok(P.inv.item_pearl===0 && P.coins===243, 'sold a pearl for 18 (243)');
   P.inv.item_bread=1; invSel='item_bread'; renderInv();
   ok($('invSell').disabled, 'Erik won’t buy bread — Sell offer disabled (can reject)');
@@ -2874,8 +2894,9 @@ if(location.hash==='#test-quests'){
   // Modo gating: only the sword until the champion falls
   openDialog(modo);
   ok($('shopBox').children.length===1, 'Modo sells ONLY the sword pre-champion');
-  $('shopBox').children[0].click();
+  $('shopBox').children[0].click(); $('confYes').click();   // buying now asks to confirm first
   ok(P.weapons.sword===true && P.coins===43, 'sword bought with earned coins (243 − 200)');
+  ok($('confirm').classList.contains('hidden'), 'confirm modal closes after a purchase');
   while(dialogOpen) advanceDialog();
   // Q4 — the tougher champion
   Quests.update(16000);
@@ -2901,12 +2922,15 @@ if(location.hash==='#test-quests'){
   P.shieldUp=true; swp.active=true; swp.smashOnly=false; swp.reelHold=false; swp.sx=swp.sy=0; swp.cx=22; swp.cy=22; swp.t0=performance.now()-500;
   ok(shieldHoldRaw()===true, 'shield stays up through a small thumb drift');
   P.shieldUp=false; swp.active=false;
-  // a FULL smash is reachable at 2.4s (eased from 3s) and the meter agrees
-  swp.active=true; swp.smashOnly=true; swp.reelHold=false; swp.sx=swp.sy=swp.cx=swp.cy=0; swp.t0=performance.now()-SMASH_FULL_MS-40;
-  ok(chargeInfo() && chargeInfo().full===true, 'a 2.4s hold on 💥 reads as a FULL charge');
-  P.slashT=0; attackRelease(0,0);
-  ok(P.smashR===130, 'releasing that hold fires the FULL smash (radius 130)');
-  swp.active=false; P.slashT=0; P.smashT=0;
+  // SMASH is now a HAMMER-only move (Kaylee 2026-07-06): no charge with fists/sword
+  { const wpn=P.weapon;
+    P.weapon='sword'; swp.active=true; swp.smashOnly=true; swp.sx=swp.sy=swp.cx=swp.cy=0; swp.t0=performance.now()-SMASH_FULL_MS-40;
+    ok(chargeInfo()===null, 'no smash charge without the hammer — sword just stabs');
+    P.weapon='hammer';
+    ok(chargeInfo() && chargeInfo().full===true, 'with the HAMMER, a 2.4s hold reads as a FULL smash');
+    P.slashT=0; attackRelease(0,0);
+    ok(P.smashR===130, 'releasing that hold fires the FULL smash (radius 130)');
+    swp.active=false; P.slashT=0; P.smashT=0; P.weapon=wpn; }
   // Modo now sells everything
   openDialog(modo); ok($('shopBox').children.length===3, 'bow & arrows unlocked after the champion'); while(dialogOpen) advanceDialog();
   // permanent gear never vanishes

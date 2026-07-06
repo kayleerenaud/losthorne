@@ -53,6 +53,8 @@
   @media (orientation: landscape) { #dialog { bottom:calc(14px + env(safe-area-inset-bottom)); width:min(460px,56vw); } }
   /* ---------- INVENTORY ---------- */
   #inv { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(400px,86%); max-height:88%; overflow-y:auto; background:rgba(20,16,10,.96); border:2px solid #8a6d38; border-radius:16px; padding:16px; color:#f1e4bb; z-index:35; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.7); }
+  #confirm { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(340px,88%); background:rgba(24,18,10,.98); border:2px solid #ffd977; border-radius:16px; padding:18px 16px; color:#f1e4bb; z-index:40; text-align:center; box-shadow:0 8px 34px rgba(0,0,0,.75); }
+  #confirm .cmsg { font-size:16px; line-height:1.4; margin-bottom:12px; color:#ffe9b0; }
   #inv h3 { color:#ffd977; margin-bottom:10px; }
   #invGrid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:12px; min-height:64px; }
   .invItem { width:74px; padding:8px 4px; background:#2c2518; border:1.5px solid #6b5730; border-radius:11px; cursor:pointer; }
@@ -159,6 +161,13 @@
     <button class="btn ghost" id="invBack">← Back</button>
   </div>
   <button class="btn ghost" id="invClose" data-ref="close-satchel-button">Close satchel</button>
+</div>
+
+<!-- CONFIRM (buy / sell) — never spend on a stray tap -->
+<div id="confirm" class="hidden" data-ref="confirm-modal">
+  <div class="cmsg" data-ref="confirm-message"></div>
+  <button class="btn" id="confYes" data-ref="confirm-yes">Yes</button>
+  <button class="btn ghost" id="confNo" data-ref="confirm-no">No, keep my coins</button>
 </div>
 
 <!-- DEATH -->
@@ -471,7 +480,7 @@
         }
       }
       const qf = defs[questState.currentId];
-      if (qf && qf.objective.type === "flag" && questState.stage === "active" && questState.flags[qf.objective.flag]) {
+      if (qf && qf.objective.type === "flag" && (questState.stage === "active" || questState.stage === "offer") && questState.flags[qf.objective.flag]) {
         questState.stage = "complete";
         hooks.banner(qf.banners.objectiveDone);
       }
@@ -1291,6 +1300,24 @@
     if (d.id === "npc_strax" && MTN.fire.learned && d.linesAfter) return d.linesAfter;
     return d.lines || d.idleLines;
   }
+  var confirmYes = null;
+  function confirmAction(msg, onYes) {
+    $("confirm").querySelector(".cmsg").innerHTML = msg;
+    $("confirm").classList.remove("hidden");
+    confirmYes = onYes;
+  }
+  $("confYes").onclick = (ev) => {
+    ev.stopPropagation();
+    $("confirm").classList.add("hidden");
+    const f = confirmYes;
+    confirmYes = null;
+    if (f) f();
+  };
+  $("confNo").onclick = (ev) => {
+    ev.stopPropagation();
+    $("confirm").classList.add("hidden");
+    confirmYes = null;
+  };
   function buyItem(entry) {
     const price = PRICES[entry.item], def = ITEM_DEFS[entry.item], e = def.effect;
     if (P.coins < price) {
@@ -1366,7 +1393,11 @@
         }
         b.onclick = (ev) => {
           ev.stopPropagation();
-          buyItem(entry);
+          if (P.coins < price) {
+            banner("🪙 Not enough coins for that.");
+            return;
+          }
+          confirmAction("Buy " + def.ic + " " + def.nm + "<br>for " + price + " 🪙?", () => buyItem(entry));
         };
         box.appendChild(b);
       }
@@ -1635,7 +1666,7 @@
       if (cliffBaseNear()) return { icon: "🧗", label: "climb the cliff", kind: "climb" };
       if (MTN.climbed && plateauEdgeNear()) return { icon: "🧗", label: "climb down", kind: "climbdown" };
       if (caveMouthNear()) return { icon: "🚪", label: "the cave…", kind: "cave" };
-      if (mtnEnemyNear()) return { icon: "💥", label: "smash", kind: "smash" };
+      if (mtnEnemyNear() && P.weapon === "hammer") return { icon: "💥", label: "smash", kind: "smash" };
       const av2 = AVATARS[chosen < 0 ? 0 : chosen];
       return av2.item === "flute" || av2.item === "lute" ? { icon: "🎵", label: "play " + av2.item, kind: "music" } : { icon: "💤", label: "rest", kind: "rest" };
     }
@@ -1657,7 +1688,7 @@
     if (scene === "brew") return brewAction();
     if (scene === "cross") {
       if (CROSS.sinking) return { icon: "🏊", label: "swim!", kind: "none" };
-      if (CROSS.piranhas.length > 0) return { icon: "💥", label: "smash (cracks hull!)", kind: "smash" };
+      if (CROSS.piranhas.length > 0) return P.weapon === "hammer" ? { icon: "💥", label: "smash (cracks hull!)", kind: "smash" } : { icon: "🗡️", label: "slash them!", kind: "none" };
       return { icon: "🛶", label: "crossing…", kind: "none" };
     }
     if (scene === "hut") {
@@ -1668,7 +1699,7 @@
     if (scene === "woods") {
       if (woodsDockNear() && WOODS.packCleared) return { icon: "🛶", label: "board the boat", kind: "crosslake" };
       if (woodsDockNear()) return { icon: "🛶", label: "clear the wolves first", kind: "none" };
-      if (woodsEnemyNear()) return { icon: "💥", label: "smash", kind: "smash" };
+      if (woodsEnemyNear() && P.weapon === "hammer") return { icon: "💥", label: "smash", kind: "smash" };
       const av2 = AVATARS[chosen < 0 ? 0 : chosen];
       return av2.item === "flute" || av2.item === "lute" ? { icon: "🎵", label: "play " + av2.item, kind: "music" } : { icon: "💤", label: "rest", kind: "rest" };
     }
@@ -1698,7 +1729,7 @@
       if (sp) return { icon: "🪧", label: "read the sign", kind: "sign", sign: sp };
     }
     if (turkeyNearby()) return { icon: "🤲", label: "GRAB!", kind: "grab" };
-    if (enemyNearby()) return { icon: "💥", label: "smash", kind: "smash" };
+    if (enemyNearby() && P.weapon === "hammer") return { icon: "💥", label: "smash", kind: "smash" };
     const av = AVATARS[chosen < 0 ? 0 : chosen];
     const musical = av.item === "flute" || av.item === "lute";
     return musical ? { icon: "🎵", label: "play " + av.item, kind: "music" } : { icon: "💤", label: "rest", kind: "rest" };
@@ -1939,15 +1970,20 @@
     }
     if (scene === "boat" || scene === "climb") return;
     if (scene === "fishing") {
-      if (fish.state === "idle") fishingEnd();
+      if (fish.state !== "idle") banner("🎣 You reel in the line and row back to shore.");
+      fishingEnd();
       return;
     }
     const dx = x - swp.sx, dy = y - swp.sy, dist = Math.hypot(dx, dy);
     const dur = performance.now() - swp.t0;
     if (swp.smashOnly) {
+      if (P.weapon !== "hammer") {
+        slash(P.dir);
+        return;
+      }
       if (dur >= SMASH_FULL_MS) fullSmash();
       else if (dur >= 350) miniSmash();
-      else banner("💥 HOLD the button to charge a smash — keep holding for the BIG one!");
+      else banner("💥 HOLD to charge a hammer SMASH — keep holding for the BIG one!");
       return;
     }
     if (P.weapon === "bow") {
@@ -1965,9 +2001,11 @@
       if (dur < 350) slash(P.dir);
       return;
     }
-    if (dur >= SMASH_FULL_MS) fullSmash();
-    else if (dur >= 350) miniSmash();
-    else slash(P.dir);
+    if (P.weapon === "hammer") {
+      if (dur >= SMASH_FULL_MS) fullSmash();
+      else if (dur >= 350) miniSmash();
+      else slash(P.dir);
+    } else slash(P.dir);
   }
   cvs.addEventListener("touchstart", (e) => {
     for (const t of e.changedTouches) pointerDown(pt(t), t.identifier);
@@ -2142,6 +2180,7 @@
   }
   function chargeInfo() {
     if (!swp.active) return null;
+    if (P.weapon !== "hammer") return null;
     if (P.weapon === "bow" && !swp.smashOnly) return null;
     if (P.hasShield && !swp.smashOnly) return null;
     const dist = Math.hypot(swp.cx - swp.sx, swp.cy - swp.sy);
@@ -2280,11 +2319,15 @@
     if (!invSel) return;
     const price = SELL_PRICES[invSel];
     if (!price || (P.inv[invSel] || 0) < 1) return;
-    P.inv[invSel]--;
-    P.coins += price;
-    banner("💰 Sold " + ITEM_DEFS[invSel].nm + " for " + price + " 🪙. Erik counts it into the ledger.");
-    if ((P.inv[invSel] || 0) < 1) invSel = null;
-    renderInv();
+    const id = invSel;
+    confirmAction("Sell " + ITEM_DEFS[id].ic + " " + ITEM_DEFS[id].nm + "<br>for " + price + " 🪙?", () => {
+      if ((P.inv[id] || 0) < 1) return;
+      P.inv[id]--;
+      P.coins += price;
+      banner("💰 Sold " + ITEM_DEFS[id].nm + " for " + price + " 🪙. Erik counts it into the ledger.");
+      if ((P.inv[id] || 0) < 1) invSel = null;
+      renderInv();
+    });
   };
   $("invUse").onclick = () => {
     if (!invSel || P.inv[invSel] < 1) return;
@@ -3893,17 +3936,30 @@
     banner((big ? "🐠 A BIG one!" : "🐟 Caught one!") + "  (" + fish.catches.length + " aboard) — cast again or ⛵ row back");
   }
   function fishingEnd() {
+    const caught = fish.catches.length;
+    const firstTrip = !questState.flags.flag_fished_once;
     const yours = [];
-    fish.catches.forEach((f, i) => {
-      if (i % 2 === 1) yours.push(f);
-    });
-    for (const f of yours) P.inv[f] = (P.inv[f] || 0) + 1;
-    const bogN = fish.catches.length - yours.length;
-    questState.flags.flag_fished_once = true;
+    if (firstTrip) {
+      for (const f of fish.catches) {
+        yours.push(f);
+        P.inv[f] = (P.inv[f] || 0) + 1;
+      }
+    } else {
+      fish.catches.forEach((f, i) => {
+        if (i % 2 === 1) {
+          yours.push(f);
+          P.inv[f] = (P.inv[f] || 0) + 1;
+        }
+      });
+    }
+    const bogN = caught - yours.length;
+    if (caught > 0) questState.flags.flag_fished_once = true;
     scene = "village";
     P.x = 1195;
     P.y = 1100;
-    banner("⛵ Ashore! Catch: " + fish.catches.length + " — Bog keeps " + bogN + ", you keep " + yours.length + ". He can teach boat-driving now!");
+    if (caught === 0) banner("⛵ You row back empty-handed. Bog: “The fish won that round. Come try again, warrior.”");
+    else if (firstTrip) banner("⛵ Ashore — and this catch is ON BOG! You keep ALL " + yours.length + ". “First trip’s free, savior. After this, Bog keeps the bigger half.”");
+    else banner("⛵ Ashore! Catch: " + caught + " — Bog keeps " + bogN + ", you keep " + yours.length + ".");
     fish.state = "idle";
     fish.catches.length = 0;
     fish.hookChosen = false;
@@ -6632,10 +6688,12 @@
     renderInv();
     ok(!$("invSell").classList.contains("hidden") && $("invUse").classList.contains("hidden"), "sell mode shows a Sell offer, hides Use");
     $("invSell").click();
+    $("confYes").click();
     ok(P.inv.item_wild_turkey === 0 && P.coins === 225, "accepted the turkey offer → +15 (225)");
     invSel = "item_pearl";
     renderInv();
     $("invSell").click();
+    $("confYes").click();
     ok(P.inv.item_pearl === 0 && P.coins === 243, "sold a pearl for 18 (243)");
     P.inv.item_bread = 1;
     invSel = "item_bread";
@@ -6647,7 +6705,9 @@
     openDialog(modo);
     ok($("shopBox").children.length === 1, "Modo sells ONLY the sword pre-champion");
     $("shopBox").children[0].click();
+    $("confYes").click();
     ok(P.weapons.sword === true && P.coins === 43, "sword bought with earned coins (243 − 200)");
+    ok($("confirm").classList.contains("hidden"), "confirm modal closes after a purchase");
     while (dialogOpen) advanceDialog();
     Quests.update(16e3);
     openDialog(chief);
@@ -6690,18 +6750,24 @@
     ok(shieldHoldRaw() === true, "shield stays up through a small thumb drift");
     P.shieldUp = false;
     swp.active = false;
-    swp.active = true;
-    swp.smashOnly = true;
-    swp.reelHold = false;
-    swp.sx = swp.sy = swp.cx = swp.cy = 0;
-    swp.t0 = performance.now() - SMASH_FULL_MS - 40;
-    ok(chargeInfo() && chargeInfo().full === true, "a 2.4s hold on 💥 reads as a FULL charge");
-    P.slashT = 0;
-    attackRelease(0, 0);
-    ok(P.smashR === 130, "releasing that hold fires the FULL smash (radius 130)");
-    swp.active = false;
-    P.slashT = 0;
-    P.smashT = 0;
+    {
+      const wpn = P.weapon;
+      P.weapon = "sword";
+      swp.active = true;
+      swp.smashOnly = true;
+      swp.sx = swp.sy = swp.cx = swp.cy = 0;
+      swp.t0 = performance.now() - SMASH_FULL_MS - 40;
+      ok(chargeInfo() === null, "no smash charge without the hammer — sword just stabs");
+      P.weapon = "hammer";
+      ok(chargeInfo() && chargeInfo().full === true, "with the HAMMER, a 2.4s hold reads as a FULL smash");
+      P.slashT = 0;
+      attackRelease(0, 0);
+      ok(P.smashR === 130, "releasing that hold fires the FULL smash (radius 130)");
+      swp.active = false;
+      P.slashT = 0;
+      P.smashT = 0;
+      P.weapon = wpn;
+    }
     openDialog(modo);
     ok($("shopBox").children.length === 3, "bow & arrows unlocked after the champion");
     while (dialogOpen) advanceDialog();

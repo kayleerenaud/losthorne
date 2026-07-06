@@ -38,9 +38,11 @@ export const Quests = {
         questState.progress = 0;
         if(p.banner) hooks.banner(p.banner);
       } }
-    // 'flag' objectives complete when a story flag is raised (e.g. Bog rescued)
+    // 'flag' objectives complete when a story flag is raised (e.g. Bog rescued). This fires from
+    // 'offer' too, so earning the flag early (e.g. driving Bog's boat before the lesson is formally
+    // offered) can never STALL the chain — the quest just jumps straight to complete. (Kaylee 2026-07-06)
     const qf = defs[questState.currentId];
-    if(qf && qf.objective.type==='flag' && questState.stage==='active' && questState.flags[qf.objective.flag]){
+    if(qf && qf.objective.type==='flag' && (questState.stage==='active'||questState.stage==='offer') && questState.flags[qf.objective.flag]){
       questState.stage='complete'; hooks.banner(qf.banners.objectiveDone);
     }
     // 'deliver' objectives track live inventory: eat a quest berry and progress drops back.
