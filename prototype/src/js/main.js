@@ -540,7 +540,7 @@ function pressButton(kind){
     else if(a.kind==='trollclimb'){ MTN.troll.mounted=true; MTN.troll.t=0; banner('🧗 You haul yourself up the stone-hard back — hold on… NOW!'); }
     else if(a.kind==='trollsmash'){ trollSmashFinish(); }
     else if(a.kind==='firetap'){ fireGameTap(); }
-    else if(a.kind==='searchmat'){ const m=matSpotNear(); if(m){ m.found=true; MTN.cave.inMats++; banner('🔍 Driftwood… flint… tinder. ('+MTN.cave.inMats+'/3)'); } }
+    else if(a.kind==='searchmat'){ const m=matSpotNear(); if(m){ m.found=true; MTN.cave.inMats++; MTN.cave.darkHintT=0; banner('🔍 Driftwood… flint… tinder. ('+MTN.cave.inMats+'/3)'); } }
     else if(a.kind==='firestart'){ fireGameStart(MTN.fire.learned? 'cave' : 'cave_untaught'); if(!MTN.fire.learned){ MTN.fire.game=null; banner('🔥 You fumble in the dark… you don’t know HOW. Someone in the mountain woods might teach you.'); } }
     else if(a.kind==='freebog'){ freeBog(); }
     else if(a.kind==='treasure'){ gatherTreasure(); }
@@ -1646,7 +1646,7 @@ const MTN={
   entered:false, climbed:false,
   packs:[], birds:[], mbushes:[], rocks:[], mtrees:[],
   fire:{learned:false, game:null},           // fire-making minigame state
-  cave:{ inMats:0, fireLit:false, treasure:false },
+  cave:{ inMats:0, fireLit:false, treasure:false, darkHintT:0, hintN:0 },
   bog:{ found:false, escort:false, x:700, y:300 },
   troll:{ alive:true, x:450, y:250, dir:0, state:'lurk', t:0, outside:false, stunned:false, mounted:false, stone:false, dawn:false, dawnT:75000 },
 };
@@ -2035,6 +2035,16 @@ function mountainsUpdate(dt){
       const d=Math.hypot(P.x-T.x,P.y-T.y);
       if(d>70){ T.x+=Math.cos(a)*1.05; T.y+=Math.sin(a)*1.05; }
     }
+    // fumbling in the dark for materials — if you're stuck ~10s, nudge you toward building a FIRE
+    if(T.stone && !MTN.cave.fireLit && MTN.cave.inMats<3){
+      MTN.cave.darkHintT+=dt;
+      if(MTN.cave.darkHintT>=10000){ MTN.cave.darkHintT=0;
+        const hints=['🕳 It’s so DARK in here… you can barely see your own hands.',
+                     '🕳 If only you had some LIGHT. Your boot nudges cold driftwood on the floor…',
+                     '🔥 Driftwood… flint… tinder, all underfoot. Could you build a FIRE down here?'];
+        const i=MTN.cave.hintN%hints.length; MTN.cave.hintN++; banner(hints[i]);
+      }
+    } else MTN.cave.darkHintT=0;
   }
 }
 function enterCave(){
@@ -3129,6 +3139,11 @@ if(location.hash==='#test-quests'){
   die('test'); $('btnRespawn').click();
   ok(scene==='mountains' && P.y===660, 'summit deaths respawn at the foot of the cliff, NOT the forest edge');
   MTN.climbed=false;
+  // cave dark-hint: fumbling for fire materials ~10s → a nudge fires (Kaylee 2026-07-06)
+  { scene='cave'; MTN.troll.alive=false; MTN.troll.stone=true; MTN.cave.fireLit=false; MTN.cave.inMats=0; MTN.cave.darkHintT=0;
+    const n0=MTN.cave.hintN; mountainsUpdate(11000);
+    ok(MTN.cave.hintN>n0 && MTN.cave.darkHintT===0, 'stuck in the dark ~10s → a “build a fire” nudge fires');
+    scene='village'; }
   scene='village'; P.x=800; P.y=1210;
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();
