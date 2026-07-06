@@ -34,7 +34,8 @@ let chosen = -1;
 
 // ---------- Screen flow ----------
 function show(id){ ['title','lobby','select','gameWrap','deathScr'].forEach(s=>$(s).classList.add('hidden')); $(id).classList.remove('hidden');
-  document.body.classList.toggle('ingame', id==='gameWrap'); }
+  document.body.classList.toggle('ingame', id==='gameWrap');
+  $('mapBtn').classList.toggle('hidden', id!=='gameWrap'); if(id!=='gameWrap') $('mapOverlay').classList.add('hidden'); }
 $('btnGuest').onclick = ()=> show('lobby');
 $('btnGoogle').onclick = $('btnSupa').onclick = function(){ this.textContent='🔧 Pretend-login successful!'; setTimeout(()=>show('lobby'),450); };
 $('btnHost').onclick = ()=>{
@@ -142,6 +143,52 @@ function npcLines(n){ const d=n.raw;
   if(d.id==='npc_chief_bonbottom' && d.idleLinesBusy && !questState.completed.includes('quest_main_11_witch')) return d.idleLinesBusy;
   return d.lines || d.idleLines;
 }
+// ---------- THE MAP: an overlay of the explored territory with a YOU dot (Kaylee 2026-07-06) ----------
+function mapRegionOf(sc){
+  if(sc==='mountains'||sc==='cave'||sc==='climb') return 'mountains';
+  if(sc==='woods'||sc==='cross'||sc==='hut') return 'woods';
+  return 'village';   // village + pond/fishing/boat/dive/brew/shop interiors
+}
+function drawMap(){
+  const cv=$('mapCanvas'), c=cv.getContext('2d');
+  const cw=Math.min(520, Math.round(vw*0.9)), ch=Math.min(560, Math.round(vh*0.86));
+  cv.width=cw; cv.height=ch;
+  c.fillStyle='#37301e'; c.fillRect(0,0,cw,ch);
+  c.strokeStyle='#6b5730'; c.lineWidth=6; c.strokeRect(6,6,cw-12,ch-12);
+  c.fillStyle='#e8d9a8'; c.font='bold 20px Georgia'; c.textAlign='center'; c.fillText('🗺  Losthorne', cw/2, 36);
+  const top=54, gap=8, rh=(ch-top-14-gap*2)/3;
+  const regions=[
+    { key:'woods', name:'THE DEEP WOODS', icon:'🌲', hint:'NORTH — off the top of the village', explored:WOODS.entered, col:'#20301f' },
+    { key:'village', name:'LOSTHORNE VILLAGE', icon:'🏘', hint:'home — the pond is here too', explored:true, col:'#4a4a33' },
+    { key:'mountains', name:'THE MOUNTAINS', icon:'⛰', hint:'SOUTH — off the bottom of the village', explored:MTN.entered, col:'#3a4048' },
+  ];
+  const cur=mapRegionOf(scene), x=24, w=cw-48;
+  regions.forEach((r,i)=>{
+    const y=top+i*(rh+gap);
+    if(r.explored){
+      c.fillStyle=r.col; c.fillRect(x,y,w,rh); c.strokeStyle='#6b5730'; c.lineWidth=2; c.strokeRect(x,y,w,rh);
+      c.textAlign='left'; c.fillStyle='#e8d9a8'; c.font='bold 15px Georgia'; c.fillText(r.icon+'  '+r.name, x+12, y+24);
+      c.fillStyle='rgba(230,217,168,.55)'; c.font='11.5px Georgia'; c.fillText(r.hint, x+12, y+43);
+    } else {
+      c.fillStyle='#241f14'; c.fillRect(x,y,w,rh); c.setLineDash([5,5]); c.strokeStyle='#4a3f28'; c.lineWidth=2; c.strokeRect(x,y,w,rh); c.setLineDash([]);
+      c.textAlign='center'; c.fillStyle='#6b5f45'; c.font='bold 14px Georgia'; c.fillText('? unexplored ?', x+w/2, y+rh/2+5);
+    }
+    if(cur===r.key){
+      let fx=0.5, fy=0.5;
+      if(scene==='village') { fx=P.x/W; fy=P.y/H; }
+      else if(scene==='mountains'){ fx=P.x/MW; fy=P.y/MH; }
+      else if(scene==='woods'){ fx=P.x/FW; fy=P.y/FH; }
+      fx=Math.max(0.06,Math.min(0.94,fx)); fy=Math.max(0.16,Math.min(0.9,fy));
+      const dx=x+fx*w, dy=y+fy*rh;
+      c.fillStyle='#ff5a5a'; c.beginPath(); c.arc(dx,dy,7,0,7); c.fill();
+      c.strokeStyle='#fff'; c.lineWidth=2; c.beginPath(); c.arc(dx,dy,7,0,7); c.stroke();
+      c.fillStyle='#ffe066'; c.font='bold 11px Georgia'; c.textAlign='center'; c.fillText('YOU', dx, dy-12);
+    }
+  });
+}
+$('mapBtn').onclick=(e)=>{ e.stopPropagation(); if(invOpen||dialogOpen) return; drawMap(); $('mapOverlay').classList.remove('hidden'); };
+$('mapClose').onclick=(e)=>{ e.stopPropagation(); $('mapOverlay').classList.add('hidden'); };
+$('mapOverlay').onclick=(e)=>{ if(e.target===$('mapOverlay')) $('mapOverlay').classList.add('hidden'); };
 // CONFIRM before spending — no accidental buy/sell on a stray tap (Kaylee 2026-07-06)
 let confirmYes=null;
 function confirmAction(msg,onYes){ $('confirm').querySelector('.cmsg').innerHTML=msg; $('confirm').classList.remove('hidden'); confirmYes=onYes; }
@@ -1014,14 +1061,12 @@ function update(dt){
   mountainsUpdate(dt);
   woodsUpdate(dt);
 
-  // travel: NORTH into the deep woods (village ⇄ woods) — open once you're on the Witch's trail
-  { const woodsOpen = questState.currentId==='quest_main_11_witch' || questState.flags.flag_witch_cured;
-    if(scene==='village' && P.y<28 && P.x>620 && P.x<980){
-      if(woodsOpen){ scene='woods'; woodsInit(); P.x=750; P.y=FH-70; banner('🌲 The trees close overhead. This is the DEEP woods — and something is watching.'); }
-      else { P.y=32; banner('🌲 The north forest thins into darker woods… no reason to go deeper yet.'); }
-    }
-    if(scene==='woods' && P.y>FH-16){ scene='village'; P.x=800; P.y=60; banner('🏘 You slip back out of the deep woods, into home air.'); }
+  // travel: NORTH into the deep woods (village ⇄ woods) — open once the Witch's trail begins
+  if(scene==='village' && P.y<34 && P.x>540 && P.x<1060){
+    if(woodsIsOpen()){ scene='woods'; woodsInit(); P.x=750; P.y=FH-70; banner('🌲 The trees close overhead. This is the DEEP woods — and something is watching.'); }
+    else { P.y=38; banner('🌲 The north forest thins into darker woods… no reason to go deeper yet.'); }
   }
+  if(scene==='woods' && P.y>FH-16){ scene='village'; P.x=800; P.y=60; banner('🏘 You slip back out of the deep woods, into home air.'); }
 
   // travel: the southern trail (village ⇄ mountains)
   if(scene==='village' && P.y>H-46 && P.x>640 && P.x<960){
@@ -1204,6 +1249,15 @@ function draw(){
     ctx.fillStyle='#8a5a34'; ctx.fillRect(s.x-20,s.y-24,40,18); ctx.strokeStyle='#4a2f18'; ctx.lineWidth=2; ctx.strokeRect(s.x-20,s.y-24,40,18); // board
     ctx.strokeStyle='#c9a878'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(s.x-14,s.y-18); ctx.lineTo(s.x+14,s.y-18); ctx.moveTo(s.x-14,s.y-13); ctx.lineTo(s.x+8,s.y-13); ctx.stroke(); // carved lines
     if(Math.hypot(s.x-P.x,s.y-P.y)<60){ ctx.fillStyle='#e8d9b0'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('🪧 read', s.x, s.y-32); } }
+
+  // the NORTH GATE to the deep woods — appears once the Witch's trail begins, so it's findable
+  if(woodsIsOpen()){
+    ctx.fillStyle='#5c5546'; ctx.beginPath(); ctx.moveTo(690,120); ctx.lineTo(720,0); ctx.lineTo(880,0); ctx.lineTo(910,120); ctx.closePath(); ctx.fill();   // cleared path north
+    ctx.fillStyle='#2c3a1c'; for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(660-i*4+((i%2)*0),70+i*18,26,0,7); ctx.arc(940+i*4,70+i*18,26,0,7); ctx.fill(); }   // dark trees framing it
+    ctx.fillStyle='#3a2c1e'; ctx.fillRect(716,44,12,46); ctx.fillRect(872,44,12,46);   // gate posts
+    ctx.fillStyle='#6d4a2e'; ctx.fillRect(710,28,180,22); ctx.strokeStyle='#4a2f18'; ctx.lineWidth=2; ctx.strokeRect(710,28,180,22);
+    ctx.fillStyle='#ffe066'; ctx.font='bold 13px Georgia'; ctx.textAlign='center'; ctx.fillText('🌲 THE DEEP WOODS ↑', 800, 44);
+  }
 
   // training dummies
   for(const d of dummies){
@@ -1489,7 +1543,7 @@ function loop(ts){
   update(dt); draw();
   requestAnimationFrame(loop);
 }
-function startGame(){ show('gameWrap'); running=true; last=performance.now(); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); if(typeof devArmed!=='undefined' && devArmed) buildDevMenu(); requestAnimationFrame(loop); }
+function startGame(){ show('gameWrap'); running=true; last=performance.now(); $('mapBtn').classList.remove('hidden'); banner('Welcome to Losthorne. Find Chief Bonbottom in the square!'); if(typeof devArmed!=='undefined' && devArmed) buildDevMenu(); requestAnimationFrame(loop); }
 
 // ---------- FISHING WITH BOG ----------
 const POND={x:1380,y:930,rx:175,ry:120};
@@ -2372,6 +2426,10 @@ const WLAKE={x:750,y:200,rx:560,ry:250};   // the black lake (island in the cent
 const WISLE={x:750,y:200,rx:150,ry:95};    // the island with the Witch's hut
 const WDOCK={x:750,y:475};                  // board the boat here (south shore)
 const WOODS={ entered:false, goblins:[], pack:[], packCleared:false, ftrees:[], gobRespawnT:0, rotT:0, shift:0, lastOneT:0 };
+// the deep woods open once the Witch's trail begins (Dorgan/the alarm) — so they're findable in time
+function woodsIsOpen(){
+  return questState.currentId==='quest_main_10_witch_alarm' || questState.currentId==='quest_main_11_witch'
+      || questState.flags.flag_witch_cured || questState.completed.includes('quest_main_10_witch_alarm'); }
 function woodsInit(){
   if(WOODS.entered) return; WOODS.entered=true;
   WOODS.goblins=[]; [[520,1180],[900,1080],[660,980],[1040,1020],[420,1280],[1080,1240],[780,1320],[600,1120]]
