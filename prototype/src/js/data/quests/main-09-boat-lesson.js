@@ -27,5 +27,6 @@ export default {
     reward:'🎉 Boat-driving mastered!',
   },
   reward:{},
-  next:{ quest:'quest_main_07_hammer', delayMs:2500, banner:'🔨 Modo is asking about your hammer — head to the forge!' },
+  autoAdvance:true,   // reaching the jetty completes + advances instantly — no turn-in to miss
+  next:{ quest:'quest_main_07_hammer', delayMs:2500, banner:'🔨 Modo heard about your hammer — head to the forge!' },
 };

@@ -406,6 +406,7 @@ function contextAction(){
     return {icon:'🕳', label: T.alive? (T.dawn? 'RUN for the exit!' : 'outlast it… dawn comes') : 'dark…', kind:'none'};
   }
   if(scene==='dive'){
+    if(!DIVE.breathing && diveFishNear()) return {icon:'🤲', label:'GRAB the fish!', kind:'grabfish'};
     return {icon:'⬆️', label: DIVE.breathing?'(catching breath)':'Resurface', kind:'resurface'};
   }
   if(scene==='brew') return brewAction();
@@ -553,6 +554,7 @@ function pressButton(kind){
     else if(a.kind==='crosslake'){ startWitchCrossing(); }
     else if(a.kind==='throwpotion'){ throwAntidote(); }
     else if(a.kind==='dive'){ startDive(); }
+    else if(a.kind==='grabfish'){ grabDiveFish(); }
     else if(a.kind==='resurface'){ resurface(); }
     else if(a.kind==='sign'){ banner(a.sign.txt); }
     else if(a.kind==='pet'){
@@ -1743,7 +1745,22 @@ function diveBuild(){
 function startDive(){
   scene='dive'; DIVE.air=100; DIVE.breathing=false; DIVE.t=0; DIVE.got=0; DIVE.airHurtT=0;
   diveBuild(); DIVE.x=vw*0.5; DIVE.y=vh*0.42;
-  banner('🤿 UNDERWATER! Explore the deep. Mind your AIR (the ring) — swim UP to the top to breathe. ⬆️ Resurface when you\'re done.');
+  banner('🤿 UNDERWATER! Explore the deep. Mind your AIR (the ring) — swim UP to breathe. Sneak up on a fish and 🤲 GRAB it (they’re SLIPPERY!). ⬆️ Resurface when done.');
+}
+// catch fish down here like grabbing a turkey — but they're SLIPPERY (Kaylee 2026-07-06)
+function diveFishNear(){ let best=null,bd=34; for(const f of DIVE.fish){ const d=Math.hypot(f.x-DIVE.x,f.y-DIVE.y); if(d<bd){ bd=d; best=f; } } return best; }
+function grabDiveFish(){
+  const f=diveFishNear(); if(!f) return;
+  if(Math.random()<0.5){   // slippery! half the time it squirts free and bolts
+    banner('🐟 It SQUIRTS out of your hands — slippery little devil!');
+    const a=Math.atan2(f.y-DIVE.y,f.x-DIVE.x)||0.1; f.x+=Math.cos(a)*46; f.spd=Math.abs(f.spd)*(f.x<DIVE.x?-1:1)*1.5;
+    f.y=Math.max(DIVE.top+18,Math.min(DIVE.floorY-8,f.y+Math.sin(a)*46));
+    addFloat(DIVE.x,DIVE.y-20,'💨','#bfe0ea',16);
+  } else {
+    P.inv.item_fish_small=(P.inv.item_fish_small||0)+1;
+    addFloat(DIVE.x,DIVE.y-22,'🐟 +1','#bfe0ea',18); banner('🐟 GOTCHA! A fish for the satchel — Erik pays for these.');
+    f.x = Math.random()<0.5? -22 : vw+22; f.y=DIVE.top+30+Math.random()*(DIVE.floorY-DIVE.top-50);   // it swims off; a new one drifts in
+  }
 }
 function resurface(){
   scene='village'; P.swimming=true; P.x=POND.x; P.y=POND.y-6; P.dir=-Math.PI/2;
@@ -3066,19 +3083,16 @@ if(location.hash==='#test-quests'){
   fishingEnd();
   ok(questState.flags.flag_fished_once===true, 'first catch logged');
   Quests.update(16);
-  ok(questState.stage==='complete', 'Bog’s fishing quest complete');
-  openDialog(bog); while(dialogOpen) advanceDialog();
+  ok(questState.stage==='afterReward', 'the catch AUTO-completes the quest — no turn-in to miss');
   // Q: THEN Bog teaches BOAT-DRIVING (its own quest now)
   Quests.update(2600);
   ok(questState.currentId==='quest_main_09_boat_lesson', 'THEN Bog offers boat-driving');
-  openDialog(bog); while(dialogOpen) advanceDialog();
   NPC_ACTIONS.boat_lesson();
   ok(scene==='boat', 'Bog hands you the tiller — the POV river run');
   BOAT.prog=100; boatUpdate(16,0,0);
   ok(scene==='village' && questState.flags.flag_boat_skill===true, 'reach the jetty → boat-driving learned');
   Quests.update(16);
-  ok(questState.stage==='complete', 'boat lesson done → quest complete');
-  openDialog(bog); while(dialogOpen) advanceDialog();
+  ok(questState.stage==='afterReward', 'reaching the jetty AUTO-advances the chain — no loophole to stall on');
   // Q: Modo HEARS FROM BOG about the hammer, teaches SWING + SMASH
   Quests.update(2600);
   ok(questState.currentId==='quest_main_07_hammer', 'Modo now wants to see that hammer');
@@ -3172,6 +3186,14 @@ if(location.hash==='#test-quests'){
     const n0=MTN.cave.hintN; mountainsUpdate(11000);
     ok(MTN.cave.hintN>n0 && MTN.cave.darkHintT===0, 'stuck in the dark ~10s → a “build a fire” nudge fires');
     scene='village'; }
+  // underwater fish grab — slippery, but catchable (Kaylee 2026-07-06)
+  startDive();
+  DIVE.fish=[{x:DIVE.x,y:DIVE.y,spd:0.5,sz:10,col:'#fff',ph:0}];
+  ok(diveFishNear()!==null, 'a fish within reach is grabbable underwater');
+  { const f0=P.inv.item_fish_small||0; let got=false;
+    for(let kk=0;kk<40 && !got;kk++){ DIVE.fish[0].x=DIVE.x; DIVE.fish[0].y=DIVE.y; grabDiveFish(); if((P.inv.item_fish_small||0)>f0) got=true; }
+    ok(got, 'you can GRAB a slippery fish underwater → into the satchel'); }
+  scene='village';
   scene='village'; P.x=800; P.y=1210;
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();

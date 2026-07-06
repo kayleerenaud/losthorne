@@ -43,7 +43,11 @@ export const Quests = {
     // offered) can never STALL the chain — the quest just jumps straight to complete. (Kaylee 2026-07-06)
     const qf = defs[questState.currentId];
     if(qf && qf.objective.type==='flag' && (questState.stage==='active'||questState.stage==='offer') && questState.flags[qf.objective.flag]){
-      questState.stage='complete'; hooks.banner(qf.banners.objectiveDone);
+      questState.stage='complete';
+      // autoAdvance quests (Bog's fishing/boating) complete AND move the chain forward the instant the
+      // skill is earned — no "now talk to Bog again" step to miss, no loophole to stall on. (Kaylee 2026-07-06)
+      if(qf.autoAdvance){ this._turnIn(qf); }
+      else hooks.banner(qf.banners.objectiveDone);
     }
     // 'deliver' objectives track live inventory: eat a quest berry and progress drops back.
     // Supports one item ({item,count}) or several ({items:[{item,count},...]}).
@@ -132,18 +136,23 @@ export const Quests = {
     if(questState.stage==='offer'){
       this._activate(q);
     } else if(questState.stage==='complete'){
-      if(q.objective.type==='deliver' && hooks.takeItems){
-        for(const pt of (q.objective.items || [q.objective])) hooks.takeItems(pt.item, pt.count);
-      }
-      if(q.reward?.coins) hooks.addCoins(q.reward.coins);
-      if(q.reward?.potion && hooks.givePotion) hooks.givePotion(q.reward.potion);
-      if(q.reward?.item && hooks.giveItem) hooks.giveItem(q.reward.item);
-      hooks.banner(q.banners.reward);
-      questState.completed.push(q.id);
-      if(q.setFlagOnReward) questState.flags[q.setFlagOnReward]=true;
-      questState.stage='afterReward';
-      if(q.next) questState.pendingNext={questId:q.next.quest, msLeft:q.next.delayMs, banner:q.next.banner};
+      this._turnIn(q);
     }
+  },
+  // grant the reward, mark complete, and queue the next quest. Shared by the normal talk-to-turn-in
+  // path AND the autoAdvance path (Bog's fishing/boating self-complete — no turn-in step to miss).
+  _turnIn(q){
+    if(q.objective.type==='deliver' && hooks.takeItems){
+      for(const pt of (q.objective.items || [q.objective])) hooks.takeItems(pt.item, pt.count);
+    }
+    if(q.reward?.coins) hooks.addCoins(q.reward.coins);
+    if(q.reward?.potion && hooks.givePotion) hooks.givePotion(q.reward.potion);
+    if(q.reward?.item && hooks.giveItem) hooks.giveItem(q.reward.item);
+    hooks.banner(q.banners.reward);
+    questState.completed.push(q.id);
+    if(q.setFlagOnReward) questState.flags[q.setFlagOnReward]=true;
+    questState.stage='afterReward';
+    if(q.next) questState.pendingNext={questId:q.next.quest, msLeft:q.next.delayMs, banner:q.next.banner};
   },
 
   // dev-only: jump the chain to any quest/stage (used by the #dev testing menu)

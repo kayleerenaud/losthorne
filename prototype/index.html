@@ -482,7 +482,9 @@
       const qf = defs[questState.currentId];
       if (qf && qf.objective.type === "flag" && (questState.stage === "active" || questState.stage === "offer") && questState.flags[qf.objective.flag]) {
         questState.stage = "complete";
-        hooks.banner(qf.banners.objectiveDone);
+        if (qf.autoAdvance) {
+          this._turnIn(qf);
+        } else hooks.banner(qf.banners.objectiveDone);
       }
       const q = defs[questState.currentId];
       if (q && q.objective.type === "deliver" && (questState.stage === "active" || questState.stage === "complete")) {
@@ -576,25 +578,30 @@
     },
     // Called when a dialogue with this NPC finishes — drives stage transitions.
     onDialogueEnd(npcId) {
-      var _a, _b, _c;
       const q = defs[questState.currentId];
       if (!q || this._stageNpc(q) !== npcId) return;
       if (questState.stage === "offer" && q.choice) return;
       if (questState.stage === "offer") {
         this._activate(q);
       } else if (questState.stage === "complete") {
-        if (q.objective.type === "deliver" && hooks.takeItems) {
-          for (const pt2 of q.objective.items || [q.objective]) hooks.takeItems(pt2.item, pt2.count);
-        }
-        if ((_a = q.reward) == null ? void 0 : _a.coins) hooks.addCoins(q.reward.coins);
-        if (((_b = q.reward) == null ? void 0 : _b.potion) && hooks.givePotion) hooks.givePotion(q.reward.potion);
-        if (((_c = q.reward) == null ? void 0 : _c.item) && hooks.giveItem) hooks.giveItem(q.reward.item);
-        hooks.banner(q.banners.reward);
-        questState.completed.push(q.id);
-        if (q.setFlagOnReward) questState.flags[q.setFlagOnReward] = true;
-        questState.stage = "afterReward";
-        if (q.next) questState.pendingNext = { questId: q.next.quest, msLeft: q.next.delayMs, banner: q.next.banner };
+        this._turnIn(q);
       }
+    },
+    // grant the reward, mark complete, and queue the next quest. Shared by the normal talk-to-turn-in
+    // path AND the autoAdvance path (Bog's fishing/boating self-complete — no turn-in step to miss).
+    _turnIn(q) {
+      var _a, _b, _c;
+      if (q.objective.type === "deliver" && hooks.takeItems) {
+        for (const pt2 of q.objective.items || [q.objective]) hooks.takeItems(pt2.item, pt2.count);
+      }
+      if ((_a = q.reward) == null ? void 0 : _a.coins) hooks.addCoins(q.reward.coins);
+      if (((_b = q.reward) == null ? void 0 : _b.potion) && hooks.givePotion) hooks.givePotion(q.reward.potion);
+      if (((_c = q.reward) == null ? void 0 : _c.item) && hooks.giveItem) hooks.giveItem(q.reward.item);
+      hooks.banner(q.banners.reward);
+      questState.completed.push(q.id);
+      if (q.setFlagOnReward) questState.flags[q.setFlagOnReward] = true;
+      questState.stage = "afterReward";
+      if (q.next) questState.pendingNext = { questId: q.next.quest, msLeft: q.next.delayMs, banner: q.next.banner };
     },
     // dev-only: jump the chain to any quest/stage (used by the #dev testing menu)
     debugJump(questId, stage) {
@@ -921,7 +928,9 @@
       reward: "🎉 Fisherman of Losthorne!"
     },
     reward: {},
-    next: { quest: "quest_main_09_boat_lesson", delayMs: 2500, banner: "🛶 Bog wants to teach you to DRIVE the boat next!" }
+    autoAdvance: true,
+    // landing your first fish completes + advances instantly — no turn-in to miss
+    next: { quest: "quest_main_09_boat_lesson", delayMs: 2500, banner: "🛶 Now Bog wants to teach you to DRIVE the boat — ask him for the oars!" }
   };
 
   // prototype/src/js/data/quests/main-09-boat-lesson.js
@@ -955,7 +964,9 @@
       reward: "🎉 Boat-driving mastered!"
     },
     reward: {},
-    next: { quest: "quest_main_07_hammer", delayMs: 2500, banner: "🔨 Modo is asking about your hammer — head to the forge!" }
+    autoAdvance: true,
+    // reaching the jetty completes + advances instantly — no turn-in to miss
+    next: { quest: "quest_main_07_hammer", delayMs: 2500, banner: "🔨 Modo heard about your hammer — head to the forge!" }
   };
 
   // prototype/src/js/data/quests/main-10-witch-alarm.js
@@ -1683,6 +1694,7 @@
       return { icon: "🕳", label: T.alive ? T.dawn ? "RUN for the exit!" : "outlast it… dawn comes" : "dark…", kind: "none" };
     }
     if (scene === "dive") {
+      if (!DIVE.breathing && diveFishNear()) return { icon: "🤲", label: "GRAB the fish!", kind: "grabfish" };
       return { icon: "⬆️", label: DIVE.breathing ? "(catching breath)" : "Resurface", kind: "resurface" };
     }
     if (scene === "brew") return brewAction();
@@ -1933,6 +1945,8 @@
         throwAntidote();
       } else if (a.kind === "dive") {
         startDive();
+      } else if (a.kind === "grabfish") {
+        grabDiveFish();
       } else if (a.kind === "resurface") {
         resurface();
       } else if (a.kind === "sign") {
@@ -4249,7 +4263,36 @@
     diveBuild();
     DIVE.x = vw * 0.5;
     DIVE.y = vh * 0.42;
-    banner("🤿 UNDERWATER! Explore the deep. Mind your AIR (the ring) — swim UP to the top to breathe. ⬆️ Resurface when you're done.");
+    banner("🤿 UNDERWATER! Explore the deep. Mind your AIR (the ring) — swim UP to breathe. Sneak up on a fish and 🤲 GRAB it (they’re SLIPPERY!). ⬆️ Resurface when done.");
+  }
+  function diveFishNear() {
+    let best = null, bd = 34;
+    for (const f of DIVE.fish) {
+      const d = Math.hypot(f.x - DIVE.x, f.y - DIVE.y);
+      if (d < bd) {
+        bd = d;
+        best = f;
+      }
+    }
+    return best;
+  }
+  function grabDiveFish() {
+    const f = diveFishNear();
+    if (!f) return;
+    if (Math.random() < 0.5) {
+      banner("🐟 It SQUIRTS out of your hands — slippery little devil!");
+      const a = Math.atan2(f.y - DIVE.y, f.x - DIVE.x) || 0.1;
+      f.x += Math.cos(a) * 46;
+      f.spd = Math.abs(f.spd) * (f.x < DIVE.x ? -1 : 1) * 1.5;
+      f.y = Math.max(DIVE.top + 18, Math.min(DIVE.floorY - 8, f.y + Math.sin(a) * 46));
+      addFloat(DIVE.x, DIVE.y - 20, "💨", "#bfe0ea", 16);
+    } else {
+      P.inv.item_fish_small = (P.inv.item_fish_small || 0) + 1;
+      addFloat(DIVE.x, DIVE.y - 22, "🐟 +1", "#bfe0ea", 18);
+      banner("🐟 GOTCHA! A fish for the satchel — Erik pays for these.");
+      f.x = Math.random() < 0.5 ? -22 : vw + 22;
+      f.y = DIVE.top + 30 + Math.random() * (DIVE.floorY - DIVE.top - 50);
+    }
   }
   function resurface() {
     scene = "village";
@@ -6978,22 +7021,16 @@
     fishingEnd();
     ok(questState.flags.flag_fished_once === true, "first catch logged");
     Quests.update(16);
-    ok(questState.stage === "complete", "Bog’s fishing quest complete");
-    openDialog(bog);
-    while (dialogOpen) advanceDialog();
+    ok(questState.stage === "afterReward", "the catch AUTO-completes the quest — no turn-in to miss");
     Quests.update(2600);
     ok(questState.currentId === "quest_main_09_boat_lesson", "THEN Bog offers boat-driving");
-    openDialog(bog);
-    while (dialogOpen) advanceDialog();
     NPC_ACTIONS.boat_lesson();
     ok(scene === "boat", "Bog hands you the tiller — the POV river run");
     BOAT.prog = 100;
     boatUpdate(16, 0, 0);
     ok(scene === "village" && questState.flags.flag_boat_skill === true, "reach the jetty → boat-driving learned");
     Quests.update(16);
-    ok(questState.stage === "complete", "boat lesson done → quest complete");
-    openDialog(bog);
-    while (dialogOpen) advanceDialog();
+    ok(questState.stage === "afterReward", "reaching the jetty AUTO-advances the chain — no loophole to stall on");
     Quests.update(2600);
     ok(questState.currentId === "quest_main_07_hammer", "Modo now wants to see that hammer");
     openDialog(modo);
@@ -7161,6 +7198,21 @@
       ok(MTN.cave.hintN > n0 && MTN.cave.darkHintT === 0, "stuck in the dark ~10s → a “build a fire” nudge fires");
       scene = "village";
     }
+    startDive();
+    DIVE.fish = [{ x: DIVE.x, y: DIVE.y, spd: 0.5, sz: 10, col: "#fff", ph: 0 }];
+    ok(diveFishNear() !== null, "a fish within reach is grabbable underwater");
+    {
+      const f0 = P.inv.item_fish_small || 0;
+      let got = false;
+      for (let kk = 0; kk < 40 && !got; kk++) {
+        DIVE.fish[0].x = DIVE.x;
+        DIVE.fish[0].y = DIVE.y;
+        grabDiveFish();
+        if ((P.inv.item_fish_small || 0) > f0) got = true;
+      }
+      ok(got, "you can GRAB a slippery fish underwater → into the satchel");
+    }
+    scene = "village";
     scene = "village";
     P.x = 800;
     P.y = 1210;

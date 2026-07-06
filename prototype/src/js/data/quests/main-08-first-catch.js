@@ -27,5 +27,6 @@ export default {
     reward:'🎉 Fisherman of Losthorne!',
   },
   reward:{},
-  next:{ quest:'quest_main_09_boat_lesson', delayMs:2500, banner:'🛶 Bog wants to teach you to DRIVE the boat next!' },
+  autoAdvance:true,   // landing your first fish completes + advances instantly — no turn-in to miss
+  next:{ quest:'quest_main_09_boat_lesson', delayMs:2500, banner:'🛶 Now Bog wants to teach you to DRIVE the boat — ask him for the oars!' },
 };
