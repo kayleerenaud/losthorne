@@ -80,14 +80,18 @@ const W=1600, H=1600;                       // world size
 const cvs=$('game'), ctx=cvs.getContext('2d');
 let vw=0, vh=0, dpr=1, rotated=false;
 function resize(){
-  rotated = innerHeight > innerWidth;                 // portrait viewport → rotate the app
+  // use the true VISIBLE viewport (handles mobile safe-area / dynamic chrome exactly — no stray scroll)
+  const W0=Math.round((window.visualViewport&&window.visualViewport.width)||innerWidth);
+  const H0=Math.round((window.visualViewport&&window.visualViewport.height)||innerHeight);
+  rotated = H0 > W0;                                   // portrait viewport → rotate the app
   document.body.classList.toggle('forceLand', rotated);
   dpr=Math.min(devicePixelRatio||1,2);
-  vw = rotated? innerHeight : innerWidth;             // logical (landscape) size
-  vh = rotated? innerWidth  : innerHeight;
+  vw = rotated? H0 : W0;                               // logical (landscape) size
+  vh = rotated? W0 : H0;
   cvs.width=vw*dpr; cvs.height=vh*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 addEventListener('resize',resize); addEventListener('orientationchange',()=>setTimeout(resize,60)); resize();
+if(window.visualViewport){ visualViewport.addEventListener('resize',resize); }
 // map a physical touch/mouse point to logical (landscape) coordinates
 function pt(t){ return rotated? {x:t.clientY, y:innerWidth-t.clientX} : {x:t.clientX, y:t.clientY}; }
 
