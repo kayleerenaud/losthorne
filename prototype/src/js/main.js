@@ -1500,84 +1500,112 @@ const NPC_ACTIONS={
 
 // ---------- BOG'S BOAT-DRIVING LESSON: YOU take the oars ----------
 // A real crossing: steer with the joystick, dodge the rocks, reach the far jetty.
-const BW=1700, BH=700;
-const BOAT_HULL_MAX=3, BOAT_CURRENT=0.95;   // the river always pushes you toward the jetty — no resting
-const BOAT={x:90,y:350,bumps:0,coachT:0,done:false,hull:BOAT_HULL_MAX};
-// a tighter slalom now — staggered rocks force real steering against the current
-const BOAT_ROCKS=[[300,340],[430,150],[470,520],[640,300],[720,560],[770,120],[900,400],[1010,220],[1050,560],[1180,360],[1270,150],[1320,540],[1440,300]].map(r=>({x:r[0],y:r[1],r:27}));
-const BOG_COACH=['Bog: ROCK! Small strokes — go AROUND, not THROUGH!',
-                 'Bog: My poor boat! Steer EARLY — the current gives you a moment!',
-                 'Bog: You row like a turkey swims. AROUND the rocks, warrior!'];
+// ---------- BOAT-DRIVING: a first-person POV river run (Kaylee/Malachi 2026-07-06) ----------
+// You look FORWARD; rocks rush at you from the horizon. Steering has heavy MOMENTUM (hard to line up),
+// and a BALANCE meter rocks with the waves — jerk the tiller and she TIPS. Rock hit / bank scrape /
+// capsize each cracks a plank; three cracks → swamped back down the river.
+const BOAT_HULL_MAX=3;
+const BOAT={ prog:0, hull:BOAT_HULL_MAX, lane:0, laneVel:0, tilt:0, t:0, coachT:0, done:false, rocks:[], spawnT:0, gust:0, gustT:0, wreckN:0 };
 function startBoatLesson(){
-  scene='boat'; BOAT.x=90; BOAT.y=BH/2; BOAT.bumps=0; BOAT.coachT=0; BOAT.done=false; BOAT.hull=BOAT_HULL_MAX;
-  banner('⛵ Bog hands YOU the oars: “Press & drag to steer — the CURRENT pushes you on. Mind the ROCKS: crack the hull three times and we SINK back to the dock.”');
+  scene='boat'; Object.assign(BOAT,{ prog:0, hull:BOAT_HULL_MAX, lane:0, laneVel:0, tilt:0, t:0, coachT:0, done:false, rocks:[], spawnT:1400, gust:0, gustT:1200, wreckN:0 });
+  banner('⛵ Bog hands YOU the tiller: “Eyes FORWARD. Steer GENTLE — jerk her and she TIPS. Watch your BALANCE, weave the rocks, ride her to the jetty.”');
+}
+function boatCrack(msg){
+  BOAT.hull--; BOAT.coachT=1000; BOAT.laneVel*=-0.3; BOAT.tilt*=0.35; addFloat(vw/2, vh*0.5, '💥','#ff8a5a',24);
+  if(BOAT.hull<=0){ boatWreck(); return; }
+  banner(msg+'  ('+BOAT.hull+' plank'+(BOAT.hull>1?'s':'')+' left)');
 }
 function boatWreck(){
-  const fee=Math.min(P.coins,8); P.coins-=fee;
-  BOAT.x=90; BOAT.y=BH/2; BOAT.hull=BOAT_HULL_MAX; BOAT.coachT=1800; BOAT.bumps++;
-  addFloat(P.x,P.y,'🌊','#9fd6e8',22);
-  banner(fee>0 ? '🌊 The hull SPLITS and you swamp! Bog hauls you back to the dock — “−'+fee+' coins for new planks. Again — GENTLY this time.”'
-               : '🌊 The hull SPLITS and you swamp! Bog hauls you back — “No coin for planks? You’ll owe me. Again — GENTLY!”');
+  const fee=Math.min(P.coins,8); P.coins-=fee; BOAT.wreckN++;
+  Object.assign(BOAT,{ prog:Math.max(0,BOAT.prog-25), hull:BOAT_HULL_MAX, lane:0, laneVel:0, tilt:0, coachT:1700, rocks:[] });
+  banner(fee>0 ? '🌊 OVER she goes! Bog bails you out — “−'+fee+' coins for the mess. GENTLER, warrior — small hands on that tiller!”'
+               : '🌊 OVER she goes! Bog drags you up — “You’ll owe me for this. Now EASY on the tiller!”');
 }
 function boatUpdate(dt,mx,my){
   if(BOAT.done) return;
+  BOAT.t+=dt; if(BOAT.coachT>0) BOAT.coachT-=dt;
   tickHunger(dt,1);
-  if(BOAT.coachT>0) BOAT.coachT-=dt;
-  // the CURRENT carries you downstream every frame — steering only nudges you across it
-  BOAT.x+=mx*2.7 + BOAT_CURRENT; BOAT.y+=my*2.7;
-  BOAT.x=Math.max(50,Math.min(BW-40,BOAT.x)); BOAT.y=Math.max(60,Math.min(BH-60,BOAT.y));
-  for(const r0 of BOAT_ROCKS){ const d=Math.hypot(r0.x-BOAT.x,r0.y-BOAT.y);
-    if(d<r0.r+22){ const a=Math.atan2(BOAT.y-r0.y,BOAT.x-r0.x);
-      BOAT.x=r0.x+Math.cos(a)*(r0.r+23); BOAT.y=r0.y+Math.sin(a)*(r0.r+23);
-      if(BOAT.coachT<=0){ BOAT.bumps++; BOAT.hull--; BOAT.coachT=1100;
-        addFloat(BOAT.x,BOAT.y-30,'💥 CRACK','#ff8a5a',18);
-        if(BOAT.hull<=0){ boatWreck(); return; }
-        banner('💢 '+BOG_COACH[BOAT.bumps%BOG_COACH.length]+'  ('+BOAT.hull+' plank'+(BOAT.hull>1?'s':'')+' left!)'); } } }
-  if(BOAT.x>BW-90){
-    BOAT.done=true; questState.flags.flag_boat_skill=true;
-    scene='village'; P.x=1195; P.y=1100;
+  const k=dt/16;
+  // STEERING — heavy momentum: she keeps drifting after you let go (hard to line up)
+  BOAT.laneVel += mx*0.0075*k;
+  BOAT.laneVel *= Math.pow(0.93,k);
+  BOAT.lane += BOAT.laneVel*k;
+  // BALANCE — waves + random gusts rock her; steering HARD tips her. Keep the needle out of the red.
+  BOAT.gustT-=dt; if(BOAT.gustT<=0){ BOAT.gustT=1000+Math.random()*1400; BOAT.gust=(Math.random()*2-1)*0.5; }
+  const wave = Math.sin(BOAT.t*0.0026)*0.34 + Math.sin(BOAT.t*0.0013)*0.20 + BOAT.gust;
+  const tiltTarget = BOAT.laneVel*4.2 + wave;
+  BOAT.tilt += (tiltTarget - BOAT.tilt) * Math.min(1, 0.10*k);
+  // banks
+  if(Math.abs(BOAT.lane)>1.08){ BOAT.lane=Math.sign(BOAT.lane)*1.08; BOAT.laneVel*=-0.4;
+    if(BOAT.coachT<=0) boatCrack('🪨 You scrape the bank!'); }
+  // capsize
+  else if(Math.abs(BOAT.tilt)>=1 && BOAT.coachT<=0){ boatCrack('🌀 She ROLLS — you barely slap her back down!'); }
+  // rocks rush toward you from the horizon
+  BOAT.spawnT-=dt;
+  if(BOAT.spawnT<=0){ BOAT.spawnT=Math.max(620, 1300 - BOAT.prog*7 + Math.random()*700);
+    BOAT.rocks.push({lane:(Math.random()*2-1)*0.82, z:1, hit:false}); }
+  for(const r of BOAT.rocks){ r.z -= dt*0.00055*(1+BOAT.prog*0.004);
+    if(!r.hit && r.z<0.08 && r.z>-0.12 && Math.abs(r.lane-BOAT.lane)<0.26){ r.hit=true; if(BOAT.coachT<=0) boatCrack('🪨 ROCK! Round them EARLY!'); } }
+  BOAT.rocks=BOAT.rocks.filter(r=>r.z>-0.15);
+  // forward — ~28s crossing
+  BOAT.prog += 0.06*k;
+  if(BOAT.prog>=100){
+    BOAT.done=true; questState.flags.flag_boat_skill=true; scene='village'; P.x=1195; P.y=1100;
     addFloat(P.x,P.y-40,'⛵ skill learned!','#9fd6e8',20);
-    banner(BOAT.bumps===0 ? '⛵ THE JETTY — not one scratch! Bog: “BORN on water! Boat-driving learned.”'
-                          : '⛵ The jetty at last! Bog: “'+BOAT.bumps+' bump'+(BOAT.bumps>1?'s':'')+' — my planks remember. But YOU drove us home. Boat-driving learned.”');
+    banner(BOAT.wreckN===0 ? '⛵ THE JETTY — dry as a bone! Bog: “BORN on water! Boat-driving LEARNED.”'
+                           : '⛵ The jetty at last! Bog: “Wet, but we made it — and YOU drove. Boat-driving learned.”');
   }
 }
 function drawBoatScene(){
-  const camX=Math.max(0,Math.min(BW-vw,BOAT.x-vw/2)), camY=Math.max(0,Math.min(Math.max(0,BH-vh),BOAT.y-vh/2));
-  const grd=ctx.createLinearGradient(0,0,0,vh);
-  grd.addColorStop(0,'#2b5561'); grd.addColorStop(1,'#1d3b45');
-  ctx.fillStyle=grd; ctx.fillRect(0,0,vw,vh);
-  ctx.save(); ctx.translate(-camX,-camY);
-  ctx.strokeStyle='rgba(210,230,240,.14)'; ctx.lineWidth=2;
-  for(let i=0;i<10;i++){ ctx.beginPath(); ctx.ellipse((i*233+((performance.now()/50)%233))%BW, 60+(i*97)%(BH-80), 30,7,0,0,7); ctx.stroke(); }
-  // start dock & the FAR JETTY
-  ctx.fillStyle='#5a462c'; ctx.fillRect(0,BH/2-70,70,140);
-  ctx.fillStyle='#6b552f'; ctx.fillRect(BW-70,0,70,BH);
-  ctx.font='26px Georgia'; ctx.textAlign='center'; ctx.fillText('🚩', BW-34, 90);
-  ctx.fillStyle='#ffd977'; ctx.font='bold 13px Georgia'; ctx.fillText('THE JETTY →', BW-150, BH/2);
-  // rocks with warning foam
-  for(const r0 of BOAT_ROCKS){
-    ctx.strokeStyle='rgba(220,235,240,.35)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(r0.x,r0.y,r0.r+8+2*Math.sin(performance.now()/300+r0.x),0,7); ctx.stroke();
-    ctx.fillStyle='#4e4a44'; ctx.beginPath(); ctx.arc(r0.x,r0.y,r0.r,0,7); ctx.fill();
-    ctx.fillStyle='#5e5a52'; ctx.beginPath(); ctx.arc(r0.x-7,r0.y-8,r0.r*.5,0,7); ctx.fill();
-  }
-  // the boat — YOU at the oars, Bog coaching from the stern
-  ctx.fillStyle='#6b4a26'; ctx.beginPath(); ctx.moveTo(BOAT.x-52,BOAT.y); ctx.quadraticCurveTo(BOAT.x,BOAT.y+30,BOAT.x+52,BOAT.y); ctx.lineTo(BOAT.x+38,BOAT.y-12); ctx.lineTo(BOAT.x-38,BOAT.y-12); ctx.closePath(); ctx.fill();
-  drawPerson(BOAT.x+16,BOAT.y-22,0,AVATARS[chosen<0?0:chosen],false,false);
-  drawPerson(BOAT.x-22,BOAT.y-22,0,{hair:'#555',outfit:'#3a6b62',skin:'#dba777'},false,false);
-  ctx.fillStyle='#9fd6e8'; ctx.font='10.5px Georgia'; ctx.textAlign='center'; ctx.fillText('Bog', BOAT.x-22, BOAT.y-46);
+  const hy=vh*0.36;   // horizon line
+  const sky=ctx.createLinearGradient(0,0,0,hy); sky.addColorStop(0,'#3b5a6b'); sky.addColorStop(1,'#7a99a0');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,vw,hy+2);
+  // roll the whole waterscape slightly opposite your lean — a POV horizon
+  ctx.save(); ctx.translate(vw/2,hy); ctx.rotate(-BOAT.tilt*0.09); ctx.translate(-vw/2,-hy);
+  const wat=ctx.createLinearGradient(0,hy,0,vh); wat.addColorStop(0,'#2d6c78'); wat.addColorStop(1,'#123642');
+  ctx.fillStyle=wat; ctx.fillRect(-vw,hy,vw*3,vh*2);
+  // the island/jetty on the horizon, growing as you near
+  const isz=8+BOAT.prog*0.72, ix=vw/2 - BOAT.lane*vw*0.10;
+  ctx.fillStyle='#2c3a26'; ctx.beginPath(); ctx.ellipse(ix,hy,isz*2.1,isz*0.6,0,Math.PI,0); ctx.fill();
+  if(BOAT.prog>45){ ctx.fillStyle='#54324f'; ctx.beginPath(); ctx.moveTo(ix-isz*0.5,hy-isz*0.15); ctx.lineTo(ix,hy-isz*0.75); ctx.lineTo(ix+isz*0.5,hy-isz*0.15); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#d8b24a'; ctx.fillRect(ix-isz*0.08,hy-isz*0.15,isz*0.16,isz*0.18); }
+  ctx.fillStyle='#ffd977'; ctx.font='bold 12px Georgia'; ctx.textAlign='center'; ctx.fillText('the jetty ▲', ix, hy-isz*0.9-8);
+  // perspective wave lines rolling toward you
+  ctx.strokeStyle='rgba(200,230,235,.15)'; ctx.lineWidth=2;
+  for(let i=0;i<7;i++){ const f=((BOAT.t*0.00042 + i/7)%1), y=hy + f*f*(vh-hy), spread=vw*(0.08+f*1.3);
+    ctx.beginPath(); ctx.moveTo(vw/2-spread,y); ctx.lineTo(vw/2+spread,y); ctx.stroke(); }
+  // ROCKS in perspective (small at the horizon → huge as they reach you)
+  for(const r of BOAT.rocks){ if(r.z<0||r.z>1) continue;
+    const f=1-r.z, y=hy + f*f*(vh-hy)*0.92, spread=vw*(0.05+f*0.72);
+    const x=vw/2 + (r.lane-BOAT.lane)*spread, sz=3+f*f*48;
+    ctx.strokeStyle='rgba(220,235,240,.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,sz+4+2*Math.sin(BOAT.t/200+r.lane),0,7); ctx.stroke();
+    ctx.fillStyle='#4e4a44'; ctx.beginPath(); ctx.arc(x,y,sz,0,7); ctx.fill();
+    ctx.fillStyle='#5e5a52'; ctx.beginPath(); ctx.arc(x-sz*0.25,y-sz*0.3,sz*0.5,0,7); ctx.fill(); }
   ctx.restore();
-  // HULL indicator — three planks; a cracked plank per rock hit, wreck at zero. Sits up top-left,
-  // clear of the movement hint along the bottom edge.
-  ctx.textAlign='left'; ctx.font='bold 14px Georgia';
-  ctx.fillStyle='rgba(20,16,10,.5)'; rr(ctx, 14, 74, 158, 26, 7);
-  ctx.fillStyle='#e8d9a8'; ctx.fillText('⛵ hull', 22, 92);
-  for(let i=0;i<BOAT_HULL_MAX;i++){
-    const px=82+i*28, py=79, ok=i<BOAT.hull;
-    ctx.fillStyle= ok? '#8a5a2e' : 'rgba(90,70,50,.35)';
-    rr(ctx, px, py, 22, 15, 3);
-    if(ok){ ctx.strokeStyle='#c98f52'; ctx.lineWidth=1.5; ctx.strokeRect(px,py,22,15); }
-    else { ctx.strokeStyle='#ff8a5a'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(px+3,py+3); ctx.lineTo(px+19,py+12); ctx.stroke(); }   // a crack
-  }
+  // THE BOW at the bottom, tipping with your balance — you & Bog aboard
+  ctx.save(); ctx.translate(vw/2, vh); ctx.rotate(BOAT.tilt*0.17);
+  ctx.fillStyle='#5a3f22'; ctx.beginPath(); ctx.moveTo(-vw*0.34,-6); ctx.quadraticCurveTo(0,-74,vw*0.34,-6); ctx.lineTo(vw*0.30,34); ctx.lineTo(-vw*0.30,34); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#7d5730'; ctx.beginPath(); ctx.moveTo(-vw*0.27,-4); ctx.quadraticCurveTo(0,-58,vw*0.27,-4); ctx.lineTo(vw*0.23,22); ctx.lineTo(-vw*0.23,22); ctx.closePath(); ctx.fill();
+  const av=AVATARS[chosen<0?0:chosen];
+  ctx.fillStyle=av.skin; ctx.beginPath(); ctx.arc(-30,-34,11,0,7); ctx.fill(); ctx.fillStyle=av.hair; ctx.beginPath(); ctx.arc(-30,-38,11,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#dba777'; ctx.beginPath(); ctx.arc(30,-34,11,0,7); ctx.fill(); ctx.fillStyle='#555'; ctx.beginPath(); ctx.arc(30,-38,11,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#9fd6e8'; ctx.font='10px Georgia'; ctx.textAlign='center'; ctx.fillText('Bog', 30, -52);
+  ctx.restore();
+  // ---- HUD ----
+  // BALANCE meter — needle is your tilt; red zones at the edges, green in the middle
+  { const bw=Math.min(300,vw*0.62), bx=vw/2-bw/2, by=vh-28;
+    ctx.fillStyle='rgba(0,0,0,.45)'; rr(ctx,bx-5,by-5,bw+10,20,8);
+    ctx.fillStyle='rgba(255,90,60,.5)'; rr(ctx,bx,by,bw*0.17,12,4); rr(ctx,bx+bw*0.83,by,bw*0.17,12,4);
+    ctx.fillStyle='rgba(120,220,120,.32)'; rr(ctx,bx+bw*0.39,by,bw*0.22,12,4);
+    const nx=bx+bw*Math.max(0,Math.min(1,0.5+BOAT.tilt*0.5));
+    ctx.fillStyle=Math.abs(BOAT.tilt)>0.8?'#ff5a5a':'#ffe9a8'; ctx.fillRect(nx-3,by-4,6,20);
+    ctx.fillStyle='#cfe6ef'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('⚖ balance', vw/2, by-8); }
+  // progress + hull, top-left
+  ctx.textAlign='left'; ctx.fillStyle='rgba(0,0,0,.45)'; rr(ctx,14,72,182,34,7);
+  ctx.fillStyle='rgba(0,0,0,.3)'; rr(ctx,20,78,150,12,5); ctx.fillStyle='#7ec8e0'; rr(ctx,20,78,150*BOAT.prog/100,12,5);
+  ctx.fillStyle='#e8d9a8'; ctx.font='bold 11.5px Georgia'; ctx.fillText('to the jetty', 22, 101);
+  for(let i=0;i<BOAT_HULL_MAX;i++){ const px=118+i*20, ok=i<BOAT.hull; ctx.fillStyle=ok?'#8a5a2e':'rgba(90,70,50,.35)'; rr(ctx,px,92,15,11,3);
+    if(!ok){ ctx.strokeStyle='#ff8a5a'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(px+3,94); ctx.lineTo(px+12,101); ctx.stroke(); } }
 }
 function fishingCast(){
   if(fish.state!=='idle') return;
@@ -3045,9 +3073,9 @@ if(location.hash==='#test-quests'){
   ok(questState.currentId==='quest_main_09_boat_lesson', 'THEN Bog offers boat-driving');
   openDialog(bog); while(dialogOpen) advanceDialog();
   NPC_ACTIONS.boat_lesson();
-  ok(scene==='boat', 'Bog hands you the oars — a real driving scene');
-  BOAT.x=BW-80; boatUpdate(16,0,0);
-  ok(scene==='village' && questState.flags.flag_boat_skill===true, 'reach the far jetty → boat-driving learned');
+  ok(scene==='boat', 'Bog hands you the tiller — the POV river run');
+  BOAT.prog=100; boatUpdate(16,0,0);
+  ok(scene==='village' && questState.flags.flag_boat_skill===true, 'reach the jetty → boat-driving learned');
   Quests.update(16);
   ok(questState.stage==='complete', 'boat lesson done → quest complete');
   openDialog(bog); while(dialogOpen) advanceDialog();
@@ -3148,12 +3176,12 @@ if(location.hash==='#test-quests'){
   const cq=questState.currentId;
   die('test'); $('btnRespawn').click();
   ok(scene==='village' && questState.currentId===cq, 'village deaths respawn home; quests never reset');
-  // v0.23: boat rocks CRACK the hull; three cracks WRECK you back to the dock with a repair fee
+  // POV boat: cracks (rock/bank/capsize) chip the hull; three cracks WRECK you back with a repair fee
   startBoatLesson();
   ok(BOAT.hull===3, 'boat starts with a full 3-plank hull');
-  { const rk=BOAT_ROCKS[0]; P.coins=20; const c0=P.coins;
-    for(let k=0;k<3;k++){ BOAT.x=rk.x; BOAT.y=rk.y; BOAT.coachT=0; boatUpdate(16,0,0); }
-    ok(BOAT.x<200 && BOAT.hull===3, 'a third rock crack WRECKS the boat → hauled back to the dock, hull reset');
+  { P.coins=20; const c0=P.coins, p0=BOAT.prog+50;   // give it some progress to lose on the wreck
+    BOAT.prog=50; BOAT.coachT=0; boatCrack('t'); BOAT.coachT=0; boatCrack('t'); BOAT.coachT=0; boatCrack('t');
+    ok(BOAT.hull===3 && BOAT.prog<p0, 'three cracks WRECK the boat → swamped back down the river, hull reset');
     ok(P.coins<c0, 'Bog charges a repair fee for the wreck'); }
   scene='village'; BOAT.done=true;
   const div=document.createElement('div');
